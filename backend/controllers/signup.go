@@ -10,6 +10,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"social-sync-backend/lib"
 	"social-sync-backend/models"
+	"social-sync-backend/utils"
 )
 
 // RegisterRequest represents the incoming registration request
@@ -145,6 +146,50 @@ func SignupHandler(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	
+	// Generate email verification token
+	token, err := utils.GenerateVerificationToken()
+	if err != nil {
+		log.Printf("Error generating verification token: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(ErrorResponse{
+			Error:   "token_generation_error",
+			Message: "Failed to generate verification token",
+		})
+		return
+	}
+
+	// Insert token into the email_verification_tokens table
+	insertTokenQuery := `
+		INSERT INTO email_verifications (user_id, token, expires_at, created_at)
+		VALUES ($1, $2, $3, $4)
+	`
+	expiresAt := now.Add(24 * time.Hour)
+	_, err = lib.DB.Exec(insertTokenQuery, user.ID, token, expiresAt, now)
+	if err != nil {
+		log.Printf("Error saving verification token: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(ErrorResponse{
+			Error:   "database_error",
+			Message: "Failed to store verification token",
+		})
+		return
+	}
+
+	// Send verification email
+	err = utils.SendVerificationEmail(user.Email, token)
+	if err != nil {
+		log.Printf("Failed to store verification token for user %s: %v", user.ID, err)
+
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(ErrorResponse{
+			Error:   "email_send_error",
+			Message: "Failed to send verification email",
+		})
+		return
+	}
+
+
 
 	// Return success response
 	w.WriteHeader(http.StatusCreated)

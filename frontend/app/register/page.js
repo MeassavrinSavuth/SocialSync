@@ -55,7 +55,8 @@ const Register = () => {
 
     // Optional: redirect user to login or dashboard
     console.log('Registered successfully:', data);
-    window.location.href = '/login';
+    // window.location.href = '/verify';
+    window.location.href = `/verify?email=${encodeURIComponent(formData.email)}`;
   } catch (err) {
     setError(err.message);
   }
@@ -199,7 +200,7 @@ const Register = () => {
 
         {/* Right: Branding */}
         <div className="hidden md:flex md:w-1/2 justify-center items-center flex-col px-10">
-          <Image src="/logo.png" alt="Logo" width={80} height={80} className="mb-4" />
+          <Image src="/logo-ss.png" alt="Logo" width={80} height={80} className="mb-4" />
           <h1 className="text-5xl font-extrabold text-black tracking-tight">SocialSync</h1>
           <p className="text-gray-600 mt-2 text-lg text-center max-w-sm">
             One dashboard to control all your social content.

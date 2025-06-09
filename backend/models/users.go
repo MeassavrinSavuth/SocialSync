@@ -12,3 +12,4 @@ type User struct {
 	IsVerified bool      `json:"is_verified"`
 	IsActive   bool      `json:"is_active"`
 }
+
