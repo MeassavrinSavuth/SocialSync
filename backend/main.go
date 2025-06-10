@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -28,15 +29,22 @@ func CORSMiddleware(next http.Handler) http.Handler {
 }
 
 func main() {
+	fmt.Println("--- Application Starting Up ---") // <--- ADD THIS VERY EARLY PRINT
+
 	// Load environment variables
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
 
+	fmt.Println("--- Environment variables loaded ---") // <--- ADD THIS
+
 	// Initialize DB
 	lib.ConnectDB()
 	defer lib.DB.Close()
+	log.Println("Successfully connected to the database!") // This should always print if DB is good
+
+	fmt.Println("--- Defining HTTP routes ---") // <--- ADD THIS
 
 	// Setup routes
 	r := routes.AuthRoutes()

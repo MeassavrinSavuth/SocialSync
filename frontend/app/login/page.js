@@ -19,12 +19,12 @@ const Login = () => {
   const [error, setError] = useState('');
 
   const loginWithFacebook = () => {
-    const url = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${facebookAppId}&redirect_uri=${redirectUri}&scope=pages_show_list,pages_manage_posts,instagram_basic,instagram_content_publish&response_type=code&state=facebook`;
+    const url = `${apiBaseUrl}/api/auth/facebook/login`;
     window.location.href = url;
   };
 
   const loginWithGoogle = () => {
-    const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${googleClientId}&redirect_uri=${redirectUri}&response_type=code&scope=openid%20email%20profile&access_type=offline&state=google`;
+    const url = `${apiBaseUrl}/auth/google/login`;
     window.location.href = url;
   };
 
