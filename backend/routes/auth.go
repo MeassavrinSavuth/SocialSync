@@ -19,6 +19,8 @@ func AuthRoutes() *mux.Router {
 	r.HandleFunc("/auth/google/login", controllers.GoogleRedirectHandler()).Methods("GET")
 	// r.HandleFunc("/api/auth/google/login", controllers.GoogleRedirectHandler(db)).Methods("GET")
 	r.HandleFunc("/auth/google/callback", controllers.GoogleCallbackHandler(lib.DB)).Methods("GET")
+	r.HandleFunc("/auth/facebook/login", controllers.FacebookRedirectHandler()).Methods("GET")
+	r.HandleFunc("/auth/facebook/callback", controllers.FacebookCallbackHandler(lib.DB)).Methods("GET")
 
 	// r.Handle("/api/profile", middleware.JWTMiddleware(http.HandlerFunc(controllers.ProfileHandler)))
 

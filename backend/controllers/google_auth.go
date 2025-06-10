@@ -43,8 +43,6 @@ func GoogleRedirectHandler() http.HandlerFunc {
 func GoogleCallbackHandler(db *sql.DB) http.HandlerFunc {
 
     return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("--- RECEIVED GOOGLE CALLBACK REQUEST ---") // <--- ADD THIS VERY FIRST LINE
-
         code := r.URL.Query().Get("code")
         if code == "" {
             fmt.Println("ERROR: Missing code from Google callback.") // Debug print
@@ -143,9 +141,7 @@ func GoogleCallbackHandler(db *sql.DB) http.HandlerFunc {
                 http.Error(w, "Failed to create user", http.StatusInternalServerError)
                 return
             }
-            fmt.Printf("DEBUG: New user created successfully with ID: %s\n", userID)
 
-            fmt.Println("DEBUG: Linking Google auth provider...")
             // Log values before insertion
             fmt.Printf("DEBUG: Inserting into auth_providers: provider='google', provider_id='%s', user_id='%s'\n", userInfo.Sub, userID)
             _, err = db.Exec(`
@@ -154,7 +150,6 @@ func GoogleCallbackHandler(db *sql.DB) http.HandlerFunc {
             `, userInfo.Sub, userID)
 
             if err != nil {
-                fmt.Printf("ERROR: Error inserting into auth_providers: %v\n", err) // Specific error
                 http.Error(w, "Failed to link auth provider", http.StatusInternalServerError)
                 return
             }
@@ -164,7 +159,6 @@ func GoogleCallbackHandler(db *sql.DB) http.HandlerFunc {
             http.Error(w, "DB error", http.StatusInternalServerError)
             return
         } else {
-            fmt.Printf("DEBUG: Existing user found. User ID: %s\n", userID)
         }
 
         // Generate access & refresh tokens
@@ -183,7 +177,6 @@ func GoogleCallbackHandler(db *sql.DB) http.HandlerFunc {
 
         // Redirect back to frontend with tokens
         redirectURL := fmt.Sprintf("http://localhost:3000/dashboard?access_token=%s&refresh_token=%s", accessToken, refreshToken)
-        fmt.Printf("DEBUG: Redirecting to frontend: %s\n", redirectURL)
         http.Redirect(w, r, redirectURL, http.StatusSeeOther)
     }
 }

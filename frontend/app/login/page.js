@@ -19,7 +19,7 @@ const Login = () => {
   const [error, setError] = useState('');
 
   const loginWithFacebook = () => {
-    const url = `${apiBaseUrl}/api/auth/facebook/login`;
+    const url = `${apiBaseUrl}/auth/facebook/login`;
     window.location.href = url;
   };
 
