@@ -1,27 +1,28 @@
-'use client';
-
+'use client'; // for App Router
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
-export default function AuthCallback() {
+const AuthCallback = () => {
   const router = useRouter();
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const accessToken = params.get('access_token');
-    const refreshToken = params.get('refresh_token');
+    const url = new URL(window.location.href);
+    const accessToken = url.searchParams.get('access_token');
+    const refreshToken = url.searchParams.get('refresh_token');
+    const user = url.searchParams.get('user');
 
-    if (accessToken && refreshToken) {
-      localStorage.setItem('access_token', accessToken);
-      localStorage.setItem('refresh_token', refreshToken);
-
-      // Redirect to dashboard or home
+    if (accessToken) {
+      localStorage.setItem('accessToken', accessToken);
+      if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
+      if (user) localStorage.setItem('user', user);
       router.push('/dashboard');
     } else {
-      // If tokens are missing, redirect to login
-      router.push('/login');
+      console.error('Access token not found in callback');
+      router.push('/login'); // fallback
     }
   }, []);
 
-  return <p>Logging you in...</p>;
-}
+  return <p className="text-center mt-10">Logging in...</p>;
+};
+
+export default AuthCallback;

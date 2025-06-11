@@ -1,96 +1,32 @@
 'use client';
-import React, { useState } from 'react';
+// import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Eye, EyeOff } from 'lucide-react';
 
+import { useToggle } from '@/app/hooks/ui/useToggle';
+import { useOAuthLogin } from '@/app/hooks/auth/useOAuthLogin';
+import { useFormInput } from '@/app/hooks/form/useFormInput';
+import { useLogin } from '@/app/hooks/auth/useLogin';
 const Login = () => {
-  const facebookAppId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID;
-  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-  const redirectUri = process.env.NEXT_PUBLIC_REDIRECT_URI || 'http://localhost:3000/auth/callback';
-  const apiBaseUrl = 'http://localhost:8080';
 
-  const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const loginWithFacebook = () => {
-    const url = `${apiBaseUrl}/auth/facebook/login`;
-    window.location.href = url;
-  };
-
-  const loginWithGoogle = () => {
-    const url = `${apiBaseUrl}/auth/google/login`;
-    window.location.href = url;
-  };
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    // Clear error when user starts typing
-    if (error) setError('');
-  };
+  const { loginWithFacebook, loginWithGoogle } = useOAuthLogin();
+ 
+  const [showPassword, togglePassword] = useToggle(false);
+  const { formData, handleInputChange, error, setError } = useFormInput({ email: '', password: '' });
+  const { login, isLoading } = useLogin();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError('');
+    const result = await login(formData.email, formData.password);
 
-    try {
-      const response = await fetch('http://localhost:8080/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: formData.email.trim(),
-          password: formData.password
-        }),
-        credentials: 'include', // Important for cookies
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || data.message || 'Login failed');
-      }
-      
-      if (data.access_token) {
-        localStorage.setItem('accessToken', data.access_token);
-      }
-      console.log('JWT token:', data.token);
-
-      if (data.refresh_token) {
-        localStorage.setItem('refreshToken', data.refresh_token);
-      }
-
-      if (data.user) {
-        localStorage.setItem('user', JSON.stringify(data.user));
-      }
-      
-      console.log('Access Token:', data.access_token);
-      console.log('Refresh Token:', data.refresh_token);
-
-      // Show success message
-      console.log('Login successful:', data.message);
-
-      // Redirect to dashboard
+    if (result.success) {
       window.location.href = '/dashboard';
-      
-    } catch (err) {
-      console.error('Login error:', err);
-      setError(err.message || 'An error occurred during login');
-    } finally {
-      setIsLoading(false);
+    } else {
+      setError(result.error);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center px-4">
@@ -134,7 +70,7 @@ const Login = () => {
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
+                    onClick={togglePassword}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-600 hover:text-black"
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}

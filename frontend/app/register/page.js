@@ -1,76 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useRegisterForm } from '@/app/hooks/auth/useRegisterForm';
+import { useOAuthLogin } from '@/app/hooks/auth/useOAuthLogin';
+import { useToggle } from '@/app/hooks/ui/useToggle';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Eye, EyeOff } from 'lucide-react';
 
 const Register = () => {
-  const facebookAppId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID;
-  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
-  const redirectUri = 'http://localhost:3000/auth/callback';
 
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-  });
-
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    setError('');
-  };
-
-  const handleSubmit = async (e) => {
-  e.preventDefault();
-  
-  if (formData.password !== formData.confirmPassword) {
-    setError('Passwords do not match');
-    return;
-  }
-
-  try {
-    const res = await fetch('http://localhost:8080/api/register', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
-      }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data.message || 'Something went wrong');
-    }
-
-    // Optional: redirect user to login or dashboard
-    console.log('Registered successfully:', data);
-    // window.location.href = '/verify';
-    window.location.href = `/verify?email=${encodeURIComponent(formData.email)}`;
-  } catch (err) {
-    setError(err.message);
-  }
-};
-
-  const loginWithFacebook = () => {
-    const url = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${facebookAppId}&redirect_uri=${redirectUri}&scope=email,public_profile&response_type=code`;
-    window.location.href = url;
-  };
-
-  const loginWithGoogle = () => {
-    const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${googleClientId}&redirect_uri=${redirectUri}&response_type=code&scope=openid%20email%20profile&access_type=offline`;
-    window.location.href = url;
-  };
+  const { formData, handleChange, handleSubmit, error } = useRegisterForm();
+  const { loginWithFacebook, loginWithGoogle } = useOAuthLogin();
+  const [showPassword, togglePassword] = useToggle(false);
+  const [showConfirmPassword, toggleConfirmPassword] = useToggle(false);
 
   return (
     <div className="min-h-screen bg-white flex items-center justify-center px-4">
@@ -121,7 +63,7 @@ const Register = () => {
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={togglePassword}
                   className="absolute top-9 right-3 text-gray-500 hover:text-gray-700"
                 >
                   {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -141,7 +83,7 @@ const Register = () => {
                 />
                 <button
                   type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  onClick={toggleConfirmPassword}
                   className="absolute top-9 right-3 text-gray-500 hover:text-gray-700"
                 >
                   {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}

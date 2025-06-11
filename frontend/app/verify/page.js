@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 const VerifyEmail = () => {
@@ -44,9 +44,14 @@ const VerifyEmail = () => {
     } catch (err) {
       setError(err.message);
     }
+
+
   };
 
   return (
+    <Suspense fallback={<div>Loading ...</div>}>
+
+
     <div className="max-w-md mx-auto mt-20 p-6 bg-white rounded shadow">
       <h2 className="text-2xl text-black font-bold mb-4">Verify Your Email</h2>
       {message && <div className="bg-green-100 text-green-800 p-2 mb-4 rounded">{message}</div>}
@@ -75,6 +80,7 @@ const VerifyEmail = () => {
         </button>
       </form>
     </div>
+        </Suspense>
   );
 };
 
