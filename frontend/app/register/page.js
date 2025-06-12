@@ -147,6 +147,14 @@ const Register = () => {
           <p className="text-gray-600 mt-2 text-lg text-center max-w-sm">
             One dashboard to control all your social content.
           </p>
+          <Image
+            src="/sign_up.svg" // Path to your SVG in the public folder
+            alt="Login Illustration"
+            width={500} // Adjust width as needed for your design
+            height={400} // Adjust height as needed
+            className="w-full h-auto max-w-lg" // Tailwind classes for responsiveness
+            priority // Load this image with high priority
+          />
         </div>
       </div>
     </div>

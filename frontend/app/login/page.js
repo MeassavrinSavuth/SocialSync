@@ -133,6 +133,14 @@ const Login = () => {
           <p className="text-gray-600 mt-2 text-lg text-center max-w-sm">
             Sync your social content across platforms in one place.
           </p>
+          <Image
+            src="/undraw_sign-in_uva0.svg" // Path to your SVG in the public folder
+            alt="Login Illustration"
+            width={500} // Adjust width as needed for your design
+            height={400} // Adjust height as needed
+            className="w-full h-auto max-w-lg" // Tailwind classes for responsiveness
+            priority // Load this image with high priority
+          />
         </div>
       </div>
     </div>

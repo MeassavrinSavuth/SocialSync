@@ -176,7 +176,7 @@ func GoogleCallbackHandler(db *sql.DB) http.HandlerFunc {
         }
 
         // Redirect back to frontend with tokens
-        redirectURL := fmt.Sprintf("http://localhost:3000/dashboard?access_token=%s&refresh_token=%s", accessToken, refreshToken)
+        redirectURL := fmt.Sprintf("http://localhost:3000/auth/callback?access_token=%s&refresh_token=%s", accessToken, refreshToken)
         http.Redirect(w, r, redirectURL, http.StatusSeeOther)
     }
 }
