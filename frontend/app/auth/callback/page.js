@@ -15,7 +15,7 @@ const AuthCallback = () => {
       localStorage.setItem('accessToken', accessToken);
       if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
       if (user) localStorage.setItem('user', user);
-      router.push('/dashboard');
+      router.push('/home/dashboard');
     } else {
       console.error('Access token not found in callback');
       router.push('/login'); // fallback

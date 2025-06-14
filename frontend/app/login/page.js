@@ -21,7 +21,7 @@ const Login = () => {
     const result = await login(formData.email, formData.password);
 
     if (result.success) {
-      window.location.href = '/dashboard';
+      window.location.href = '/home/dashboard';
     } else {
       setError(result.error);
     }
@@ -104,9 +104,11 @@ const Login = () => {
                 onClick={loginWithFacebook}
                 className="flex items-center justify-center gap-2 w-full bg-white border border-gray-300 hover:border-gray-500 text-black py-2 rounded-md font-medium text-sm transition duration-200"
               >
-                <img
+                <Image
                   src="https://upload.wikimedia.org/wikipedia/commons/0/05/Facebook_Logo_%282019%29.png"
                   alt="Facebook"
+                  width={20}
+                  height={20}
                   className="w-5 h-5"
                 />
                 Continue with Facebook
