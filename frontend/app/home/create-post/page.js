@@ -1,129 +1,150 @@
-'use client'
+'use client';
 
-// pages/create-post.js
-import React, { useState, useEffect, useCallback } from 'react';
-import Head from 'next/head';
-import SidebarAccounts from '../../components/SidebarAccounts';
-import ContentEditor from '../../components/ContentEditor';
-import PostPreview from '../../components/PostPreview';
+import { useState, useRef } from 'react';
 
 export default function CreatePostPage() {
-    const [selectedAccounts, setSelectedAccounts] = useState([]); // Array of selected account IDs
-    const [postContent, setPostContent] = useState('');
-    const [postMedia, setPostMedia] = useState([]); // Array of File objects or URLs
-    const [postLabels, setPostLabels] = useState([]); // Array of strings for labels (simpler for now)
-    const [scheduledDateTime, setScheduledDateTime] = useState(null); // Date object for scheduling
+  const [message, setMessage] = useState('');
+  const [status, setStatus] = useState(null); // success or error message
+  const textareaRef = useRef(null);
 
-    // State for preview
-    const [previewAccount, setPreviewAccount] = useState(null);
+  // Simple text formatting helper: wraps selection or inserts template
+  const applyTemplate = (before, after = '') => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
 
-    // Dummy data for accounts (replace with data fetched from Go backend)
-    const [accounts, setAccounts] = useState([
-        { id: '1', name: 'TestingPage', platform: 'facebook', img: 'https://via.placeholder.com/30/1a77f2/ffffff?text=F' }, // Example placeholder
-        { id: '2', name: 'Kaung Sat Linn', platform: 'facebook', img: 'https://via.placeholder.com/30/1a77f2/ffffff?text=F' },
-        { id: '3', name: 'cykoiznotoy', platform: 'instagram', img: 'https://via.placeholder.com/30/E4405F/ffffff?text=I' },
-    ]);
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = message.slice(start, end);
 
-    // Effect to set a default preview account if available and none is selected
-    useEffect(() => {
-        if (!previewAccount && accounts.length > 0) {
-            setPreviewAccount(accounts[0]);
-        }
-    }, [accounts, previewAccount]);
+    const newText =
+      message.slice(0, start) +
+      before +
+      selectedText +
+      after +
+      message.slice(end);
+
+    setMessage(newText);
+
+    // Place cursor after inserted text
+    const cursorPos = start + before.length + selectedText.length + after.length;
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(cursorPos, cursorPos);
+    }, 0);
+  };
+
+  async function handlePublish() {
+  setStatus(null);
+  if (!message.trim()) {
+    setStatus({ type: 'error', msg: 'Post message cannot be empty' });
+    return;
+  }
+
+  const token = localStorage.getItem('accessToken');
+  if (!token) {
+    setStatus({ type: 'error', msg: 'You must be logged in to publish.' });
+    return;
+  }
+
+  try {
+    const res = await fetch('http://localhost:8080/api/facebook/post', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ message }),
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json();
+      throw new Error(errorData.error || 'Failed to publish');
+    }
+
+    setStatus({ type: 'success', msg: 'Post published successfully!' });
+    setMessage('');
+  } catch (error) {
+    setStatus({ type: 'error', msg: error.message });
+  }
+}
 
 
-    // Function to handle account selection for posting
-    const handleAccountToggle = (accountId) => {
-        setSelectedAccounts(prev => {
-            const newSelected = prev.includes(accountId)
-                ? prev.filter(id => id !== accountId)
-                : [...prev, accountId];
+  return (
+    <div className="max-w-3xl mx-auto p-6">
+      <h1 className="text-3xl text-gray-900 font-bold mb-4">Create New Facebook Post</h1>
 
-            // Auto-select first selected account for preview if no preview is active
-            if (!previewAccount && newSelected.length > 0) {
-                setPreviewAccount(accounts.find(acc => acc.id === newSelected[0]));
-            } else if (previewAccount && !newSelected.includes(previewAccount.id) && newSelected.length > 0) {
-                // If current preview account is unselected, pick a new one from selected
-                setPreviewAccount(accounts.find(acc => acc.id === newSelected[0]));
-            } else if (newSelected.length === 0) {
-                setPreviewAccount(null); // No accounts selected, no preview
-            }
-            return newSelected;
-        });
-    };
+      {/* Toolbar */}
+      <div className="flex text-gray-900 space-x-2 mb-3">
+        <button
+          type="button"
+          onClick={() => applyTemplate('**', '**')}
+          className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
+          title="Bold"
+        >
+          B
+        </button>
+        <button
+          type="button"
+          onClick={() => applyTemplate('_', '_')}
+          className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
+          title="Italic"
+        >
+          I
+        </button>
+        <button
+          type="button"
+          onClick={() => applyTemplate('# ')}
+          className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
+          title="Heading"
+        >
+          H1
+        </button>
+        <button
+          type="button"
+          onClick={() => applyTemplate('> ')}
+          className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
+          title="Blockquote"
+        >
+          ❝
+        </button>
+        <button
+          type="button"
+          onClick={() => applyTemplate('- ')}
+          className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300"
+          title="Bullet List"
+        >
+          •
+        </button>
+      </div>
 
-    // Function to handle changing the preview account explicitly
-    const handleChangePreviewAccount = (account) => {
-        setPreviewAccount(account);
-    };
+      {/* Textarea */}
+      <textarea
+        ref={textareaRef}
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        rows={8}
+        className="w-full border text-gray-900 border-gray-300 rounded p-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+        placeholder="Write your post here..."
+      />
 
-    // Handlers for content editor
-    const handleContentChange = (content) => setPostContent(content);
-    const handleMediaChange = (files) => setPostMedia(files); // Files are File objects
-    const handleLabelsChange = (e) => setPostLabels(e.target.value); // Simple string for labels
+      {/* Status message */}
+      {status && (
+        <p
+          className={`mt-3 ${
+            status.type === 'error' ? 'text-red-600' : 'text-green-600'
+          }`}
+        >
+          {status.msg}
+        </p>
+      )}
 
-    // Handlers for action buttons
-    const handleDraft = async () => {
-        console.log('Saving as Draft:', { postContent, postMedia, postLabels, selectedAccounts });
-        // Call Go backend API to save as draft
-    };
-
-    const handlePublish = async () => {
-        if (selectedAccounts.length === 0) {
-            alert('Please select at least one social account to publish.');
-            return;
-        }
-        console.log('Publishing:', { postContent, postMedia, postLabels, selectedAccounts });
-        // Call Go backend API to publish
-    };
-
-    const handleSchedule = async () => {
-        if (selectedAccounts.length === 0) {
-            alert('Please select at least one social account to schedule.');
-            return;
-        }
-        if (!scheduledDateTime) {
-            alert('Please select a date and time for scheduling.');
-            return;
-        }
-        console.log('Scheduling:', { postContent, postMedia, postLabels, selectedAccounts, scheduledDateTime });
-        // Call Go backend API to schedule
-    };
-
-    return (
-        // Changed bg-gray-900 to bg-black or bg-gray-900 depending on desired depth
-        <div className="grid grid-cols-[250px_1fr_300px] h-screen bg-gray-900 text-gray-100">
-            <Head>
-                <title>Create Post - Social Sync</title>
-            </Head>
-
-            <SidebarAccounts
-                accounts={accounts}
-                selectedAccounts={selectedAccounts}
-                onAccountToggle={handleAccountToggle}
-                onSelectPreviewAccount={handleChangePreviewAccount}
-                previewAccount={previewAccount}
-            />
-
-            <ContentEditor
-                postContent={postContent}
-                onContentChange={handleContentChange}
-                postMedia={postMedia}
-                onMediaChange={handleMediaChange}
-                postLabels={postLabels}
-                onLabelsChange={handleLabelsChange}
-                onDraft={handleDraft}
-                onPublish={handlePublish}
-                // onSchedule={onSchedule}
-                scheduledDateTime={scheduledDateTime}
-                onScheduleChange={setScheduledDateTime}
-            />
-
-            <PostPreview
-                postContent={postContent}
-                postMedia={postMedia}
-                previewAccount={previewAccount}
-            />
-        </div>
-    );
+      {/* Publish button */}
+      <button
+        onClick={handlePublish}
+        className="mt-5 px-5 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+      >
+        Publish to Facebook Page
+      </button>
+    </div>
+  );
 }

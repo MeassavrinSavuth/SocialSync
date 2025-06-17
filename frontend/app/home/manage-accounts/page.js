@@ -13,31 +13,25 @@ export default function ManageAccountPage() {
   useEffect(() => {
     const fetchAccounts = async () => {
       const token = localStorage.getItem('accessToken');
-      console.log('accessToken:', token);
-
       if (!token) {
-        console.error('No access token found in localStorage');
         setError('Access token not found.');
         setLoading(false);
         return;
       }
 
       try {
-        console.log("Token being sent:", token);
-
         const res = await axios.get('http://localhost:8080/api/social-accounts', {
           headers: {
-            Authorization: `Bearer ${token}`
-          }
+            Authorization: `Bearer ${token}`,
+          },
         });
 
         const accounts = Array.isArray(res.data) ? res.data : [];
-        console.log("Fetched accounts:", accounts);
 
         const allPlatforms = ['Facebook', 'Instagram', 'YouTube', 'TikTok', 'Twitter (X)'];
-        const platformData = allPlatforms.map(name => {
+        const platformData = allPlatforms.map((name) => {
           const account = accounts.find(
-            acc => acc?.platform?.toLowerCase() === name.toLowerCase()
+            (acc) => acc?.platform?.toLowerCase() === name.toLowerCase()
           );
           return {
             name,
@@ -49,7 +43,6 @@ export default function ManageAccountPage() {
 
         setPlatforms(platformData);
       } catch (err) {
-        console.error('Failed to fetch social accounts:', err);
         setError('Failed to fetch social accounts.');
       } finally {
         setLoading(false);
@@ -61,28 +54,39 @@ export default function ManageAccountPage() {
 
   const getIcon = (platform) => {
     switch (platform) {
-      case 'Facebook': return FaFacebook;
-      case 'Instagram': return FaInstagram;
-      case 'YouTube': return FaYoutube;
-      case 'TikTok': return FaTiktok;
-      case 'Twitter (X)': return FaTwitter;
-      default: return null;
+      case 'Facebook':
+        return FaFacebook;
+      case 'Instagram':
+        return FaInstagram;
+      case 'YouTube':
+        return FaYoutube;
+      case 'TikTok':
+        return FaTiktok;
+      case 'Twitter (X)':
+        return FaTwitter;
+      default:
+        return null;
     }
   };
 
-  const handleConnect = (platformName) => {
-    switch (platformName) {
-      case 'Facebook':
-        window.location.href = 'http://localhost:8080/auth/facebook/login';
-        break;
-      case 'Instagram':
-      case 'YouTube':
-      case 'TikTok':
-      case 'Twitter (X)':
-      default:
-        alert(`Connect to ${platformName} is not yet implemented.`);
+  const handleConnect = async (platformName) => {
+  if (platformName === 'Facebook') {
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      alert('You must be logged in to connect Facebook.');
+      return;
     }
-  };
+
+    // Instead of fetch, build URL with token query param or header-less and redirect browser directly
+    const url = `http://localhost:8080/auth/facebook/login?token=${token}`;
+    // Redirect browser (not AJAX fetch)
+    window.location.href = url;
+
+  } else {
+    alert(`Connect to ${platformName} is not yet implemented.`);
+  }
+};
+
 
   return (
     <div className="p-6">

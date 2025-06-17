@@ -18,11 +18,14 @@ func AuthRoutes(r *mux.Router){
 
 	r.HandleFunc("/auth/google/login", controllers.GoogleRedirectHandler()).Methods("GET")
 	r.HandleFunc("/auth/google/callback", controllers.GoogleCallbackHandler(lib.DB)).Methods("GET")
-	r.HandleFunc("/auth/facebook/login", controllers.FacebookRedirectHandler()).Methods("GET")
+	// r.HandleFunc("/auth/facebook/login", controllers.FacebookRedirectHandler()).Methods("GET")
+	r.Handle("/auth/facebook/login", middleware.EnableCORS(middleware.JWTMiddleware(http.HandlerFunc(controllers.FacebookRedirectHandler())))).Methods("GET")
+
 	r.HandleFunc("/auth/facebook/callback", controllers.FacebookCallbackHandler(lib.DB)).Methods("GET")
 	r.Handle("/auth/facebook/callback", middleware.JWTMiddleware(controllers.FacebookCallbackHandler(lib.DB))).Methods("GET")
 
 
 	r.Handle("/api/social-accounts", middleware.EnableCORS(middleware.JWTMiddleware(http.HandlerFunc(controllers.GetSocialAccountsHandler(lib.DB))))).Methods("GET")
+	r.Handle("/api/facebook/post", middleware.JWTMiddleware(http.HandlerFunc(controllers.PostToFacebookHandler(lib.DB)))).Methods("POST")
 
 }
