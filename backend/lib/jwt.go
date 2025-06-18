@@ -35,7 +35,7 @@
 		if secret == "" {
 			return "", errors.New("JWT_SECRET environment variable is not set")
 		}
-		return generateToken(userID, secret, 15*time.Minute)
+		return generateToken(userID, secret, 24*time.Hour)
 	}
 
 	// GenerateRefreshToken generates a refresh token valid for 7 days.

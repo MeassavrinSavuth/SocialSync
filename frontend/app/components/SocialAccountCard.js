@@ -1,81 +1,101 @@
-// components/SocialAccountCard.js
 import Image from 'next/image';
+import { FaCheckCircle, FaTimesCircle, FaArrowRight } from 'react-icons/fa';
 
 export default function SocialAccountCard({
   platform,
   IconComponent,
   connected,
   userProfilePic,
+  accountName, // NEW: pass account name from parent
   onConnect,
 }) {
   const getPlatformColorClass = (platformName) => {
     switch (platformName) {
       case 'Facebook':
-        return 'text-blue-600';
+        return 'bg-[#3b5998]';
       case 'Instagram':
-        return 'text-pink-500';
+        return 'bg-gradient-to-r from-pink-500 to-purple-600';
       case 'YouTube':
-        return 'text-red-600';
+        return 'bg-red-600';
       case 'TikTok':
-        return 'text-black';
+        return 'bg-black';
       case 'Twitter (X)':
-        return 'text-black';
+        return 'bg-black';
       default:
-        return 'text-gray-800';
+        return 'bg-gray-800';
     }
   };
 
-  const iconColorClass = getPlatformColorClass(platform);
+  const iconBgClass = getPlatformColorClass(platform);
 
   return (
-    <div className="border p-4 rounded-lg shadow-md flex flex-col items-center justify-between text-gray-800 min-h-[220px]">
-      {/* Top: Platform Icon & Connect Button */}
-      <div className="flex justify-between items-center w-full mb-4">
-        {/* Icon */}
-        <div className="flex-shrink-0">
-          {IconComponent && <IconComponent size={32} className={iconColorClass} />}
-        </div>
-
-        {/* Button */}
-        <button
-          onClick={onConnect}
-          disabled={connected}
-          className={`px-3 py-1 rounded text-sm font-medium ${
-            connected
-              ? 'bg-gray-300 text-gray-700 cursor-not-allowed'
-              : 'bg-blue-500 text-white hover:bg-blue-600'
-          }`}
-        >
-          {connected ? 'Connected' : 'Connect'}
-        </button>
-      </div>
-
-      {/* Profile Picture */}
-      <div className="mb-3">
-        {connected && userProfilePic ? (
-          <div className="w-20 h-20 rounded-full overflow-hidden shadow-md">
-            <Image
-              src={userProfilePic}
-              alt={`${platform} Profile`}
-              width={80}
-              height={80}
-              className="object-cover"
-            />
-          </div>
+    <div
+      className={`relative w-full max-w-sm p-8 rounded-3xl shadow-2xl bg-white transition-all transform hover:scale-105 duration-300`}
+    >
+      {/* Status Icon */}
+      <div className="absolute top-4 right-4 text-gray-400">
+        {connected ? (
+          <FaCheckCircle className="text-purple-500" size={22} />
         ) : (
-          <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center text-sm text-gray-400 border">
-            No Photo
-          </div>
+          <FaTimesCircle className="text-gray-400" size={22} />
         )}
       </div>
 
-      {/* Platform Name & Status */}
-      <div className="text-center w-full">
-        <h3 className="text-lg font-semibold mb-1">{platform}</h3>
-        <p className={connected ? 'text-green-600' : 'text-red-600'}>
-          {connected ? 'Connected' : 'Not Connected'}
-        </p>
-      </div>
+      {/* Connected Layout: Icon + Link + Profile Picture */}
+      {connected ? (
+        <div className="flex flex-col items-center justify-center mb-6">
+          <div className="flex items-center justify-center gap-4 mb-3">
+            {/* Platform Icon */}
+            <div className={`w-20 h-20 rounded-2xl flex items-center justify-center shadow-md text-white text-4xl ${iconBgClass}`}>
+              {IconComponent && <IconComponent size={28} />}
+            </div>
+
+            {/* Emoji Link Icon */}
+            <div className="text-2xl text-gray-400">🔗</div>
+
+            {/* Profile Picture */}
+            <div className="w-20 h-20 rounded-full overflow-hidden shadow-lg">
+              <Image
+                src={userProfilePic}
+                alt={`${platform} Profile`}
+                width={80}
+                height={80}
+                className="object-cover"
+              />
+            </div>
+          </div>
+
+          {/* Account Name */}
+          {accountName && (
+            <p className="text-sm text-gray-500 font-medium mt-1">
+              @{accountName}
+            </p>
+          )}
+        </div>
+      ) : (
+        // Not connected: Show only platform icon centered
+        <div className="w-20 h-20 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-md text-white text-4xl">
+          <div className={`w-full h-full flex items-center justify-center rounded-2xl ${iconBgClass}`}>
+            {IconComponent && <IconComponent size={32} />}
+          </div>
+        </div>
+      )}
+
+      {/* Platform Name */}
+      <h3 className="text-center text-gray-800 font-semibold text-2xl mb-6">{platform}</h3>
+
+      {/* Connect/Disconnect Button */}
+      <button
+        onClick={onConnect}
+        disabled={connected}
+        className={`w-full py-3 rounded-xl text-white font-semibold text-lg transition-all ${
+          connected
+            ? 'bg-red-400 text-red-500 border border-red-200 cursor-pointer hover:bg-red-300'
+            : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600'
+        }`}
+      >
+        {connected ? 'Disconnect' : 'Connect'}
+      </button>
     </div>
   );
 }

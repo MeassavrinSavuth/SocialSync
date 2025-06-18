@@ -1,7 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ['upload.wikimedia.org', 'platform-lookaside.fbsbx.com', 'graph.facebook.com'],
+    domains: ['upload.wikimedia.org', 'platform-lookaside.fbsbx.com', "res.cloudinary.com",
+      'graph.facebook.com', 'localhost', "lh3.googleusercontent.com","scontent.fbkk18-2.fna.fbcdn.net" ],
   },
 };
 

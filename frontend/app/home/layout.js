@@ -13,6 +13,9 @@ export default function DashboardLayout({ children }) {
   const [activeTab, setActiveTab] = useState('Home');
   const { profileData, isLoading } = useUser();
 
+  const defaultProfilePic = '/default-avatar.png';
+  const [imgSrc, setImgSrc] = useState(defaultProfilePic);
+
   useEffect(() => {
     const accessToken = localStorage.getItem('accessToken');
     const refreshToken = localStorage.getItem('refreshToken');
@@ -31,18 +34,19 @@ export default function DashboardLayout({ children }) {
     else if (path.startsWith('/home/manage-accounts')) setActiveTab('Manage Account');
   }, []);
 
+  useEffect(() => {
+    const imageUrl = profileData?.profileImage;
+    if (imageUrl && typeof imageUrl === 'string' && imageUrl.startsWith('http')) {
+      setImgSrc(imageUrl);
+    } else {
+      setImgSrc(defaultProfilePic);
+    }
+  }, [profileData]);
+
   const handleNavClick = (label, path) => {
     setActiveTab(label);
     router.push(path);
   };
-
-  const handleLogout = () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    router.push('/login');
-  };
-
-  const userInitial = profileData?.name?.charAt(0)?.toUpperCase() || 'U';
 
   return (
     <div className="flex h-screen bg-gray-100 font-sans">
@@ -71,10 +75,16 @@ export default function DashboardLayout({ children }) {
           </nav>
         </div>
 
-        <div className="flex items-center gap-3 border-t pt-4 cursor-pointer" onClick={() => router.push('/home/profile')}>
-          <div className="bg-gray-800 text-white w-10 h-10 rounded-full flex items-center justify-center text-xl font-semibold">
-            {userInitial}
-          </div>
+        <div
+          className="flex items-center gap-3 border-t pt-4 cursor-pointer"
+          onClick={() => router.push('/home/profile')}
+        >
+          <img
+            src={imgSrc}
+            alt="Profile"
+            className="w-10 h-10 rounded-full object-cover"
+            onError={() => setImgSrc(defaultProfilePic)}
+          />
           {sidebarOpen && !isLoading && (
             <div>
               <p className="text-sm text-gray-800 font-medium">{profileData?.name || 'Unknown'}</p>

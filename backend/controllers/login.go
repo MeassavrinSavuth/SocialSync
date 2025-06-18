@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 
@@ -24,7 +25,6 @@ func EnableCORS(h http.Handler) http.Handler {
 	})
 }
 
-
 type LoginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
@@ -44,16 +44,29 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	var user models.User
 	err := lib.DB.QueryRow("SELECT id, password FROM users WHERE email = $1", req.Email).Scan(&user.ID, &user.Password)
-	if err != nil {
+
+	switch {
+	case err == sql.ErrNoRows:
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+		return
+	case err != nil:
+		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
 	}
 
+	// If the user was created with Google and has no password set
+	if user.Password == "" {
+		http.Error(w, "This account uses Google login. Please sign in with Google.", http.StatusForbidden)
+		return
+	}
+
+	// Check password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
 		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
 		return
 	}
 
+	// Generate tokens
 	accessToken, err := lib.GenerateAccessToken(user.ID)
 	if err != nil {
 		http.Error(w, "Could not generate token", http.StatusInternalServerError)
@@ -66,6 +79,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Return tokens
 	json.NewEncoder(w).Encode(LoginResponse{
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
