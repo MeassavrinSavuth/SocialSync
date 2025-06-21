@@ -28,4 +28,8 @@ func RegisterUserRoutes(r *mux.Router) {
 	r.Handle("/api/profile/image/{userID}",
 		http.HandlerFunc(controllers.ProfileImageHandler),
 	).Methods("GET")
+
+	r.Handle("/api/profile/password", 
+		middleware.JWTMiddleware(http.HandlerFunc(controllers.ProfilePasswordHandler))).Methods("PUT", "OPTIONS")
+
 }

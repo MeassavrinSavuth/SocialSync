@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import SocialAccountCard from '../../components/SocialAccountCard';
+import ConfirmModal from '../../components/ConfirmModal';
 import { FaFacebook, FaInstagram, FaYoutube, FaTiktok, FaTwitter } from 'react-icons/fa';
 import axios from 'axios';
 
@@ -69,21 +70,41 @@ export default function ManageAccountPage() {
     }
   };
 
-  const handleConnect = async (platformName) => {
-  if (platformName === 'Facebook') {
-    const token = localStorage.getItem('accessToken');
-    if (!token) {
-      alert('You must be logged in to connect Facebook.');
-      return;
+  const handleConnect = async (platformName, isConnected) => {
+  const token = localStorage.getItem('accessToken');
+  if (!token) {
+    alert('You must be logged in.');
+    return;
+  }
+
+  if (isConnected) {
+    // Disconnect logic
+    try {
+        await axios.delete(`http://localhost:8080/api/social-accounts/${platformName.toLowerCase()}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      // Refresh account data after disconnect
+      setPlatforms((prev) =>
+        prev.map((p) =>
+          p.name === platformName
+            ? { ...p, connected: false, userProfilePic: null }
+            : p
+        )
+      );
+    } catch (err) {
+      alert(`Failed to disconnect ${platformName}.`);
     }
-
-    // Instead of fetch, build URL with token query param or header-less and redirect browser directly
-    const url = `http://localhost:8080/auth/facebook/login?token=${token}`;
-    // Redirect browser (not AJAX fetch)
-    window.location.href = url;
-
   } else {
-    alert(`Connect to ${platformName} is not yet implemented.`);
+    // Connect logic
+    if (platformName === 'Facebook') {
+      const url = `http://localhost:8080/auth/facebook/login?token=${token}`;
+      window.location.href = url;
+    } else {
+      alert(`Connect to ${platformName} is not yet implemented.`);
+    }
   }
 };
 
@@ -115,12 +136,14 @@ export default function ManageAccountPage() {
                 IconComponent={platform.icon}
                 connected={platform.connected}
                 userProfilePic={platform.userProfilePic}
-                onConnect={() => handleConnect(platform.name)}
+                onConnect={() => handleConnect(platform.name, platform.connected)}
               />
             ))}
           </div>
         </>
       )}
+
+      
     </div>
   );
 }

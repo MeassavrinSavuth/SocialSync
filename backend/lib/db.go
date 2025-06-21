@@ -6,9 +6,9 @@ import (
     "database/sql"
     "fmt"
     "log"
-    // "net/http"
     "os"
-    
+    "time"
+
     _ "github.com/lib/pq"
 )
 
@@ -20,11 +20,18 @@ func ConnectDB() {
         log.Fatal("DATABASE_URL environment variable is not set")
     }
 
+    log.Printf("INFO: DATABASE_URL being used: %s", dbURL)
+
     var err error
     DB, err = sql.Open("postgres", dbURL)
     if err != nil {
         log.Fatal("Error connecting to DB:", err)
     }
+
+    // Configure connection pool to avoid stale prepared statements error
+    DB.SetMaxOpenConns(10)                // max open connections (adjust as needed)
+    DB.SetMaxIdleConns(5)                // max idle connections
+    DB.SetConnMaxLifetime(1 * time.Minute) // recycle connections every 5 minutes
 
     err = DB.PingContext(context.Background())
     if err != nil {
@@ -37,14 +44,3 @@ func ConnectDB() {
 func GetDB() *sql.DB {
     return DB
 }
-
-// GetUserIDFromContext retrieves the user ID from the context (set by auth middleware).
-// func GetUserIDFromContext(r *http.Request) (string, error) {
-//     if ctxUserID, ok := r.Context().Value("user_id").(string); ok && ctxUserID != "" {
-//         log.Printf("DEBUG (GetUserID): Found userID from request context: %s", ctxUserID)
-//         return ctxUserID, nil
-//     }
-
-//     // Remove fallback logic. Context-based auth is required.
-//     return "", fmt.Errorf("user ID not found in context; ensure authentication middleware is active")
-// }

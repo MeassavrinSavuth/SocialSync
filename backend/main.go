@@ -60,7 +60,7 @@ func main() {
 		cron.Recover(cron.DefaultLogger),
 		cron.DelayIfStillRunning(cron.DefaultLogger),
 	))
-	if _, err := c.AddFunc("@every 12h", func() {
+	if _, err := c.AddFunc("@every 24h", func() {
 		log.Println("🔁 Running scheduled social account sync...")
 		utils.SyncAllSocialAccountsTask(lib.DB)
 	}); err != nil {

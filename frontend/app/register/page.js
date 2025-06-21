@@ -114,7 +114,7 @@ const Register = () => {
             </div>
 
             <div className="flex flex-col gap-3">
-              <button
+              {/* <button
                 onClick={loginWithFacebook}
                 className="flex items-center justify-center gap-2 w-full bg-white border border-gray-300 hover:border-gray-500 text-black py-2 rounded-md font-medium text-sm transition duration-200"
               >
@@ -124,7 +124,7 @@ const Register = () => {
                   className="w-5 h-5"
                 />
                 Continue with Facebook
-              </button>
+              </button> */}
               <button
                 onClick={loginWithGoogle}
                 className="flex items-center justify-center gap-2 w-full bg-white border border-gray-300 hover:border-gray-500 text-black py-2 rounded-md font-medium text-sm transition duration-200"

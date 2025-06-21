@@ -26,6 +26,8 @@ func AuthRoutes(r *mux.Router){
 
 
 	r.Handle("/api/social-accounts", middleware.EnableCORS(middleware.JWTMiddleware(http.HandlerFunc(controllers.GetSocialAccountsHandler(lib.DB))))).Methods("GET")
+	r.Handle("/api/social-accounts/{platform}", middleware.EnableCORS(middleware.JWTMiddleware(http.HandlerFunc(controllers.DisconnectSocialAccountHandler(lib.DB))))).Methods("DELETE")
+
 	r.Handle("/api/facebook/post", middleware.JWTMiddleware(http.HandlerFunc(controllers.PostToFacebookHandler(lib.DB)))).Methods("POST")
 
 }

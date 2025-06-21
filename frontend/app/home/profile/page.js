@@ -2,6 +2,7 @@
 
 import { useUser } from '../../hooks/auth/useUser';
 import { useState } from 'react';
+import toast from 'react-hot-toast';
 import ProfilePhotoSection from '../../components/ProfilePhotoSection';
 import NameSection from '../../components/NameSection';
 import EmailSection from '../../components/EmailSection';
@@ -16,28 +17,16 @@ export default function ProfileSettings() {
   const user = useUser();
 
   if (!user || user.isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-base text-gray-600 animate-pulse">Loading user data...</div>
-      </div>
-    );
+    return <div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-600">Loading user data...</div>;
   }
 
   const { profileData, setProfileData } = user;
 
-  if (!profileData) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-base text-gray-600 animate-pulse">Fetching profile details...</div>
-      </div>
-    );
-  }
+  const handleImageChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-const handleImageChange = async (e) => {
-  const file = e.target.files[0];
-  if (file) {
     setError(null);
-
     const reader = new FileReader();
     reader.onloadend = () => setImagePreview(reader.result);
     reader.readAsDataURL(file);
@@ -53,30 +42,21 @@ const handleImageChange = async (e) => {
         body: formData,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to upload image');
-      }
-      const data = await response.json();
+      if (!response.ok) throw new Error('Failed to upload image');
 
-      const baseUrl = 'http://localhost:8080';
-      const fullImageUrl = data.imageUrl.startsWith('http')
-        ? data.imageUrl
-        : baseUrl + data.imageUrl;
+      const data = await response.json();
+      const fullImageUrl = data.imageUrl.startsWith('http') ? data.imageUrl : `http://localhost:8080${data.imageUrl}`;
 
       setImagePreview(fullImageUrl);
       setProfileData(prev => ({ ...prev, profileImage: fullImageUrl }));
+      toast.success('Profile picture updated!');
     } catch (err) {
-      setError(err.message || 'Failed to upload image');
-      console.error('Image upload error:', err);
-      setImagePreview(profileData.profileImage || '/default-avatar.png');
+      setError(err.message);
+      toast.error(err.message);
     }
-  }
-};
- 
+  };
 
   const handleSaveChanges = async (field) => {
-    setError(null);
     try {
       const accessToken = localStorage.getItem('accessToken');
       const response = await fetch('http://localhost:8080/api/profile', {
@@ -88,13 +68,10 @@ const handleImageChange = async (e) => {
         body: JSON.stringify({ [field]: profileData[field] }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `Failed to update ${field}`);
-      }
+      if (!response.ok) throw new Error(`Failed to update ${field}`);
+      toast.success(`${field.charAt(0).toUpperCase() + field.slice(1)} updated successfully.`);
     } catch (err) {
-      setError(err.message || `Failed to update ${field}`);
-      console.error(`Update error (${field}):`, err);
+      toast.error(err.message || 'Update failed');
     }
   };
 
@@ -102,12 +79,6 @@ const handleImageChange = async (e) => {
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6 md:p-8 space-y-6 border border-gray-200">
         <h1 className="text-3xl font-bold text-center text-indigo-700 mb-6">Profile Settings</h1>
-
-        {error && (
-          <div className="p-3 bg-red-50 border border-red-300 rounded-md text-red-700 flex items-center space-x-2 text-sm">
-            <p className="font-medium">{error}</p>
-          </div>
-        )}
 
         <ProfilePhotoSection
           profileImage={profileData.profileImage}
@@ -123,7 +94,6 @@ const handleImageChange = async (e) => {
         />
 
         <EmailSection email={profileData.email} />
-
         <PasswordSection provider={profileData.provider} />
 
         <LogoutSection

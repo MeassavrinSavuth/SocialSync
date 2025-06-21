@@ -87,7 +87,7 @@ export default function SocialAccountCard({
       {/* Connect/Disconnect Button */}
       <button
         onClick={onConnect}
-        disabled={connected}
+        // disabled={connected}
         className={`w-full py-3 rounded-xl text-white font-semibold text-lg transition-all ${
           connected
             ? 'bg-red-400 text-red-500 border border-red-200 cursor-pointer hover:bg-red-300'
