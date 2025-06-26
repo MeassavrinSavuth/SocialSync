@@ -32,4 +32,7 @@ func RegisterUserRoutes(r *mux.Router) {
 	r.Handle("/api/profile/password", 
 		middleware.JWTMiddleware(http.HandlerFunc(controllers.ProfilePasswordHandler))).Methods("PUT", "OPTIONS")
 
+	r.Handle("/api/upload", middleware.EnableCORS(middleware.JWTMiddleware(http.HandlerFunc(controllers.UploadImageHandler)))).Methods("POST", "OPTIONS")
+
+
 }

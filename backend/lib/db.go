@@ -9,7 +9,7 @@ import (
     "os"
     "time"
 
-    _ "github.com/lib/pq"
+    _ "github.com/jackc/pgx/v5/stdlib"
 )
 
 var DB *sql.DB
@@ -23,7 +23,7 @@ func ConnectDB() {
     log.Printf("INFO: DATABASE_URL being used: %s", dbURL)
 
     var err error
-    DB, err = sql.Open("postgres", dbURL)
+    DB, err = sql.Open("pgx", dbURL)
     if err != nil {
         log.Fatal("Error connecting to DB:", err)
     }

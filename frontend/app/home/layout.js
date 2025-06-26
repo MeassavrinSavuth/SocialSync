@@ -32,6 +32,8 @@ export default function DashboardLayout({ children }) {
 
   // Redirect to login if no tokens
   useEffect(() => {
+
+    if (typeof window == 'undefined') return;
     const accessToken = localStorage.getItem('accessToken');
     const refreshToken = localStorage.getItem('refreshToken');
     if (!accessToken || !refreshToken) {
