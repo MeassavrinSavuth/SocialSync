@@ -5,36 +5,40 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	// "mime/multipart"
 	"net/http"
+	"net/url"
 	"strings"
 
-	"social-sync-backend/lib"
 	"social-sync-backend/middleware"
 )
 
+type FacebookPostRequest struct {
+	Message   string   `json:"message"`
+	MediaUrls []string `json:"mediaUrls"`
+}
+
 func PostToFacebookHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Get user ID from context
 		userID, err := middleware.GetUserIDFromContext(r)
 		if err != nil {
 			http.Error(w, "Unauthorized: User not authenticated", http.StatusUnauthorized)
 			return
 		}
 
-		err = r.ParseMultipartForm(20 << 20) // 20MB
-		if err != nil {
-			http.Error(w, "Failed to parse form", http.StatusBadRequest)
+		// Parse JSON body
+		var req FacebookPostRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid JSON body", http.StatusBadRequest)
 			return
 		}
 
-		message := r.FormValue("message")
-		if strings.TrimSpace(message) == "" {
+		if strings.TrimSpace(req.Message) == "" {
 			http.Error(w, "Message cannot be empty", http.StatusBadRequest)
 			return
 		}
 
-		files := r.MultipartForm.File["media"]
-
+		// Get Facebook access token and page ID from DB
 		var accessToken, pageID string
 		err = db.QueryRow(`
 			SELECT access_token, social_id
@@ -45,10 +49,15 @@ func PostToFacebookHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// If no media files, post text only
-		if len(files) == 0 {
+		// Helper for URL encoding
+		urlEncode := func(s string) string {
+			return url.QueryEscape(s)
+		}
+
+		// No media: text-only post
+		if len(req.MediaUrls) == 0 {
 			postURL := fmt.Sprintf("https://graph.facebook.com/%s/feed", pageID)
-			payload := strings.NewReader(fmt.Sprintf("message=%s&access_token=%s", message, accessToken))
+			payload := strings.NewReader(fmt.Sprintf("message=%s&access_token=%s", urlEncode(req.Message), urlEncode(accessToken)))
 
 			resp, err := http.Post(postURL, "application/x-www-form-urlencoded", payload)
 			if err != nil {
@@ -68,35 +77,20 @@ func PostToFacebookHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// Upload files to Cloudinary and get URLs
+		// Upload media (unpublished) and collect media IDs
 		var attachedMediaIDs []string
-		for _, fileHeader := range files {
-			file, err := fileHeader.Open()
+		for _, mediaURL := range req.MediaUrls {
+			uploadURL := fmt.Sprintf("https://graph.facebook.com/%s/photos?access_token=%s", pageID, urlEncode(accessToken))
+			payload := fmt.Sprintf("url=%s&published=false", urlEncode(mediaURL))
+
+			resp, err := http.Post(uploadURL, "application/x-www-form-urlencoded", strings.NewReader(payload))
 			if err != nil {
-				http.Error(w, "Failed to open media file", http.StatusBadRequest)
+				http.Error(w, "Failed to upload media to Facebook", http.StatusInternalServerError)
 				return
 			}
-			defer file.Close()
-
-			publicID := fmt.Sprintf("facebook_media_%s_%s", userID, fileHeader.Filename)
-			url, err := lib.UploadToCloudinary(file, "facebook_posts", publicID)
-			if err != nil {
-				http.Error(w, "Cloudinary upload failed: "+err.Error(), http.StatusInternalServerError)
-				return
-			}
-
-			// Upload to Facebook (image URL)
-			createURL := fmt.Sprintf("https://graph.facebook.com/%s/photos?access_token=%s", pageID, accessToken)
-			payload := fmt.Sprintf("url=%s&published=false", url)
-
-			resp, err := http.Post(createURL, "application/x-www-form-urlencoded", strings.NewReader(payload))
-			if err != nil {
-				http.Error(w, "Failed to upload image to Facebook", http.StatusInternalServerError)
-				return
-			}
-			defer resp.Body.Close()
-
 			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+
 			if resp.StatusCode != http.StatusOK {
 				http.Error(w, fmt.Sprintf("Facebook media upload failed: %s", body), http.StatusInternalServerError)
 				return
@@ -109,41 +103,38 @@ func PostToFacebookHandler(db *sql.DB) http.HandlerFunc {
 				http.Error(w, "Failed to parse Facebook media ID", http.StatusInternalServerError)
 				return
 			}
-
 			attachedMediaIDs = append(attachedMediaIDs, fbRes.ID)
 		}
 
-		// Build attached_media[i] params
+		// Build attached_media params
 		var mediaParams []string
 		for i, id := range attachedMediaIDs {
+			// Note: Facebook expects attached_media[i] param in JSON string format
 			mediaParams = append(mediaParams, fmt.Sprintf(`attached_media[%d]={"media_fbid":"%s"}`, i, id))
 		}
 
-		finalPayload := fmt.Sprintf("message=%s&%s&access_token=%s",
-			urlEncode(message), strings.Join(mediaParams, "&"), accessToken)
-
 		postURL := fmt.Sprintf("https://graph.facebook.com/%s/feed", pageID)
+		finalPayload := fmt.Sprintf(
+			"message=%s&%s&access_token=%s",
+			urlEncode(req.Message),
+			strings.Join(mediaParams, "&"),
+			urlEncode(accessToken),
+		)
+
 		resp, err := http.Post(postURL, "application/x-www-form-urlencoded", strings.NewReader(finalPayload))
 		if err != nil {
 			http.Error(w, "Failed to publish post with media", http.StatusInternalServerError)
 			return
 		}
-		defer resp.Body.Close()
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
 
-		// Inside the section where you publish the final post with media
-body, _ := io.ReadAll(resp.Body)
-if resp.StatusCode != http.StatusOK {
-    fmt.Printf("Facebook feed post failed - Status: %d, Response Body: %s\n", resp.StatusCode, body) // Add this line
-    http.Error(w, fmt.Sprintf("Facebook feed post failed: %s", body), http.StatusInternalServerError)
-    return
-}
+		if resp.StatusCode != http.StatusOK {
+			http.Error(w, fmt.Sprintf("Facebook post failed: %s", body), http.StatusInternalServerError)
+			return
+		}
 
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Post with media published to Facebook page"))
+		w.Write([]byte("Facebook post with media published successfully"))
 	}
 }
-
-// // URL-encodes message string
-// func urlEncode(s string) string {
-// 	return strings.ReplaceAll(strings.ReplaceAll(s, " ", "%20"), "\n", "%0A")
-// }
