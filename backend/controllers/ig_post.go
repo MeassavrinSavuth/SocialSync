@@ -1,22 +1,19 @@
-// controllers/instagram_post.go
 package controllers
 
 import (
-	// "context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"io"
 	// "mime/multipart"
 	"net/http"
-	// "os"
 	"strings"
-	"encoding/json"  // <--- add this import
-
 
 	"social-sync-backend/lib"
 	"social-sync-backend/middleware"
 )
 
+// Request expects multipart form with caption and multiple files named "media"
 func PostToInstagramHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, err := middleware.GetUserIDFromContext(r)
@@ -25,104 +22,146 @@ func PostToInstagramHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// Parse multipart form with a reasonable maxMemory (e.g. 10 MB)
-		err = r.ParseMultipartForm(10 << 20) // 10 MB
+		// Parse multipart form (limit to 20MB)
+		err = r.ParseMultipartForm(20 << 20)
 		if err != nil {
 			http.Error(w, "Failed to parse form data", http.StatusBadRequest)
 			return
 		}
 
-		// Get caption from form
 		caption := r.FormValue("caption")
 		if strings.TrimSpace(caption) == "" {
 			http.Error(w, "Caption cannot be empty", http.StatusBadRequest)
 			return
 		}
 
-		// Get image file from form
-		file, _, err := r.FormFile("image")
-		if err != nil {
-			http.Error(w, "Image file is required", http.StatusBadRequest)
-			return
-		}
-		defer file.Close()
-
-		// Upload image to Cloudinary
-		publicID := fmt.Sprintf("instagram_post_%s", userID) // Customize as needed
-		imageURL, err := lib.UploadToCloudinary(file, "instagram_posts", publicID)
-		if err != nil {
-			http.Error(w, "Failed to upload image to Cloudinary: "+err.Error(), http.StatusInternalServerError)
+		// Retrieve media files
+		files := r.MultipartForm.File["media"]
+		if len(files) == 0 {
+			http.Error(w, "At least one media file is required", http.StatusBadRequest)
 			return
 		}
 
-		// Get Instagram Page ID and Access Token from DB for this user
+		// Get Instagram User ID and Access Token from DB
 		var igAccessToken, igUserID string
 		err = db.QueryRow(`
-			SELECT access_token, social_id 
-			FROM social_accounts 
+			SELECT access_token, social_id
+			FROM social_accounts
 			WHERE user_id = $1 AND platform = 'instagram'`, userID).Scan(&igAccessToken, &igUserID)
 		if err != nil {
 			http.Error(w, "Instagram account not connected", http.StatusBadRequest)
 			return
 		}
 
-		// Step 1: Create Media Container
-		createMediaURL := fmt.Sprintf("https://graph.facebook.com/v16.0/%s/media", igUserID)
-		mediaParams := fmt.Sprintf(
-			"image_url=%s&caption=%s&access_token=%s",
-			imageURL,
+		// Create media container IDs slice
+		var mediaContainerIDs []string
+
+		for idx, fileHeader := range files {
+			file, err := fileHeader.Open()
+			if err != nil {
+				http.Error(w, "Failed to open media file", http.StatusBadRequest)
+				return
+			}
+			defer file.Close()
+
+			// Upload to Cloudinary and get URL
+			publicID := fmt.Sprintf("instagram_post_%s_%d", userID, idx)
+			mediaURL, err := lib.UploadToCloudinary(file, "instagram_posts", publicID)
+			if err != nil {
+				http.Error(w, "Failed to upload media: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+			// Determine media type (image or video)
+			mediaType := "image_url"
+			if strings.HasPrefix(fileHeader.Header.Get("Content-Type"), "video/") {
+				mediaType = "video_url"
+			}
+
+			// Create media container for this media
+			createMediaURL := fmt.Sprintf("https://graph.facebook.com/v16.0/%s/media", igUserID)
+			params := fmt.Sprintf(
+				"%s=%s&caption=%s&access_token=%s",
+				mediaType,
+				mediaURL,
+				urlEncode(caption),
+				igAccessToken,
+			)
+
+			resp, err := http.Post(createMediaURL, "application/x-www-form-urlencoded", strings.NewReader(params))
+			if err != nil {
+				http.Error(w, "Failed to create media container: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				http.Error(w, fmt.Sprintf("Instagram API error creating media: %s", body), http.StatusInternalServerError)
+				return
+			}
+
+			mediaID, err := parseMediaIDFromResponse(body)
+			if err != nil {
+				http.Error(w, "Failed to parse media ID from Instagram response", http.StatusInternalServerError)
+				return
+			}
+
+			mediaContainerIDs = append(mediaContainerIDs, mediaID)
+		}
+
+		// Create carousel container referencing media container IDs
+		carouselURL := fmt.Sprintf("https://graph.facebook.com/v16.0/%s/media", igUserID)
+		children := strings.Join(mediaContainerIDs, ",")
+		carouselParams := fmt.Sprintf(
+			"media_type=CAROUSEL&caption=%s&children=%s&access_token=%s",
 			urlEncode(caption),
+			children,
 			igAccessToken,
 		)
 
-		resp, err := http.Post(createMediaURL, "application/x-www-form-urlencoded", strings.NewReader(mediaParams))
+		respCarousel, err := http.Post(carouselURL, "application/x-www-form-urlencoded", strings.NewReader(carouselParams))
 		if err != nil {
-			http.Error(w, "Failed to create Instagram media container: "+err.Error(), http.StatusInternalServerError)
+			http.Error(w, "Failed to create carousel container: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		defer resp.Body.Close()
-		body, _ := io.ReadAll(resp.Body)
+		bodyCarousel, _ := io.ReadAll(respCarousel.Body)
+		respCarousel.Body.Close()
 
-		if resp.StatusCode != http.StatusOK {
-			http.Error(w, fmt.Sprintf("Instagram API error on media creation: %s", body), http.StatusInternalServerError)
+		if respCarousel.StatusCode != http.StatusOK {
+			http.Error(w, fmt.Sprintf("Instagram API error creating carousel: %s", bodyCarousel), http.StatusInternalServerError)
 			return
 		}
 
-		// Parse media container ID from response JSON
-		mediaID, err := parseMediaIDFromResponse(body)
+		carouselID, err := parseMediaIDFromResponse(bodyCarousel)
 		if err != nil {
-			http.Error(w, "Failed to parse media ID from Instagram response", http.StatusInternalServerError)
+			http.Error(w, "Failed to parse carousel ID", http.StatusInternalServerError)
 			return
 		}
 
-		// Step 2: Publish Media Container
+		// Publish carousel container
 		publishURL := fmt.Sprintf("https://graph.facebook.com/v16.0/%s/media_publish", igUserID)
-		publishParams := fmt.Sprintf(
-			"creation_id=%s&access_token=%s",
-			mediaID,
-			igAccessToken,
-		)
+		publishParams := fmt.Sprintf("creation_id=%s&access_token=%s", carouselID, igAccessToken)
 
 		respPublish, err := http.Post(publishURL, "application/x-www-form-urlencoded", strings.NewReader(publishParams))
 		if err != nil {
-			http.Error(w, "Failed to publish Instagram media: "+err.Error(), http.StatusInternalServerError)
+			http.Error(w, "Failed to publish carousel post: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		defer respPublish.Body.Close()
 		bodyPublish, _ := io.ReadAll(respPublish.Body)
+		respPublish.Body.Close()
 
 		if respPublish.StatusCode != http.StatusOK {
-			http.Error(w, fmt.Sprintf("Instagram API error on media publish: %s", bodyPublish), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("Instagram API error publishing carousel: %s", bodyPublish), http.StatusInternalServerError)
 			return
 		}
 
-		// Success response
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("Instagram post published successfully!"))
+		w.Write([]byte("Instagram carousel post published successfully!"))
 	}
 }
 
-// Helper to parse media ID from Instagram response JSON
+// Helper to parse media ID from Instagram API response
 func parseMediaIDFromResponse(body []byte) (string, error) {
 	type MediaResponse struct {
 		ID string `json:"id"`
@@ -135,7 +174,7 @@ func parseMediaIDFromResponse(body []byte) (string, error) {
 	return res.ID, nil
 }
 
-// Helper to URL-encode parameters
+// Helper to URL-encode parameters (basic)
 func urlEncode(s string) string {
 	return strings.ReplaceAll(strings.ReplaceAll(s, " ", "%20"), "\n", "%0A")
 }

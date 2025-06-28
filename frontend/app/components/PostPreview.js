@@ -1,58 +1,85 @@
 // components/PostPreview.js
-import React from 'react';
-import { FaInfoCircle } from 'react-icons/fa';
+'use client';
 
-export default function PostPreview({ postContent, postMedia, previewAccount }) {
-    return (
-        // Changed bg-gray-800 to gray-800, border to gray-700
-        <div className="bg-gray-800 p-6 flex flex-col border-l border-gray-700">
-            <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-gray-100">Post Preview</h3> {/* Ensure text is light */}
-                <FaInfoCircle className="text-gray-400" />
-            </div>
+export default function PostPreview({ selectedPlatforms, message, mediaFiles, youtubeConfig }) {
+  const isSelected = (platform) => selectedPlatforms.includes(platform);
 
-            <div className="flex-grow bg-gray-700 rounded-lg p-4 flex flex-col justify-center items-center text-center overflow-auto">
-                {previewAccount ? (
-                    <>
-                        <div className="flex items-center mb-4 w-full">
-                            <img src={previewAccount.img} alt={previewAccount.name} className="w-10 h-10 rounded-full mr-3" />
-                            <span className="font-semibold text-gray-100">{previewAccount.name}</span> {/* Light text */}
-                            <span className="ml-auto text-gray-400 text-xs capitalize">{previewAccount.platform}</span> {/* Muted text */}
-                        </div>
-                        <div className="w-full text-left">
-                            <p className="text-gray-100 text-sm mb-3 whitespace-pre-wrap break-words">{postContent || "Your drafted content will appear here..."}</p>
-                            {postMedia.length > 0 && (
-                                <div className="grid grid-cols-1 gap-2 mt-2">
-                                    {postMedia.map((file, index) => (
-                                        <div key={index} className="w-full h-auto max-h-64 overflow-hidden rounded-md">
-                                            {file.type.startsWith('image/') ? (
-                                                <img
-                                                    src={URL.createObjectURL(file)}
-                                                    alt="post media"
-                                                    className="w-full h-full object-contain"
-                                                />
-                                            ) : (
-                                                <video src={URL.createObjectURL(file)} className="w-full h-full object-contain" controls />
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                            <div className="mt-4 text-gray-400 text-xs flex justify-between">
-                                <span>0 Likes</span>
-                                <span>0 Comments</span>
-                                <span>0 Shares</span>
-                            </div>
-                        </div>
-                    </>
-                ) : (
-                    <div className="text-gray-400 text-center">
-                        <p className="mb-2">Select a social account</p>
-                        <p>and start typing to see your post preview.</p>
-                        <p className="mt-4 text-sm">Preview will reflect selected platform's typical layout.</p>
-                    </div>
-                )}
-            </div>
+  return (
+    <aside className="w-96 bg-white rounded-lg shadow-sm p-8 border border-gray-200 ">
+      <h2 className="text-2xl font-semibold mb-6 text-gray-800">Post Preview</h2>
+
+      {/* Platforms */}
+      <div className="mb-6">
+        <h3 className="font-semibold mb-2 text-gray-800 text-base">Posting To:</h3>
+        <ul className="flex flex-wrap gap-3">
+          {selectedPlatforms.length === 0 && (
+            <li className="italic text-gray-400 text-sm">No platforms selected</li>
+          )}
+          {selectedPlatforms.map((p) => (
+            <li
+              key={p}
+              className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm capitalize font-medium"
+            >
+              {p}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Message */}
+      <div className="mb-6">
+        <h3 className="font-semibold mb-2 text-gray-800 text-base">Caption</h3>
+        <p className="whitespace-pre-wrap text-gray-800 text-base">
+          {message || <em className="text-gray-400">No message</em>}
+        </p>
+      </div>
+
+      {/* Media preview */}
+      {mediaFiles.length > 0 && (
+        <div className="mb-6">
+          <h3 className="font-semibold mb-3 text-gray-800 text-base">Media</h3>
+          <div className="flex flex-wrap gap-3">
+            {mediaFiles.map((file, i) => {
+              const url = URL.createObjectURL(file);
+              if (file.type.startsWith('video/')) {
+                return (
+                  <video
+                    key={i}
+                    src={url}
+                    controls
+                    className="w-28 h-28 rounded-md shadow-sm border border-gray-300 object-cover"
+                    onLoadedData={() => URL.revokeObjectURL(url)}
+                  />
+                );
+              }
+              return (
+                <img
+                  key={i}
+                  src={url}
+                  alt="media preview"
+                  className="w-28 h-28 rounded-md shadow-sm border border-gray-300 object-cover"
+                  onLoad={(e) => URL.revokeObjectURL(e.target.src)}
+                />
+              );
+            })}
+          </div>
         </div>
-    );
+      )}
+
+      {/* YouTube preview */}
+      {isSelected('youtube') && (
+        <div>
+          <h3 className="font-semibold mb-3 text-gray-800 text-base">YouTube Details</h3>
+          <p className="mb-1 text-gray-800 text-base">
+            <strong>Title:</strong>{' '}
+            {youtubeConfig.title || <em className="text-gray-400">No title</em>}
+          </p>
+          <p className="whitespace-pre-wrap text-gray-800 text-base">
+            <strong>Description:</strong>{' '}
+            {youtubeConfig.description || <em className="text-gray-400">No description</em>}
+          </p>
+        </div>
+      )}
+    </aside>
+  );
 }
