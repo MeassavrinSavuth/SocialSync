@@ -3,56 +3,73 @@
 export function useMultiPlatformPublish({ message, mediaFiles, youtubeConfig }) {
   const publish = async (platforms) => {
     const token = localStorage.getItem('accessToken');
+    if (!token) return platforms.map(p => ({ platform: p, success: false, error: 'Missing token' }));
+
     const results = [];
 
     for (const platform of platforms) {
       try {
-        if (platform === 'facebook') {
-          const res = await fetch('http://localhost:8080/api/facebook/post', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ message, mediaUrls: mediaFiles }),
-          });
+        let res;
+        let payload;
 
-          if (!res.ok) throw new Error('Facebook posting failed');
-          results.push({ platform, success: true });
+        switch (platform) {
+          case 'facebook':
+            payload = { message, mediaUrls: mediaFiles };
+            res = await fetch('http://localhost:8080/api/facebook/post', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify(payload),
+            });
+            break;
 
-        } else if (platform === 'instagram') {
-          const res = await fetch('http://localhost:8080/api/instagram/post', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ caption: message, mediaUrls: mediaFiles }),
-          });
+          case 'instagram':
+            payload = { caption: message, mediaUrls: mediaFiles };
+            res = await fetch('http://localhost:8080/api/instagram/post', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify(payload),
+            });
+            break;
 
-          if (!res.ok) throw new Error('Instagram posting failed');
-          results.push({ platform, success: true });
-
-        } else if (platform === 'youtube') {
-          const res = await fetch('http://localhost:8080/api/youtube/post', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
+          case 'youtube':
+            payload = {
               title: youtubeConfig.title,
               description: youtubeConfig.description,
               mediaUrls: mediaFiles,
-            }),
-          });
+            };
+            res = await fetch('http://localhost:8080/api/youtube/post', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify(payload),
+            });
+            break;
 
-          if (!res.ok) throw new Error('YouTube posting failed');
-          results.push({ platform, success: true });
-
-        } else {
-          results.push({ platform, success: false, error: 'Unsupported platform' });
+          default:
+            results.push({ platform, success: false, error: 'Unsupported platform' });
+            continue;
         }
+
+        const responseData = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          results.push({
+            platform,
+            success: false,
+            error: responseData?.error || res.statusText || 'Unknown error',
+          });
+        } else {
+          results.push({ platform, success: true, data: responseData });
+        }
+
       } catch (err) {
         results.push({ platform, success: false, error: err.message });
       }
