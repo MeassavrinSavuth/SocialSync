@@ -25,6 +25,10 @@ export default function SocialAccountCard({
         return 'bg-black';
       case 'Mastodon':
         return 'bg-[#6364FF]'
+      case 'Threads': // Changed to black background
+        return 'bg-black';
+      case 'Telegram':
+        return 'bg-[#0088CC]';
       default:
         return 'bg-gray-800';
     }
@@ -66,7 +70,7 @@ export default function SocialAccountCard({
                 height={80}
                 className="object-cover"
                 priority={true}
-                quality={100} 
+                quality={100}
               />
             </div>
           </div>
@@ -90,7 +94,7 @@ export default function SocialAccountCard({
         onClick={onConnect}
         className={`w-full py-3 rounded-xl text-white font-semibold text-lg transition-all ${
           connected
-            ? 'bg-red-400 text-red-500 border border-red-200 cursor-pointer hover:bg-red-300'
+            ? 'bg-red-400 text-red-500 border border-red-200 cursor-pointer hover:bg-red-500'
             : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600'
         }`}
       >

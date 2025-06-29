@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useUser } from '../hooks/auth/useUser';
 import {
-  FaHome, FaChartBar, FaCommentDots, FaFolder, FaUser, FaPlus,
+  FaHome, FaChartBar, FaCommentDots, FaFolder, FaUser, FaPlus, FaBriefcase,
   FaAngleLeft, FaAngleRight
 } from 'react-icons/fa';
 
@@ -23,16 +23,13 @@ export default function DashboardLayout({ children }) {
   const { profileData, isLoading } = useUser();
 
   const defaultProfilePic = '/default-avatar.png';
-  // const defaultProfilePic = '/default-avatar.png';
   const imageUrl =
   profileData?.profileImage && profileData.profileImage.startsWith('http')
     ? profileData.profileImage
     : defaultProfilePic;
 
-
   // Redirect to login if no tokens
   useEffect(() => {
-
     if (typeof window == 'undefined') return;
     const accessToken = localStorage.getItem('accessToken');
     const refreshToken = localStorage.getItem('refreshToken');
@@ -57,20 +54,13 @@ export default function DashboardLayout({ children }) {
       setActiveTab('Posts Folder');
     } else if (pathname.startsWith('/home/manage-accounts')) {
       setActiveTab('Manage Account');
-    } else {
+    } else if (pathname.startsWith('/home/workspace')) {
+      setActiveTab('Workspace');
+    }
+    else {
       setActiveTab(null); // fallback
     }
   }, [pathname]);
-
-  // Update profile image src
-  // useEffect(() => {
-  //   const imageUrl = profileData?.profileImage;
-  //   if (imageUrl && typeof imageUrl === 'string' && imageUrl.startsWith('http')) {
-  //     setImgSrc(imageUrl);
-  //   } else {
-  //     setImgSrc(defaultProfilePic);
-  //   }
-  // }, [profileData]);
 
   const handleNavClick = (label, path) => {
     setActiveTab(label);
@@ -113,21 +103,26 @@ export default function DashboardLayout({ children }) {
             <NavItem icon={<FaCommentDots />} label="Manage Comments" open={sidebarOpen} active={activeTab === 'Manage Comments'} onClick={() => handleNavClick('Manage Comments', '/home/manage-comments')} />
             <NavItem icon={<FaFolder />} label="Posts Folder" open={sidebarOpen} active={activeTab === 'Posts Folder'} onClick={() => handleNavClick('Posts Folder', '/home/posts-folder')} />
             <NavItem icon={<FaUser />} label="Manage Account" open={sidebarOpen} active={activeTab === 'Manage Account'} onClick={() => handleNavClick('Manage Account', '/home/manage-accounts')} />
+            
+            {/* Horizontal Rule for Separation */}
+            {sidebarOpen && <hr className="my-4 border-gray-200" />} {/* Show only when sidebar is open */}
+            {!sidebarOpen && <div className="py-2"></div>} {/* Add vertical space when sidebar is collapsed */}
+
+            <NavItem icon={<FaBriefcase />} label="Workspace" open={sidebarOpen} active={activeTab === 'Workspace'} onClick={() => handleNavClick('Workspace', '/home/workspace')} />
           </nav>
         </div>
 
-        {/* Profile Footer */}
         {/* Profile Footer */}
         <div
           className="flex items-center gap-3 border-t pt-4 cursor-pointer hover:bg-gray-100 rounded-xl px-2 transition overflow-hidden"
           onClick={() => router.push('/home/profile')}
         >
           <img
-  src={imageUrl}
-  alt="Profile"
-  className="w-10 h-10 rounded-full object-cover border border-gray-300 shadow-sm flex-shrink-0"
-  onError={(e) => (e.target.src = defaultProfilePic)}
-/>
+            src={imageUrl}
+            alt="Profile"
+            className="w-10 h-10 rounded-full object-cover border border-gray-300 shadow-sm flex-shrink-0"
+            onError={(e) => (e.target.src = defaultProfilePic)}
+          />
 
           {sidebarOpen && !isLoading && (
             <div className="min-w-0">

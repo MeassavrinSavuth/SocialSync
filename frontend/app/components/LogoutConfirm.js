@@ -12,7 +12,8 @@ export default function LogoutConfirm({ onCancel }) {
   };
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 animate-fade-in">
+    <div className="fixed inset-0 flex items-center justify-center z-50 animate-fade-in"
+    style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}>
       <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-sm text-center">
         <h2 className="text-lg font-semibold text-gray-800 mb-4">Confirm Logout</h2>
         <p className="text-gray-600 mb-6">Are you sure you want to log out?</p>

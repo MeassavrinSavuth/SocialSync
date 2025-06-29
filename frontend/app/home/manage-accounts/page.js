@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import SocialAccountCard from '../../components/SocialAccountCard';
+import DisconnectModal from '../../components/DisconnectModal'; // Updated import statement
 import { SiMastodon } from 'react-icons/si';
 
 import {
@@ -10,7 +11,9 @@ import {
   FaYoutube,
   FaTiktok,
   FaTwitter,
+  FaTelegram, // Added FaTelegram
 } from 'react-icons/fa';
+import { FaSquareThreads } from 'react-icons/fa6'; // Added FaSquareThreads
 import axios from 'axios';
 
 export default function ManageAccountPage() {
@@ -20,17 +23,37 @@ export default function ManageAccountPage() {
   const [statusMessage, setStatusMessage] = useState('');
   const [statusType, setStatusType] = useState('success');
 
+  // Modal specific state
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [platformToDisconnect, setPlatformToDisconnect] = useState(null);
+
   const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
 
   // Map backend platform keys to frontend display names
+  // Reordered to move TikTok to the end
   const backendToDisplayName = {
     facebook: 'Facebook',
     instagram: 'Instagram',
     youtube: 'YouTube',
-    tiktok: 'TikTok',
     twitter: 'Twitter (X)',
     mastodon: 'Mastodon',
+    threads: 'Threads',
+    telegram: 'Telegram',
+    tiktok: 'TikTok', // Moved to the end
   };
+
+  // List of platforms to display, reordered for TikTok
+  const platformsList = [
+    'facebook',
+    'instagram',
+    'youtube',
+    'twitter',
+    'mastodon',
+    'threads',
+    'telegram',
+    'tiktok', // Moved to the end
+  ];
+
 
   // Return the appropriate icon component based on display name
   const getIcon = (platform) => {
@@ -47,6 +70,10 @@ export default function ManageAccountPage() {
         return FaTwitter;
       case 'Mastodon':
         return SiMastodon;
+      case 'Threads': // Added Threads
+        return FaSquareThreads;
+      case 'Telegram': // Added Telegram
+        return FaTelegram;
       default:
         return null;
     }
@@ -69,11 +96,8 @@ export default function ManageAccountPage() {
       const accounts = Array.isArray(res.data) ? res.data : [];
 
       // Create platform data by mapping backend keys to frontend display names
-      const platformData = Object.values(backendToDisplayName).map((displayName) => {
-        const backendKey = Object.keys(backendToDisplayName).find(
-          (key) => backendToDisplayName[key] === displayName
-        );
-
+      const platformData = platformsList.map((backendKey) => { // Iterate over platformsList to maintain order
+        const displayName = backendToDisplayName[backendKey];
         const account = accounts.find(
           (acc) => acc?.platform?.toLowerCase() === backendKey
         );
@@ -122,6 +146,7 @@ export default function ManageAccountPage() {
     const isFacebookConnected = platforms.find((p) => p.name === 'Facebook')?.connected;
 
     if (!isConnected) {
+      // Logic for connecting (no change here)
       if (platformName === 'Instagram' && !isFacebookConnected) {
         setStatusMessage('Please connect your Facebook Page first before connecting Instagram.');
         setStatusType('error');
@@ -153,6 +178,10 @@ export default function ManageAccountPage() {
           window.location.href = `http://localhost:8080/auth/mastodon/login?instance=${encodeURIComponent(
             instance
           )}&token=${token}`;
+        } else if (platformName === 'Threads') {
+          window.location.href = `http://localhost:8080/auth/threads/login?token=${token}`;
+        } else if (platformName === 'Telegram') {
+          window.location.href = `http://localhost:8080/auth/telegram/login?token=${token}`;
         } else {
           setStatusMessage(`Connect to ${platformName} is not yet implemented.`);
           setStatusType('error');
@@ -163,24 +192,41 @@ export default function ManageAccountPage() {
         setStatusType('error');
       }
     } else {
-      try {
-        await axios.delete(`http://localhost:8080/api/social-accounts/${platformName.toLowerCase()}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        setPlatforms((prev) =>
-          prev.map((p) =>
-            p.name === platformName ? { ...p, connected: false, userProfilePic: null, accountName: '' } : p
-          )
-        );
-
-        setStatusMessage(`${platformName} disconnected successfully.`);
-        setStatusType('success');
-      } catch {
-        setStatusMessage(`Failed to disconnect ${platformName}.`);
-        setStatusType('error');
-      }
+      // Logic for showing confirmation modal before disconnecting
+      setPlatformToDisconnect(platformName);
+      setShowConfirmModal(true);
     }
+  };
+
+  const handleConfirmDisconnect = async () => {
+    setShowConfirmModal(false); // Close the modal immediately
+    if (!platformToDisconnect) return;
+
+    try {
+      await axios.delete(`http://localhost:8080/api/social-accounts/${platformToDisconnect.toLowerCase()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      setPlatforms((prev) =>
+        prev.map((p) =>
+          p.name === platformToDisconnect ? { ...p, connected: false, userProfilePic: null, accountName: '' } : p
+        )
+      );
+
+      setStatusMessage(`${platformToDisconnect} disconnected successfully.`);
+      setStatusType('success');
+    } catch (err) {
+      const msg = err?.response?.data?.error || `Failed to disconnect ${platformToDisconnect}.`;
+      setStatusMessage(msg);
+      setStatusType('error');
+    } finally {
+      setPlatformToDisconnect(null); // Clear the platform being disconnected
+    }
+  };
+
+  const handleCloseConfirmModal = () => {
+    setShowConfirmModal(false);
+    setPlatformToDisconnect(null); // Clear the platform being disconnected
   };
 
   return (
@@ -229,6 +275,14 @@ export default function ManageAccountPage() {
           </div>
         </>
       )}
+
+      {/* Disconnect Modal */}
+      <DisconnectModal
+        show={showConfirmModal}
+        onClose={handleCloseConfirmModal}
+        onConfirm={handleConfirmDisconnect}
+        platformName={platformToDisconnect}
+      />
     </div>
   );
 }
