@@ -45,15 +45,12 @@ type MastodonErrorResponse struct {
 
 func PostToMastodonHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Printf("DEBUG: Mastodon post request started\n")
 
 		userID, err := middleware.GetUserIDFromContext(r)
 		if err != nil {
-			fmt.Printf("DEBUG: Error getting user ID: %v\n", err)
 			http.Error(w, "Unauthorized: User not authenticated", http.StatusUnauthorized)
 			return
 		}
-		fmt.Printf("DEBUG: User ID: %s\n", userID)
 
 		var message string
 		var visibility string

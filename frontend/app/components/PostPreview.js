@@ -165,7 +165,7 @@ const MastodonPreview = ({ message, mediaFiles }) => (
   </div>
 );
 
-export default function PostPreview({ selectedPlatforms, message, mediaFiles, youtubeConfig, platformsList }) {
+export default function PostPreview({ selectedPlatforms, message, mediaFiles, youtubeConfig }) {
   return (
     <div className="space-y-6">
       {selectedPlatforms.includes('facebook') && <FacebookPreview message={message} mediaFiles={mediaFiles} />}

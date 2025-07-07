@@ -109,7 +109,7 @@ export default function PostEditor({
       }
     } catch (err) {
       if (err.name === 'AbortError') {
-        console.log('Upload canceled');
+
       } else {
         console.error('Cloudinary upload error:', err);
       }
@@ -182,7 +182,7 @@ export default function PostEditor({
           id="post-message"
           className="border border-gray-300 rounded p-3 resize-none min-h-[120px] w-full
                      focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                     transition-all duration-200"
+                     transition-all duration-200 text-black"
           placeholder="Write your post message here..."
           value={message}
           onChange={(e) => setMessage(e.target.value)}
@@ -293,7 +293,7 @@ export default function PostEditor({
                 setYoutubeConfig((prev) => ({ ...prev, title: e.target.value }))
               }
               disabled={isPublishing || uploading}
-              className="w-full border border-gray-300 rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+              className="w-full border border-gray-300 rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-black"
               placeholder="Enter video title"
               required
             />
@@ -310,7 +310,7 @@ export default function PostEditor({
                 setYoutubeConfig((prev) => ({ ...prev, description: e.target.value }))
               }
               disabled={isPublishing || uploading}
-              className="w-full border border-gray-300 rounded p-2 resize-none min-h-[80px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+              className="w-full border border-gray-300 rounded p-2 resize-none min-h-[80px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-black"
               placeholder="Enter video description"
             />
           </div>

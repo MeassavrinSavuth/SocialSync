@@ -52,7 +52,7 @@ export default function CreatePostPage() {
 
     try {
       const results = await publish(selectedPlatforms);
-      console.log('Publish results:', results);
+      
 
       const allSuccess = results.every((r) => r.success);
       if (allSuccess) {
