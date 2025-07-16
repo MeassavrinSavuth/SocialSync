@@ -149,6 +149,30 @@ export const useTasks = (workspaceId) => {
 
   useEffect(() => {
     fetchTasks();
+    if (!workspaceId) return;
+    const ws = new window.WebSocket(`ws://localhost:8080/ws/${workspaceId}`);
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'task_created' && msg.task) {
+          setTasks(prev => {
+            const exists = prev.some(t => t.id === msg.task.id);
+            if (exists) {
+              // Replace the existing task
+              return prev.map(t => t.id === msg.task.id ? msg.task : t);
+            } else {
+              // Add new task to the top
+              return [msg.task, ...prev];
+            }
+          });
+        } else if (msg.type === 'task_updated' && msg.task_id) {
+          fetchTasks(); // For simplicity, refetch all tasks on update
+        } else if (msg.type === 'task_deleted' && msg.task_id) {
+          setTasks(prev => prev.filter(t => t.id !== msg.task_id));
+        }
+      } catch (e) { /* ignore */ }
+    };
+    return () => ws.close();
   }, [workspaceId]);
 
   return {

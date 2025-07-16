@@ -9,12 +9,83 @@ import (
 	"social-sync-backend/models"
 	"time"
 
+	"sync"
+
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 )
 
 // Mock DB for demonstration (replace with real DB logic)
 var workspaces = []models.Workspace{}
+
+// --- WebSocket Real-Time Hub ---
+type wsClient struct {
+	conn *websocket.Conn
+}
+
+type wsHub struct {
+	clients map[string]map[*wsClient]bool // workspaceId -> clients
+	lock    sync.RWMutex
+}
+
+var hub = &wsHub{
+	clients: make(map[string]map[*wsClient]bool),
+}
+
+func (h *wsHub) addClient(workspaceId string, client *wsClient) {
+	h.lock.Lock()
+	defer h.lock.Unlock()
+	if h.clients[workspaceId] == nil {
+		h.clients[workspaceId] = make(map[*wsClient]bool)
+	}
+	h.clients[workspaceId][client] = true
+}
+
+func (h *wsHub) removeClient(workspaceId string, client *wsClient) {
+	h.lock.Lock()
+	defer h.lock.Unlock()
+	if h.clients[workspaceId] != nil {
+		delete(h.clients[workspaceId], client)
+		if len(h.clients[workspaceId]) == 0 {
+			delete(h.clients, workspaceId)
+		}
+	}
+}
+
+func (h *wsHub) broadcast(workspaceId string, messageType int, data []byte) {
+	h.lock.RLock()
+	defer h.lock.RUnlock()
+	for client := range h.clients[workspaceId] {
+		client.conn.WriteMessage(messageType, data)
+	}
+}
+
+// WebSocket handler for workspace real-time updates
+func WorkspaceWSHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	workspaceId := vars["workspaceId"]
+	upgrader := websocket.Upgrader{
+		CheckOrigin: func(r *http.Request) bool { return true },
+	}
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return
+	}
+	client := &wsClient{conn: conn}
+	hub.addClient(workspaceId, client)
+	defer func() {
+		hub.removeClient(workspaceId, client)
+		conn.Close()
+	}()
+	for {
+		_, _, err := conn.ReadMessage()
+		if err != nil {
+			break
+		}
+		// This server is broadcast-only; ignore client messages
+	}
+}
 
 func ListWorkspaces(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from JWT token
@@ -219,6 +290,17 @@ func LeaveWorkspace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get user's email
+	var userEmail string
+	err = lib.DB.QueryRow("SELECT email FROM users WHERE id = $1", userID).Scan(&userEmail)
+	if err == nil && userEmail != "" {
+		msg, _ := json.Marshal(map[string]interface{}{
+			"type":         "removed_from_workspace",
+			"workspace_id": workspaceID,
+		})
+		userHub.broadcast(userEmail, msg)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"message": "Successfully left workspace"})
 }
@@ -244,18 +326,24 @@ func RemoveWorkspaceMember(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Printf("Error checking admin status: %v", err)
-		http.Error(w, "Failed to verify permissions", http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to verify permissions"})
 		return
 	}
 
 	if !isAdmin {
-		http.Error(w, "Only workspace admins can remove members", http.StatusForbidden)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Only workspace admins can remove members"})
 		return
 	}
 
 	// Check if trying to remove self (admin)
 	if userID == memberID {
-		http.Error(w, "Admins cannot remove themselves. Use leave workspace instead.", http.StatusForbidden)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Admins cannot remove themselves. Use leave workspace instead."})
 		return
 	}
 
@@ -268,12 +356,16 @@ func RemoveWorkspaceMember(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Printf("Error checking member: %v", err)
-		http.Error(w, "Member not found in workspace", http.StatusNotFound)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Member not found in workspace"})
 		return
 	}
 
 	if memberRole == "Admin" {
-		http.Error(w, "Cannot remove another admin", http.StatusForbidden)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Cannot remove another admin"})
 		return
 	}
 
@@ -285,18 +377,40 @@ func RemoveWorkspaceMember(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Printf("Error removing member from workspace: %v", err)
-		http.Error(w, "Failed to remove member", http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to remove member"})
 		return
 	}
 
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected == 0 {
-		http.Error(w, "Member not found in workspace", http.StatusNotFound)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Member not found in workspace"})
 		return
+	}
+
+	// Get member's email
+	var memberEmail string
+	err = lib.DB.QueryRow("SELECT email FROM users WHERE id = $1", memberID).Scan(&memberEmail)
+	if err == nil && memberEmail != "" {
+		msg, _ := json.Marshal(map[string]interface{}{
+			"type":         "removed_from_workspace",
+			"workspace_id": workspaceID,
+		})
+		userHub.broadcast(memberEmail, msg)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"message": "Member removed successfully"})
+
+	// --- WebSocket broadcast for real-time member removal ---
+	msg, _ := json.Marshal(map[string]interface{}{
+		"type":    "member_removed",
+		"user_id": memberID,
+	})
+	hub.broadcast(workspaceID, websocket.TextMessage, msg)
 }
 
 // DeleteWorkspace allows the admin to delete a workspace and all related data
@@ -380,17 +494,23 @@ func ChangeMemberRole(w http.ResponseWriter, r *http.Request) {
 		)
 	`, workspaceID, userID).Scan(&isAdmin)
 	if err != nil {
-		http.Error(w, "Failed to verify permissions", http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to verify permissions"})
 		return
 	}
 	if !isAdmin {
-		http.Error(w, "Only workspace admin can change member roles", http.StatusForbidden)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Only workspace admin can change member roles"})
 		return
 	}
 
 	// Prevent admin from changing their own role
 	if userID == memberID {
-		http.Error(w, "Admin cannot change their own role", http.StatusForbidden)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Admin cannot change their own role"})
 		return
 	}
 
@@ -399,11 +519,15 @@ func ChangeMemberRole(w http.ResponseWriter, r *http.Request) {
 		Role string `json:"role"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request", http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request"})
 		return
 	}
 	if req.Role != "Admin" && req.Role != "Editor" && req.Role != "Viewer" {
-		http.Error(w, "Invalid role", http.StatusBadRequest)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid role"})
 		return
 	}
 
@@ -412,14 +536,25 @@ func ChangeMemberRole(w http.ResponseWriter, r *http.Request) {
 		UPDATE workspace_members SET role = $1 WHERE workspace_id = $2 AND user_id = $3
 	`, req.Role, workspaceID, memberID)
 	if err != nil {
-		http.Error(w, "Failed to update member role", http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to update member role"})
 		return
 	}
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
 		http.Error(w, "Member not found in workspace", http.StatusNotFound)
 		return
 	}
+
+	msg, _ := json.Marshal(map[string]interface{}{
+		"type":    "member_role_changed",
+		"user_id": memberID,
+		"role":    req.Role,
+	})
+	hub.broadcast(workspaceID, websocket.TextMessage, msg)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"message": "Member role updated successfully"})

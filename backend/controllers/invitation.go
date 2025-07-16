@@ -128,6 +128,15 @@ func SendInvitation(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(invitation)
+
+	// --- WebSocket broadcast to invited user (real-time invite) ---
+	msg, _ := json.Marshal(map[string]interface{}{
+		"type":       "invitation_created",
+		"invitation": invitation,
+	})
+	if userHub != nil {
+		userHub.broadcast(req.Email, msg)
+	}
 }
 
 // GetInvitations gets all pending invitations for the current user
@@ -253,6 +262,13 @@ func AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to join workspace", http.StatusInternalServerError)
 		return
 	}
+
+	// --- WebSocket broadcast for real-time member add ---
+	msg, _ := json.Marshal(map[string]interface{}{
+		"type":    "member_added",
+		"user_id": userID,
+	})
+	hub.broadcast(invitation.WorkspaceID, 1, msg)
 
 	// Commit transaction
 	if err := tx.Commit(); err != nil {

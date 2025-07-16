@@ -123,6 +123,17 @@ export function useMedia(workspaceId) {
   useEffect(() => {
     if (workspaceId) {
       fetchMedia();
+      const ws = new window.WebSocket(`ws://localhost:8080/ws/${workspaceId}`);
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === 'media_uploaded' && msg.media) {
+            setMedia(prev => [msg.media, ...prev.filter(m => m.id !== msg.media.id)]);
+            setTotal(prev => prev + 1);
+          }
+        } catch (e) { /* ignore */ }
+      };
+      return () => ws.close();
     }
   }, [workspaceId]);
 

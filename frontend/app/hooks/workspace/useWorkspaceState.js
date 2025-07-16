@@ -34,6 +34,11 @@ export function useWorkspaceState() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [leaveLoading, setLeaveLoading] = useState(false);
 
+  // Kick member modal state
+  const [showKickModal, setShowKickModal] = useState(false);
+  const [kickMemberId, setKickMemberId] = useState(null);
+  const [kickMemberName, setKickMemberName] = useState('');
+
   // Use workspace members hook
   const { members, loading: membersLoading, error: membersError, leaveWorkspace, removeMember, changeMemberRole } = useWorkspaceMembers(selectedWorkspace?.id);
 
@@ -104,7 +109,7 @@ export function useWorkspaceState() {
     
     setRoleChangeLoading(prev => ({ ...prev, [memberId]: true }));
     try {
-      await changeMemberRole(selectedWorkspace.id, memberId, newRole);
+      await changeMemberRole(memberId, newRole);
     } catch (error) {
       console.error('Failed to change role:', error);
     } finally {
@@ -131,16 +136,29 @@ export function useWorkspaceState() {
     }
   };
 
-  const handleRemoveMember = async (memberId, memberName) => {
-    if (!selectedWorkspace) return;
-    
-    if (window.confirm(`Are you sure you want to remove ${memberName} from this workspace?`)) {
-      try {
-        await removeMember(selectedWorkspace.id, memberId);
-      } catch (error) {
-        console.error('Failed to remove member:', error);
-      }
+  const handleRemoveMember = (memberId, memberName) => {
+    setKickMemberId(memberId);
+    setKickMemberName(memberName);
+    setShowKickModal(true);
+  };
+
+  const confirmKickMember = async () => {
+    if (!kickMemberId) return;
+    try {
+      await removeMember(kickMemberId);
+    } catch (error) {
+      console.error('Failed to remove member:', error);
+    } finally {
+      setShowKickModal(false);
+      setKickMemberId(null);
+      setKickMemberName('');
     }
+  };
+
+  const cancelKickMember = () => {
+    setShowKickModal(false);
+    setKickMemberId(null);
+    setKickMemberName('');
   };
 
   return {
@@ -202,6 +220,11 @@ export function useWorkspaceState() {
     
     // API functions
     acceptInvitation,
-    declineInvitation
+    declineInvitation,
+    showKickModal,
+    kickMemberId,
+    kickMemberName,
+    confirmKickMember,
+    cancelKickMember
   };
 } 

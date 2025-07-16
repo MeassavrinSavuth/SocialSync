@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { useToggle } from '../../hooks/ui/useToggle';
 import CommentSection from './CommentSection';
+import { useUser } from '../../hooks/auth/useUser';
 
 const TaskCard = ({ task, onUpdate, onDelete, workspaceId }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [showComments, toggleComments] = useToggle(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const { profileData: currentUser } = useUser();
   const [editForm, setEditForm] = useState({
     title: task.title,
     description: task.description || '',
@@ -48,6 +51,9 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId }) => {
   };
 
   const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'Done';
+
+  // Show the 3-dot menu for all users in the workspace
+  const isOwner = true;
 
   return (
     <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-4">
@@ -109,49 +115,70 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId }) => {
         </div>
       ) : (
         <div>
-          <div className="flex justify-between items-start mb-4">
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">{task.title}</h3>
-              {task.description && (
-                <p className="text-gray-600 mb-3">{task.description}</p>
-              )}
+          <div className="flex items-center justify-between mb-4">
+            {/* Creator info and 3-dot menu */}
+            <div className="flex items-center">
+              <img
+                src={task.creator_avatar || '/default-avatar.png'}
+                alt={task.creator_name || 'Unknown'}
+                className="w-9 h-9 rounded-full border mr-3 shadow-sm"
+                title={task.creator_name || 'Unknown'}
+              />
+              {/* 3-dot menu for all users, right next to avatar */}
+              <div className="relative ml-3 flex items-center">
+                <button
+                  onClick={() => setMenuOpen((open) => !open)}
+                  className="p-2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                  aria-label="Task options"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle cx="12" cy="6" r="1.5"/>
+                    <circle cx="12" cy="12" r="1.5"/>
+                    <circle cx="12" cy="18" r="1.5"/>
+                  </svg>
+                </button>
+                {menuOpen && (
+                  <div className="absolute right-0 mt-2 w-32 bg-white border rounded shadow z-10">
+                    <button
+                      className="block w-full text-left px-4 py-2 text-blue-700 hover:bg-blue-100 font-semibold"
+                      onClick={() => { setIsEditing(true); setMenuOpen(false); }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 font-semibold"
+                      onClick={() => { setMenuOpen(false); handleDelete(); }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col ml-3">
+                <span className="font-semibold text-base text-gray-900 leading-tight">
+                  {task.creator_name || 'Unknown'}
+                </span>
+                <span className="text-xs text-gray-500">{task.created_at ? new Date(task.created_at).toLocaleString() : 'Just now'}</span>
+              </div>
+              <span className="ml-2 text-xs text-gray-400">(Posted by)</span>
             </div>
-            <div className="flex space-x-2">
-              <button
-                onClick={() => setIsEditing(true)}
-                className="p-2 text-gray-500 hover:text-blue-500 focus:outline-none"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-              </button>
-              <button
-                onClick={handleDelete}
-                className="p-2 text-gray-500 hover:text-red-500 focus:outline-none"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap gap-2 mb-4">
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[task.status] || statusColors['Todo']}`}>
-              {task.status}
-            </span>
-            {task.assigned_to && (
-              <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
-                Assigned to: {task.assigned_to}
+            {/* Status and Assignee with headers (unchanged) */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[task.status] || statusColors['Todo']}`}>
+                {task.status}
               </span>
-            )}
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-              isOverdue ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
-            }`}>
-              Due: {formatDate(task.due_date)}
-            </span>
+              {task.assigned_to && (
+                <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                  Assigned to: {task.assigned_to}
+                </span>
+              )}
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                isOverdue ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
+              }`}>
+                Due: {formatDate(task.due_date)}
+              </span>
+            </div>
           </div>
-
           <div className="flex justify-between items-center">
             <button
               onClick={toggleComments}
@@ -163,7 +190,6 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId }) => {
               Created {new Date(task.created_at).toLocaleDateString()}
             </div>
           </div>
-
           {showComments && (
             <div className="mt-4 pt-4 border-t border-gray-200">
               <CommentSection taskId={task.id} workspaceId={workspaceId} />
@@ -175,4 +201,4 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId }) => {
   );
 };
 
-export default TaskCard; 
+export default TaskCard;

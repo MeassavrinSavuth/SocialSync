@@ -8,7 +8,8 @@ import PlatformSelector from './PlatformSelector';
 import MiniFacebookPreview from './MiniFacebookPreview';
 import MiniMastodonPreview from './MiniMastodonPreview';
 import CommentSection from './CommentSection';
-import { FaUserPlus, FaTrash, FaEdit, FaCommentAlt, FaClock, FaPlus } from 'react-icons/fa';
+import { FaUserPlus, FaTrash, FaEdit, FaClock, FaPlus, FaEllipsisH } from 'react-icons/fa';
+import { MdOutlineModeComment, MdThumbUpOffAlt, MdFavoriteBorder } from 'react-icons/md';
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '👎'];
 
@@ -43,6 +44,9 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
     if (status === 'In Progress') return 'bg-yellow-50 text-yellow-800 border-yellow-200';
     return 'bg-green-50 text-green-800 border-green-200';
   };
+
+  // Deduplicate tasks by id before rendering
+  const uniqueTasks = Array.from(new Map(tasks.map(t => [t.id, t])).values());
 
   // Show loading state
   if (loading) {
@@ -111,8 +115,9 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
           initialData={editingTask}
         />
       </Modal>
-      <div className="space-y-8">
-        {tasks.map((task) => (
+      {/* Task List Grid */}
+      <div className="grid grid-cols-1 gap-8">
+        {uniqueTasks.map((task) => (
           <TaskReactionWrapper 
             key={task.id} 
             task={task} 
@@ -142,6 +147,19 @@ function TaskReactionWrapper({
   setOpenCommentTaskId
 }) {
   const { reactions, userReactions, toggleReaction } = useTaskReactions(workspaceId, task.id);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef();
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    }
+    if (menuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpen]);
 
   const handleReact = async (reactionType) => {
     await toggleReaction(reactionType);
@@ -155,20 +173,101 @@ function TaskReactionWrapper({
 
   return (
     <div
-      className="bg-white rounded-2xl shadow-lg p-6 relative flex flex-col border-l-4 transition hover:shadow-xl group"
-      style={{ borderColor: task.status === 'Todo' ? '#a0aec0' : task.status === 'In Progress' ? '#ecc94b' : '#38a169' }}
+      className={
+        `bg-white rounded-2xl shadow-md border border-gray-100 p-6 mb-4 transition-all duration-200 flex flex-col relative group ` +
+        `hover:shadow-xl hover:-translate-y-1 `
+      }
+      style={{ borderLeft: `6px solid ${task.status === 'Todo' ? '#a0aec0' : task.status === 'In Progress' ? '#ecc94b' : task.status === 'Review' ? '#fbbf24' : '#38a169'}` }}
     >
-      {/* Status and actions */}
-      <div className="flex items-center justify-between mb-2">
-        <div className={`px-3 py-1 rounded-full text-xs font-semibold shadow-sm border ${statusColor(task.status)} text-gray-800`}>{task.status}</div>
-        <div className="flex gap-2">
-          <button className="text-xs text-blue-700 hover:underline flex items-center rounded px-2 py-1" onClick={() => onEditTask(task)} title="Edit"><FaEdit className="mr-1" />Edit</button>
-          <button className="text-xs text-red-600 hover:underline flex items-center rounded px-2 py-1" onClick={() => onDeleteTask(task.id)} title="Delete"><FaTrash className="mr-1" />Delete</button>
+      {/* Top row: Creator info, [Status & Assignee + 3-dot menu] */}
+      <div className="flex items-center justify-between mb-4 w-full">
+        {/* Left: Creator info */}
+        <div className="flex items-center">
+          <img
+            src={task.creator_avatar || '/default-avatar.png'}
+            alt={task.creator_name || 'Unknown'}
+            className="w-9 h-9 rounded-full border mr-3 shadow-sm"
+            title={task.creator_name || 'Unknown'}
+          />
+          <div className="flex flex-col">
+            <span className="font-semibold text-base text-gray-900 leading-tight">
+              {task.creator_name || 'Unknown'}
+            </span>
+            <span className="text-xs text-gray-500">{task.created_at ? new Date(task.created_at).toLocaleString() : 'Just now'}</span>
+          </div>
+          <span className="ml-2 text-xs text-gray-400">(Posted by)</span>
+        </div>
+        {/* Right: Status & Assignee group + 3-dot menu */}
+        <div className="flex items-center gap-4">
+          {/* Status & Assignee group */}
+          <div className="flex items-end gap-6">
+            {/* Status column */}
+            <div className="flex flex-col items-center">
+              <span className="text-xs text-gray-400 font-medium mb-1">Status</span>
+              <span className={
+                `px-3 py-1 rounded-full text-xs font-semibold ` +
+                (task.status === 'Done' ? 'bg-green-100 text-green-800' :
+                 task.status === 'In Progress' ? 'bg-blue-100 text-blue-800' :
+                 task.status === 'Review' ? 'bg-yellow-100 text-yellow-800' :
+                 'bg-gray-100 text-gray-800')
+              }>
+                {task.status}
+              </span>
+            </div>
+            {/* Vertical divider */}
+            <div className="h-9 border-l border-gray-300" />
+            {/* Assignee column */}
+            <div className="flex flex-col items-center">
+              <span className="text-xs text-gray-400 font-medium mb-1">Assignee</span>
+              {task.assigned_to ? (() => {
+                const member = teamMembers.find(m => m.id === task.assigned_to);
+                return member ? (
+                  <div className="flex items-center">
+                    <img
+                      src={member.avatar}
+                      alt={member.name}
+                      className="w-7 h-7 rounded-full border mr-1 shadow-sm"
+                      title={member.name}
+                    />
+                    <span className="text-xs text-gray-700 font-medium">{member.name}</span>
+                  </div>
+                ) : (
+                  <span className="text-xs text-gray-400">Unknown user</span>
+                );
+              })() : <span className="text-xs text-gray-400">None</span>}
+            </div>
+          </div>
+          {/* 3-dot menu */}
+          <div className="relative flex items-center">
+            <button
+              onClick={() => setMenuOpen((open) => !open)}
+              className="p-2 text-gray-500 hover:text-gray-700 focus:outline-none"
+              aria-label="Task options"
+            >
+              <FaEllipsisH className="w-5 h-5" />
+            </button>
+            {menuOpen && (
+              <div ref={menuRef} className="absolute right-0 mt-8 w-32 bg-white border rounded shadow z-20">
+                <button
+                  className="block w-full text-left px-4 py-2 text-blue-700 hover:bg-blue-100 font-semibold"
+                  onClick={() => { setMenuOpen(false); onEditTask(task); }}
+                >
+                  Edit
+                </button>
+                <button
+                  className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 font-semibold"
+                  onClick={() => { setMenuOpen(false); onDeleteTask(task.id); }}
+                >
+                  Delete
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
       {/* Title and content */}
-      <div className="mb-1 text-base font-semibold text-gray-800">{task.title}</div>
-      <div className="mb-2 text-gray-700 whitespace-pre-line text-sm">{task.description}</div>
+      <div className="mb-2 text-xl font-bold text-gray-900 leading-tight tracking-tight">{task.title}</div>
+      <div className="mb-4 text-gray-600 text-base bg-gray-50 rounded-lg px-4 py-3 whitespace-pre-line border border-gray-100 shadow-sm">{task.description}</div>
       {/* Media preview */}
       {task.media && (
         <div className="my-2">
@@ -179,35 +278,6 @@ function TaskReactionWrapper({
           )}
         </div>
       )}
-      {/* Timestamp */}
-      <div className="flex items-center text-xs text-gray-500 mb-2">
-        <FaClock className="mr-1" />
-        {task.created_at ? new Date(task.created_at).toLocaleString() : 'Just now'}
-      </div>
-      {/* Assigned members */}
-      <div className="flex items-center mt-2">
-        <span className="text-xs text-gray-700 mr-2">Assigned:</span>
-        {task.assigned_to ? (
-          (() => {
-            const member = teamMembers.find(m => m.id === task.assigned_to);
-            return member ? (
-              <div className="flex items-center">
-                <img
-                  src={member.avatar}
-                  alt={member.name}
-                  className="w-7 h-7 rounded-full border mr-1 hover:scale-110 transition"
-                  title={member.name}
-                />
-                <span className="text-xs text-gray-600">{member.name}</span>
-              </div>
-            ) : (
-              <span className="text-xs text-gray-400">Unknown user</span>
-            );
-          })()
-        ) : (
-          <span className="text-xs text-gray-400">None</span>
-        )}
-      </div>
       {/* Reactions Bar */}
       <div className="flex items-center gap-4 mt-4">
         <button
@@ -218,7 +288,7 @@ function TaskReactionWrapper({
           }`}
           onClick={() => handleReact('thumbsUp')}
         >
-          👍 Like {reactions.thumbsUp > 0 && <span className="ml-1 font-bold">{reactions.thumbsUp}</span>}
+          <MdThumbUpOffAlt className="mr-1" /> Like {reactions.thumbsUp > 0 && <span className="ml-1 font-bold">{reactions.thumbsUp}</span>}
         </button>
         <button
           className={`flex items-center text-xs rounded px-2 py-1 transition ${
@@ -228,13 +298,13 @@ function TaskReactionWrapper({
           }`}
           onClick={() => handleReact('heart')}
         >
-          ❤️ Heart {reactions.heart > 0 && <span className="ml-1 font-bold">{reactions.heart}</span>}
+          <MdFavoriteBorder className="mr-1" /> Heart {reactions.heart > 0 && <span className="ml-1 font-bold">{reactions.heart}</span>}
         </button>
         <button
           className="flex items-center text-xs text-blue-700 hover:underline rounded px-2 py-1"
           onClick={() => setOpenCommentTaskId(openCommentTaskId === task.id ? null : task.id)}
         >
-          <FaCommentAlt className="mr-1" /> Comment
+          <MdOutlineModeComment className="mr-1" /> Comment
         </button>
         {/* Status dropdown */}
         <select

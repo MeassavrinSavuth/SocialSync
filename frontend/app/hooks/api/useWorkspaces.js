@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useUser } from '../auth/useUser';
 
 const API_BASE_URL = 'http://localhost:8080/api';
 
@@ -6,6 +7,7 @@ export const useWorkspaces = () => {
   const [workspaces, setWorkspaces] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const { profileData: currentUser } = useUser();
 
   // Get access token from localStorage
   const getAuthToken = () => {
@@ -108,6 +110,21 @@ export const useWorkspaces = () => {
   useEffect(() => {
     fetchWorkspaces();
   }, []);
+
+  // Real-time: Remove workspace if kicked or left
+  useEffect(() => {
+    if (!currentUser?.email) return;
+    const ws = new window.WebSocket(`ws://localhost:8080/ws/invitations/${encodeURIComponent(currentUser.email)}`);
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'removed_from_workspace' && msg.workspace_id) {
+          setWorkspaces(prev => prev.filter(ws => ws.id !== msg.workspace_id));
+        }
+      } catch (e) { /* ignore */ }
+    };
+    return () => ws.close();
+  }, [currentUser?.email]);
 
   return {
     workspaces,

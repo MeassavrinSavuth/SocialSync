@@ -23,4 +23,5 @@ func RegisterWorkspaceRoutes(r *mux.Router) {
 		middleware.JWTMiddleware(http.HandlerFunc(controllers.DeleteWorkspace))).Methods("DELETE")
 	r.Handle("/api/workspaces/{workspaceId}/members/{memberId}/role",
 		middleware.JWTMiddleware(http.HandlerFunc(controllers.ChangeMemberRole))).Methods("PATCH")
+	r.HandleFunc("/ws/{workspaceId}", controllers.WorkspaceWSHandler).Methods("GET")
 }

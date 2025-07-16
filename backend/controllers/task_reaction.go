@@ -31,7 +31,6 @@ func ToggleReaction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-
 	// Check if reaction already exists
 	var existingReactionID string
 	err := lib.DB.QueryRow(`
@@ -56,7 +55,6 @@ func ToggleReaction(w http.ResponseWriter, r *http.Request) {
 		// Reaction doesn't exist, add it
 		reactionID := uuid.NewString()
 		now := time.Now()
-
 
 		_, err = lib.DB.Exec(`
 			INSERT INTO task_reactions (id, task_id, user_id, reaction_type, created_at)
@@ -89,7 +87,6 @@ func GetTaskReactions(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	taskID := vars["taskId"]
 
-
 	// Get reaction counts grouped by type
 	rows, err := lib.DB.Query(`
 		SELECT reaction_type, COUNT(*) as count
@@ -116,7 +113,6 @@ func GetTaskReactions(w http.ResponseWriter, r *http.Request) {
 		reactions[reactionType] = count
 	}
 
-
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(reactions)
 }
@@ -126,7 +122,6 @@ func GetUserReactions(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(middleware.UserIDKey).(string)
 	vars := mux.Vars(r)
 	taskID := vars["taskId"]
-
 
 	rows, err := lib.DB.Query(`
 		SELECT reaction_type
@@ -150,7 +145,6 @@ func GetUserReactions(w http.ResponseWriter, r *http.Request) {
 		}
 		userReactions = append(userReactions, reactionType)
 	}
-
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(userReactions)

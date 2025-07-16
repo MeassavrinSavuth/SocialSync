@@ -67,7 +67,25 @@ export function useDraftPosts(workspaceId) {
     return res.ok;
   };
 
-  useEffect(() => { if (workspaceId) fetchDrafts(); }, [workspaceId]);
+  useEffect(() => {
+    if (workspaceId) {
+      fetchDrafts();
+      const ws = new window.WebSocket(`ws://localhost:8080/ws/${workspaceId}`);
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === 'draft_created' && msg.draft) {
+            setDrafts(prev => [msg.draft, ...prev.filter(d => d.id !== msg.draft.id)]);
+          } else if ((msg.type === 'draft_updated' || msg.type === 'draft_published') && msg.draft) {
+            fetchDrafts(); // Refetch for update/publish
+          } else if (msg.type === 'draft_deleted' && msg.draftId) {
+            setDrafts(prev => prev.filter(d => d.id !== msg.draftId));
+          }
+        } catch (e) { /* ignore */ }
+      };
+      return () => ws.close();
+    }
+  }, [workspaceId]);
 
   return { drafts, loading, error, fetchDrafts, createDraft, updateDraft, deleteDraft, publishDraft };
 } 

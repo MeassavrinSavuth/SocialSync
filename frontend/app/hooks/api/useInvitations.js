@@ -26,14 +26,20 @@ export const useInvitations = () => {
       const token = getAuthToken();
       console.log('Fetching invitations with token:', token ? 'present' : 'missing');
       
+      // Add timeout to prevent hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
       const response = await fetch(`${API_BASE_URL}/invitations`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
+        signal: controller.signal,
       });
 
+      clearTimeout(timeoutId);
       console.log('Invitations response status:', response.status);
 
       if (!response.ok) {
@@ -42,9 +48,19 @@ export const useInvitations = () => {
 
       const data = await response.json();
       console.log('Fetched invitations:', data);
-      setInvitations(data);
+      setInvitations(Array.isArray(data) ? data : []);
     } catch (err) {
-      setError(err.message);
+      let errorMessage = 'Failed to fetch invitations';
+      
+      if (err.name === 'AbortError') {
+        errorMessage = 'Request timed out. Please check your connection and try again.';
+      } else if (err.message === 'Failed to fetch') {
+        errorMessage = 'Network error. Please check if the backend server is running.';
+      } else {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
       console.error('Error fetching invitations:', err);
     } finally {
       setLoading(false);
@@ -131,7 +147,10 @@ export const useInvitations = () => {
 
       // Remove the accepted invitation from the list
       setInvitations(prev => prev.filter(inv => inv.id !== invitationId));
-      
+
+      // Reload the page to show the new workspace
+      window.location.reload();
+
       return await response.json();
     } catch (err) {
       setError(err.message);
@@ -177,9 +196,23 @@ export const useInvitations = () => {
   // Load invitations on mount and when user changes
   useEffect(() => {
     if (currentUser && currentUser.email) {
-      console.log('Fetching invitations for user:', currentUser.email);
       fetchInvitations();
     }
+  }, [currentUser?.email]);
+
+  // Real-time WebSocket for invitations
+  useEffect(() => {
+    if (!currentUser?.email) return;
+    const ws = new window.WebSocket(`ws://localhost:8080/ws/invitations/${encodeURIComponent(currentUser.email)}`);
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'invitation_created') {
+          fetchInvitations();
+        }
+      } catch (e) { /* ignore */ }
+    };
+    return () => ws.close();
   }, [currentUser?.email]);
 
   return {

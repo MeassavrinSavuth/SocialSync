@@ -24,4 +24,7 @@ func RegisterInvitationRoutes(r *mux.Router) {
 	// Decline invitation
 	r.Handle("/api/invitations/{invitationId}/decline",
 		middleware.JWTMiddleware(http.HandlerFunc(controllers.DeclineInvitation))).Methods("POST")
+
+	// WebSocket for real-time invitations
+	r.HandleFunc("/ws/invitations/{email}", controllers.InvitationWSHandler).Methods("GET")
 }

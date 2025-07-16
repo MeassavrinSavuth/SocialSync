@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 
 function getField(inv, camel, snake) {
   return inv[camel] !== undefined ? inv[camel] : inv[snake];
 }
 
 export default function InviteModal({ open, invitations, onAccept, onDecline, onClose, loading = false }) {
-  console.log('InviteModal render - open:', open, 'invitations:', invitations);
+  useEffect(() => {
+    console.log('InviteModal render - open:', open, 'invitations:', invitations);
+  }, [open, invitations]);
   
   if (!open) return null;
   

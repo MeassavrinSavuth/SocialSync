@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 )
 
 // MediaUploadRequest represents the request for uploading media
@@ -129,6 +130,13 @@ func UploadMedia(w http.ResponseWriter, r *http.Request) {
 	// Return the created media
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(media)
+
+	// Broadcast the event to all workspace clients
+	msg, _ := json.Marshal(map[string]interface{}{
+		"type":  "media_uploaded",
+		"media": media,
+	})
+	hub.broadcast(workspaceID, websocket.TextMessage, msg)
 }
 
 // ListMedia handles listing media for a workspace

@@ -62,6 +62,10 @@ export default function MemberList({
                 const isAdmin = selectedWorkspace.admin_id === currentUser.id;
                 const isMemberAdmin = m.role === 'Admin';
                 
+                // Only allow valid roles in the dropdown
+                const validRoles = ['Admin', 'Editor', 'Viewer'];
+                const safeRole = validRoles.includes(m.role) ? m.role : 'Viewer';
+                
                 return (
                   <tr
                     key={m.id}
@@ -79,14 +83,14 @@ export default function MemberList({
                       {isAdmin && !isCurrentUser && !isMemberAdmin ? (
                         <select
                           className={`px-2 py-1 rounded border text-xs font-semibold transition-colors duration-200
-                            ${m.role === 'Admin' ? 'text-blue-700 bg-blue-50' : m.role === 'Editor' ? 'text-green-700 bg-green-50' : 'text-gray-700 bg-gray-50'}`}
-                          value={m.role}
+                            ${safeRole === 'Admin' ? 'text-blue-700 bg-blue-50' : safeRole === 'Editor' ? 'text-green-700 bg-green-50' : 'text-gray-700 bg-gray-50'}`}
+                          value={safeRole}
                           onChange={e => onRoleChange(m.id, e.target.value)}
                           disabled={roleChangeLoading[m.id]}
                         >
+                          <option value="Admin">Admin</option>
                           <option value="Editor">Editor</option>
                           <option value="Viewer">Viewer</option>
-                          <option value="Admin">Admin</option>
                         </select>
                       ) : (
                         <span className={

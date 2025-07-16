@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 )
 
 // CreateTask creates a new task in a workspace
@@ -55,6 +56,14 @@ func CreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// After inserting the task, fetch the creator's name and avatar
+	var creatorName, creatorAvatar *string
+	err = lib.DB.QueryRow(`SELECT name, profile_picture FROM users WHERE id = $1`, userID).Scan(&creatorName, &creatorAvatar)
+	if err != nil {
+		creatorName = nil
+		creatorAvatar = nil
+	}
+
 	task := models.Task{
 		ID:          taskID,
 		WorkspaceID: workspaceID,
@@ -68,9 +77,25 @@ func CreateTask(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt:   now,
 	}
 
+	taskWithCreator := struct {
+		models.Task
+		CreatorName   *string `json:"creator_name"`
+		CreatorAvatar *string `json:"creator_avatar"`
+	}{
+		Task:          task,
+		CreatorName:   creatorName,
+		CreatorAvatar: creatorAvatar,
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(task)
+	json.NewEncoder(w).Encode(taskWithCreator)
+
+	msg, _ := json.Marshal(map[string]interface{}{
+		"type": "task_created",
+		"task": taskWithCreator,
+	})
+	hub.broadcast(workspaceID, websocket.TextMessage, msg)
 }
 
 // ListTasks lists all tasks for a workspace
@@ -78,9 +103,18 @@ func ListTasks(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	workspaceID := vars["workspaceId"]
 
+	type TaskWithCreator struct {
+		models.Task
+		CreatorName   *string `json:"creator_name"`
+		CreatorAvatar *string `json:"creator_avatar"`
+	}
+
 	rows, err := lib.DB.Query(`
-		SELECT id, workspace_id, title, description, status, assigned_to, created_by, due_date, created_at, updated_at
-		FROM tasks WHERE workspace_id = $1 ORDER BY created_at DESC
+		SELECT t.id, t.workspace_id, t.title, t.description, t.status, t.assigned_to, t.created_by, t.due_date, t.created_at, t.updated_at,
+		       u.name as creator_name, u.profile_picture as creator_avatar
+		FROM tasks t
+		LEFT JOIN users u ON t.created_by = u.id
+		WHERE t.workspace_id = $1 ORDER BY t.created_at DESC
 	`, workspaceID)
 	if err != nil {
 		http.Error(w, "Failed to fetch tasks", http.StatusInternalServerError)
@@ -88,14 +122,20 @@ func ListTasks(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	tasks := []models.Task{}
+	tasks := []TaskWithCreator{}
 	for rows.Next() {
 		var t models.Task
-		err := rows.Scan(&t.ID, &t.WorkspaceID, &t.Title, &t.Description, &t.Status, &t.AssignedTo, &t.CreatedBy, &t.DueDate, &t.CreatedAt, &t.UpdatedAt)
+		var creatorName *string
+		var creatorAvatar *string
+		err := rows.Scan(&t.ID, &t.WorkspaceID, &t.Title, &t.Description, &t.Status, &t.AssignedTo, &t.CreatedBy, &t.DueDate, &t.CreatedAt, &t.UpdatedAt, &creatorName, &creatorAvatar)
 		if err != nil {
 			continue
 		}
-		tasks = append(tasks, t)
+		tasks = append(tasks, TaskWithCreator{
+			Task:          t,
+			CreatorName:   creatorName,
+			CreatorAvatar: creatorAvatar,
+		})
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(tasks)
@@ -104,6 +144,7 @@ func ListTasks(w http.ResponseWriter, r *http.Request) {
 // UpdateTask updates a task by ID
 func UpdateTask(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
+	workspaceID := vars["workspaceId"]
 	taskID := vars["taskId"]
 
 	var req struct {
@@ -161,6 +202,13 @@ func UpdateTask(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to update task", http.StatusInternalServerError)
 		return
 	}
+
+	msg, _ := json.Marshal(map[string]interface{}{
+		"type":    "task_updated",
+		"task_id": taskID,
+	})
+	hub.broadcast(workspaceID, websocket.TextMessage, msg)
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Task updated successfully"})
 }
@@ -168,6 +216,7 @@ func UpdateTask(w http.ResponseWriter, r *http.Request) {
 // DeleteTask deletes a task by ID
 func DeleteTask(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
+	workspaceID := vars["workspaceId"]
 	taskID := vars["taskId"]
 
 	_, err := lib.DB.Exec(`DELETE FROM tasks WHERE id = $1`, taskID)
@@ -175,6 +224,13 @@ func DeleteTask(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to delete task", http.StatusInternalServerError)
 		return
 	}
+
+	msg, _ := json.Marshal(map[string]interface{}{
+		"type":    "task_deleted",
+		"task_id": taskID,
+	})
+	hub.broadcast(workspaceID, websocket.TextMessage, msg)
+
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Task deleted successfully"})
 }

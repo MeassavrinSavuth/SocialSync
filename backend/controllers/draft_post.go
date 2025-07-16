@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 	"github.com/lib/pq"
 )
 
@@ -63,6 +64,12 @@ func CreateDraftPost(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(draft)
+
+	msg, _ := json.Marshal(map[string]interface{}{
+		"type":  "draft_created",
+		"draft": draft,
+	})
+	hub.broadcast(workspaceID, websocket.TextMessage, msg)
 }
 
 // ListDraftPosts lists all draft posts for a workspace
@@ -213,6 +220,12 @@ func UpdateDraftPost(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Draft updated successfully"})
+
+	msg, _ := json.Marshal(map[string]interface{}{
+		"type":  "draft_updated",
+		"draft": req,
+	})
+	hub.broadcast(vars["workspaceId"], websocket.TextMessage, msg)
 }
 
 // DeleteDraftPost deletes a draft post
@@ -227,6 +240,12 @@ func DeleteDraftPost(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Draft deleted successfully"})
+
+	msg, _ := json.Marshal(map[string]interface{}{
+		"type":    "draft_deleted",
+		"draftId": draftID,
+	})
+	hub.broadcast(vars["workspaceId"], websocket.TextMessage, msg)
 }
 
 // PublishDraftPost publishes a draft post (only for admin/editor)
@@ -257,6 +276,12 @@ func PublishDraftPost(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Draft published successfully"})
+
+	msg, _ := json.Marshal(map[string]interface{}{
+		"type":    "draft_published",
+		"draftId": draftID,
+	})
+	hub.broadcast(workspaceID, websocket.TextMessage, msg)
 }
 
 // --- Helpers ---

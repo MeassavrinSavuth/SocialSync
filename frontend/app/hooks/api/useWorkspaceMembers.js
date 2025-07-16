@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useUser } from '../auth/useUser';
 
 const API_BASE_URL = 'http://localhost:8080/api';
 
@@ -6,6 +7,7 @@ export const useWorkspaceMembers = (workspaceId) => {
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const { profileData: currentUser } = useUser();
 
   // Get access token from localStorage
   const getAuthToken = () => {
@@ -86,7 +88,7 @@ export const useWorkspaceMembers = (workspaceId) => {
       
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to remove member');
+        throw new Error(errorData.error || errorData.message || 'Failed to remove member');
       }
 
       // Refresh the member list
@@ -112,7 +114,7 @@ export const useWorkspaceMembers = (workspaceId) => {
       });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to change member role');
+        throw new Error(errorData.error || errorData.message || 'Failed to change member role');
       }
       await fetchMembers();
       return true;
@@ -124,6 +126,29 @@ export const useWorkspaceMembers = (workspaceId) => {
   useEffect(() => {
     fetchMembers();
   }, [workspaceId]);
+
+  // --- Real-time member removal and updates ---
+  useEffect(() => {
+    if (!workspaceId || !currentUser?.id) return;
+    const ws = new window.WebSocket(`ws://localhost:8080/ws/${workspaceId}`);
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'member_removed') {
+          if (msg.user_id === currentUser.id) {
+            // If current user was removed, redirect out
+            window.location.href = '/home/workspace';
+          } else {
+            // Otherwise, refetch members
+            fetchMembers();
+          }
+        } else if (msg.type === 'member_added' || msg.type === 'member_role_changed') {
+          fetchMembers();
+        }
+      } catch (e) { /* ignore */ }
+    };
+    return () => ws.close();
+  }, [workspaceId, currentUser?.id]);
 
   return {
     members,

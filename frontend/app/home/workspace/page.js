@@ -68,7 +68,11 @@ export default function WorkspacePage() {
     // API functions
     acceptInvitation,
     declineInvitation,
-    fetchInvitations
+    fetchInvitations,
+    showKickModal,
+    kickMemberName,
+    confirmKickMember,
+    cancelKickMember,
   } = useWorkspaceState();
 
   // Show loading state
@@ -155,6 +159,15 @@ export default function WorkspacePage() {
         message="Are you sure you want to leave this workspace?"
         onConfirm={confirmLeaveWorkspace}
         onCancel={() => setShowLeaveModal(false)}
+      />
+
+      {/* Kick Member Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showKickModal}
+        title="Remove Member"
+        message={`Are you sure you want to remove ${kickMemberName} from this workspace?`}
+        onConfirm={confirmKickMember}
+        onCancel={cancelKickMember}
       />
 
       {/* Invitations Modal */}
