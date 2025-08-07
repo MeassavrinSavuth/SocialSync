@@ -409,3 +409,298 @@ func isValidImageFile(filename string) bool {
 // 		strings.HasSuffix(ext, ".flv") ||
 // 		strings.HasSuffix(ext, ".webm")
 // }
+
+// GetMastodonPostsHandler fetches the user's Mastodon posts (toots) from their instance
+func GetMastodonPostsHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, err := middleware.GetUserIDFromContext(r)
+		if err != nil {
+			http.Error(w, "Unauthorized: User not authenticated", http.StatusUnauthorized)
+			return
+		}
+
+		// Get Mastodon access token and social_id (instance info)
+		var accessToken string
+		var tokenExpiry *time.Time
+		var refreshToken *string
+		var socialID string
+		err = db.QueryRow(`
+			SELECT access_token, access_token_expires_at, refresh_token, social_id
+			FROM social_accounts
+			WHERE user_id = $1 AND platform = 'mastodon'
+		`, userID).Scan(&accessToken, &tokenExpiry, &refreshToken, &socialID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				http.Error(w, "Mastodon account not connected", http.StatusBadRequest)
+				return
+			}
+			http.Error(w, "Failed to retrieve Mastodon account", http.StatusInternalServerError)
+			return
+		}
+		if tokenExpiry != nil && time.Now().After(*tokenExpiry) {
+			http.Error(w, "Mastodon access token has expired. Please reconnect your account.", http.StatusUnauthorized)
+			return
+		}
+
+		// Extract instance URL from social_id
+		var instanceURL string
+		if strings.Contains(socialID, "://") {
+			lastColonIndex := strings.LastIndex(socialID, ":")
+			if lastColonIndex == -1 {
+				http.Error(w, "Invalid Mastodon account data", http.StatusInternalServerError)
+				return
+			}
+			instanceURL = socialID[:lastColonIndex]
+		} else {
+			parts := strings.Split(socialID, ":")
+			if len(parts) < 2 {
+				http.Error(w, "Invalid Mastodon account data", http.StatusInternalServerError)
+				return
+			}
+			instanceURL = parts[0]
+			if !strings.HasPrefix(instanceURL, "http://") && !strings.HasPrefix(instanceURL, "https://") {
+				instanceURL = "https://" + instanceURL
+			}
+		}
+
+		// Step 1: Get the user's Mastodon account ID
+		verifyURL := instanceURL + "/api/v1/accounts/verify_credentials"
+		req, err := http.NewRequest("GET", verifyURL, nil)
+		if err != nil {
+			http.Error(w, "Failed to create request to Mastodon API", http.StatusInternalServerError)
+			return
+		}
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+		client := &http.Client{Timeout: 30 * time.Second}
+		resp, err := client.Do(req)
+		if err != nil {
+			http.Error(w, "Failed to contact Mastodon API", http.StatusInternalServerError)
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			http.Error(w, "Failed to verify Mastodon credentials: "+string(body), resp.StatusCode)
+			return
+		}
+		var verifyResp struct {
+			ID string `json:"id"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&verifyResp); err != nil {
+			http.Error(w, "Failed to decode Mastodon verify_credentials response", http.StatusInternalServerError)
+			return
+		}
+		if verifyResp.ID == "" {
+			http.Error(w, "Could not get Mastodon account ID", http.StatusInternalServerError)
+			return
+		}
+
+		// Step 2: Fetch statuses (toots)
+		statusesURL := instanceURL + "/api/v1/accounts/" + verifyResp.ID + "/statuses?limit=20"
+		req2, err := http.NewRequest("GET", statusesURL, nil)
+		if err != nil {
+			http.Error(w, "Failed to create request to Mastodon API", http.StatusInternalServerError)
+			return
+		}
+		req2.Header.Set("Authorization", "Bearer "+accessToken)
+		resp2, err := client.Do(req2)
+		if err != nil {
+			http.Error(w, "Failed to contact Mastodon API", http.StatusInternalServerError)
+			return
+		}
+		defer resp2.Body.Close()
+		if resp2.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp2.Body)
+			http.Error(w, "Failed to fetch Mastodon posts: "+string(body), resp2.StatusCode)
+			return
+		}
+		var posts []map[string]interface{}
+		if err := json.NewDecoder(resp2.Body).Decode(&posts); err != nil {
+			http.Error(w, "Failed to decode Mastodon posts", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(posts)
+	}
+}
+
+// GetMastodonAnalyticsHandler aggregates analytics from the user's Mastodon posts
+func GetMastodonAnalyticsHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, err := middleware.GetUserIDFromContext(r)
+		if err != nil {
+			http.Error(w, "Unauthorized: User not authenticated", http.StatusUnauthorized)
+			return
+		}
+
+		// Get Mastodon access token and social_id (instance info)
+		var accessToken string
+		var tokenExpiry *time.Time
+		var refreshToken *string
+		var socialID string
+		err = db.QueryRow(`
+			SELECT access_token, access_token_expires_at, refresh_token, social_id
+			FROM social_accounts
+			WHERE user_id = $1 AND platform = 'mastodon'
+		`, userID).Scan(&accessToken, &tokenExpiry, &refreshToken, &socialID)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				http.Error(w, "Mastodon account not connected", http.StatusBadRequest)
+				return
+			}
+			http.Error(w, "Failed to retrieve Mastodon account", http.StatusInternalServerError)
+			return
+		}
+		if tokenExpiry != nil && time.Now().After(*tokenExpiry) {
+			http.Error(w, "Mastodon access token has expired. Please reconnect your account.", http.StatusUnauthorized)
+			return
+		}
+
+		// Extract instance URL from social_id
+		var instanceURL string
+		if strings.Contains(socialID, "://") {
+			lastColonIndex := strings.LastIndex(socialID, ":")
+			if lastColonIndex == -1 {
+				http.Error(w, "Invalid Mastodon account data", http.StatusInternalServerError)
+				return
+			}
+			instanceURL = socialID[:lastColonIndex]
+		} else {
+			parts := strings.Split(socialID, ":")
+			if len(parts) < 2 {
+				http.Error(w, "Invalid Mastodon account data", http.StatusInternalServerError)
+				return
+			}
+			instanceURL = parts[0]
+			if !strings.HasPrefix(instanceURL, "http://") && !strings.HasPrefix(instanceURL, "https://") {
+				instanceURL = "https://" + instanceURL
+			}
+		}
+
+		// Step 1: Get the user's Mastodon account ID
+		verifyURL := instanceURL + "/api/v1/accounts/verify_credentials"
+		req, err := http.NewRequest("GET", verifyURL, nil)
+		if err != nil {
+			http.Error(w, "Failed to create request to Mastodon API", http.StatusInternalServerError)
+			return
+		}
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+		client := &http.Client{Timeout: 30 * time.Second}
+		resp, err := client.Do(req)
+		if err != nil {
+			http.Error(w, "Failed to contact Mastodon API", http.StatusInternalServerError)
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			http.Error(w, "Failed to verify Mastodon credentials: "+string(body), resp.StatusCode)
+			return
+		}
+		var verifyResp struct {
+			ID string `json:"id"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&verifyResp); err != nil {
+			http.Error(w, "Failed to decode Mastodon verify_credentials response", http.StatusInternalServerError)
+			return
+		}
+		if verifyResp.ID == "" {
+			http.Error(w, "Could not get Mastodon account ID", http.StatusInternalServerError)
+			return
+		}
+
+		// Step 2: Fetch statuses (toots)
+		statusesURL := instanceURL + "/api/v1/accounts/" + verifyResp.ID + "/statuses?limit=40"
+		req2, err := http.NewRequest("GET", statusesURL, nil)
+		if err != nil {
+			http.Error(w, "Failed to create request to Mastodon API", http.StatusInternalServerError)
+			return
+		}
+		req2.Header.Set("Authorization", "Bearer "+accessToken)
+		resp2, err := client.Do(req2)
+		if err != nil {
+			http.Error(w, "Failed to contact Mastodon API", http.StatusInternalServerError)
+			return
+		}
+		defer resp2.Body.Close()
+		if resp2.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp2.Body)
+			http.Error(w, "Failed to fetch Mastodon posts: "+string(body), resp2.StatusCode)
+			return
+		}
+		var posts []map[string]interface{}
+		if err := json.NewDecoder(resp2.Body).Decode(&posts); err != nil {
+			http.Error(w, "Failed to decode Mastodon posts", http.StatusInternalServerError)
+			return
+		}
+
+		// Aggregate analytics
+		totalPosts := len(posts)
+		totalFavourites := 0
+		totalBoosts := 0
+		totalReplies := 0
+		topPosts := []map[string]interface{}{}
+
+		// Prepare posts with engagement for sorting
+		var postsWithEngagement []map[string]interface{}
+		for _, post := range posts {
+			favs := intFromMap(post, "favourites_count")
+			boosts := intFromMap(post, "reblogs_count")
+			replies := intFromMap(post, "replies_count")
+			totalFavourites += favs
+			totalBoosts += boosts
+			totalReplies += replies
+			engagement := favs + boosts + replies
+			postCopy := map[string]interface{}{
+				"id":               post["id"],
+				"content":          post["content"],
+				"created_at":       post["created_at"],
+				"favourites_count": favs,
+				"reblogs_count":    boosts,
+				"replies_count":    replies,
+				"engagement":       engagement,
+			}
+			postsWithEngagement = append(postsWithEngagement, postCopy)
+		}
+
+		// Sort posts by engagement descending
+		if len(postsWithEngagement) > 0 {
+			// Simple bubble sort for small N
+			for i := 0; i < len(postsWithEngagement)-1; i++ {
+				for j := 0; j < len(postsWithEngagement)-i-1; j++ {
+					if postsWithEngagement[j]["engagement"].(int) < postsWithEngagement[j+1]["engagement"].(int) {
+						postsWithEngagement[j], postsWithEngagement[j+1] = postsWithEngagement[j+1], postsWithEngagement[j]
+					}
+				}
+			}
+			topN := 5
+			if len(postsWithEngagement) < topN {
+				topN = len(postsWithEngagement)
+			}
+			topPosts = postsWithEngagement[:topN]
+		}
+
+		result := map[string]interface{}{
+			"totalPosts":      totalPosts,
+			"totalFavourites": totalFavourites,
+			"totalBoosts":     totalBoosts,
+			"totalReplies":    totalReplies,
+			"topPosts":        topPosts,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(result)
+	}
+}
+
+// Helper to safely extract int from map
+func intFromMap(m map[string]interface{}, key string) int {
+	if v, ok := m[key]; ok {
+		switch val := v.(type) {
+		case float64:
+			return int(val)
+		case int:
+			return val
+		}
+	}
+	return 0
+}

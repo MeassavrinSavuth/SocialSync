@@ -28,8 +28,8 @@ func waitForMediaReady(mediaID, accessToken string) error {
 	// Construct the URL to check the media container's status
 	statusURL := fmt.Sprintf("https://graph.facebook.com/%s/%s?fields=status_code&access_token=%s", instagramAPIVersion, mediaID, accessToken)
 
-	const maxRetries = 30              // Increased retries for more robust waiting (from 10)
-	const delay = 5 * time.Second      // Increased delay (from 3s), total wait time now up to 150 seconds
+	const maxRetries = 30                // Increased retries for more robust waiting (from 10)
+	const delay = 5 * time.Second        // Increased delay (from 3s), total wait time now up to 150 seconds
 	const initialDelay = 3 * time.Second // Initial delay before the first retry
 
 	// Small initial delay before starting the loop to allow Instagram some initial processing time
@@ -280,5 +280,52 @@ func PostToInstagramHandler(db *sql.DB) http.HandlerFunc {
 
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("Instagram post published successfully"))
+	}
+}
+
+// GetInstagramPostsHandler fetches the user's Instagram posts
+func GetInstagramPostsHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, err := middleware.GetUserIDFromContext(r)
+		if err != nil {
+			http.Error(w, "Unauthorized: User not authenticated", http.StatusUnauthorized)
+			return
+		}
+
+		// Get Instagram access token
+		var accessToken string
+		err = db.QueryRow(`
+			SELECT access_token
+			FROM social_accounts
+			WHERE user_id = $1 AND platform = 'instagram'
+		`, userID).Scan(&accessToken)
+		if err == sql.ErrNoRows {
+			http.Error(w, "Instagram account not connected", http.StatusBadRequest)
+			return
+		} else if err != nil {
+			http.Error(w, "Failed to get Instagram account", http.StatusInternalServerError)
+			return
+		}
+
+		// Fetch posts from Instagram Graph API
+		graphURL := "https://graph.instagram.com/me/media?fields=id,caption,media_type,media_url,permalink,thumbnail_url,timestamp,like_count,comments_count&access_token=" + accessToken
+		resp, err := http.Get(graphURL)
+		if err != nil {
+			http.Error(w, "Failed to contact Instagram API", http.StatusInternalServerError)
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			http.Error(w, "Failed to fetch Instagram posts: "+string(body), resp.StatusCode)
+			return
+		}
+		var igResp map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&igResp); err != nil {
+			http.Error(w, "Failed to decode Instagram posts", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(igResp)
 	}
 }

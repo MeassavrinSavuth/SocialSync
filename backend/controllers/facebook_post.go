@@ -13,8 +13,8 @@ import (
 )
 
 type FacebookPostRequest struct {
-	Message    string   `json:"message"`
-	MediaUrls  []string `json:"mediaUrls"`
+	Message   string   `json:"message"`
+	MediaUrls []string `json:"mediaUrls"`
 }
 
 func PostToFacebookHandler(db *sql.DB) http.HandlerFunc {
@@ -178,5 +178,105 @@ func PostToFacebookHandler(db *sql.DB) http.HandlerFunc {
 
 		// CASE 4: Mixed media not supported
 		http.Error(w, "Facebook does not support mixed image and video posts", http.StatusBadRequest)
+	}
+}
+
+// GetFacebookPostsHandler fetches the user's Facebook Page posts
+func GetFacebookPostsHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, err := middleware.GetUserIDFromContext(r)
+		if err != nil {
+			http.Error(w, "Unauthorized: User not authenticated", http.StatusUnauthorized)
+			return
+		}
+
+		// Get Facebook access token and page ID
+		var accessToken, pageID string
+		err = db.QueryRow(`
+			SELECT access_token, social_id
+			FROM social_accounts
+			WHERE user_id = $1 AND platform = 'facebook'
+		`, userID).Scan(&accessToken, &pageID)
+		if err == sql.ErrNoRows {
+			http.Error(w, "Facebook Page not connected", http.StatusBadRequest)
+			return
+		} else if err != nil {
+			http.Error(w, "Failed to get Facebook account", http.StatusInternalServerError)
+			return
+		}
+
+		// Fetch posts from Facebook Graph API
+		graphURL := fmt.Sprintf("https://graph.facebook.com/v20.0/%s/posts?fields=message,created_time,full_picture,permalink_url,likes.summary(true),comments.summary(true)&access_token=%s", pageID, accessToken)
+		resp, err := http.Get(graphURL)
+		if err != nil {
+			http.Error(w, "Failed to contact Facebook API", http.StatusInternalServerError)
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			http.Error(w, "Failed to fetch Facebook posts: "+string(body), resp.StatusCode)
+			return
+		}
+		var fbResp struct {
+			Data []map[string]interface{} `json:"data"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&fbResp); err != nil {
+			http.Error(w, "Failed to decode Facebook posts", http.StatusInternalServerError)
+			return
+		}
+
+		// For each post, fetch attachments and add all image URLs
+		for i, post := range fbResp.Data {
+			postID, ok := post["id"].(string)
+			if !ok || postID == "" {
+				continue
+			}
+			attachmentsURL := fmt.Sprintf("https://graph.facebook.com/v20.0/%s/attachments?access_token=%s", postID, accessToken)
+			attachResp, err := http.Get(attachmentsURL)
+			if err != nil || attachResp.StatusCode != http.StatusOK {
+				continue
+			}
+			var attachData struct {
+				Data []struct {
+					Type  string `json:"type"`
+					Media struct {
+						Image struct {
+							Src string `json:"src"`
+						} `json:"image"`
+					} `json:"media"`
+					Subattachments struct {
+						Data []struct {
+							Media struct {
+								Image struct {
+									Src string `json:"src"`
+								} `json:"image"`
+							} `json:"media"`
+						} `json:"data"`
+					} `json:"subattachments"`
+				} `json:"data"`
+			}
+			if err := json.NewDecoder(attachResp.Body).Decode(&attachData); err != nil {
+				attachResp.Body.Close()
+				continue
+			}
+			attachResp.Body.Close()
+			var images []string
+			for _, att := range attachData.Data {
+				if att.Type == "photo" && att.Media.Image.Src != "" {
+					images = append(images, att.Media.Image.Src)
+				}
+				// Handle multi-photo (subattachments)
+				for _, sub := range att.Subattachments.Data {
+					if sub.Media.Image.Src != "" {
+						images = append(images, sub.Media.Image.Src)
+					}
+				}
+			}
+			fbResp.Data[i]["attachments"] = images
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(fbResp)
 	}
 }

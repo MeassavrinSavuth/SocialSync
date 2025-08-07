@@ -29,6 +29,10 @@ func AuthRoutes(r *mux.Router) {
 	r.Handle("/api/facebook/post", middleware.JWTMiddleware(
 		http.HandlerFunc(controllers.PostToFacebookHandler(lib.DB)),
 	)).Methods("POST")
+	// New: Fetch Facebook posts
+	r.Handle("/api/facebook/posts", middleware.JWTMiddleware(
+		http.HandlerFunc(controllers.GetFacebookPostsHandler(lib.DB)),
+	)).Methods("GET")
 
 	// ----------- Instagram Oauth ----------- //
 	r.Handle("/connect/instagram", middleware.JWTMiddleware(
@@ -37,6 +41,10 @@ func AuthRoutes(r *mux.Router) {
 	r.Handle("/api/instagram/post", middleware.JWTMiddleware(
 		http.HandlerFunc(controllers.PostToInstagramHandler(lib.DB)),
 	)).Methods("POST")
+	// New: Fetch Instagram posts
+	r.Handle("/api/instagram/posts", middleware.JWTMiddleware(
+		http.HandlerFunc(controllers.GetInstagramPostsHandler(lib.DB)),
+	)).Methods("GET")
 
 	// ----------- YouTube Oauth ----------- //
 	r.Handle("/auth/youtube/login", middleware.EnableCORS(middleware.JWTMiddleware(
@@ -46,6 +54,10 @@ func AuthRoutes(r *mux.Router) {
 	r.Handle("/api/youtube/post", middleware.JWTMiddleware(
 		http.HandlerFunc(controllers.PostToYouTubeHandler(lib.DB)),
 	)).Methods("POST")
+	// New: Fetch YouTube posts
+	r.Handle("/api/youtube/posts", middleware.JWTMiddleware(
+		http.HandlerFunc(controllers.GetYouTubePostsHandler(lib.DB)),
+	)).Methods("GET")
 
 	// ----------- Twitter Oauth (X) ----------- //
 	r.Handle("/auth/twitter/login", middleware.EnableCORS(middleware.JWTMiddleware(
@@ -55,6 +67,10 @@ func AuthRoutes(r *mux.Router) {
 	r.Handle("/api/twitter/post", middleware.JWTMiddleware(
 		http.HandlerFunc(controllers.PostToTwitterHandler(lib.DB)),
 	)).Methods("POST")
+	// New: Fetch Twitter posts
+	r.Handle("/api/twitter/posts", middleware.JWTMiddleware(
+		http.HandlerFunc(controllers.GetTwitterPostsHandler(lib.DB)),
+	)).Methods("GET")
 
 	// ----------- TikTok Upload ----------- //
 	// r.Handle("/api/tiktok/post", middleware.JWTMiddleware(
@@ -69,6 +85,15 @@ func AuthRoutes(r *mux.Router) {
 	r.Handle("/api/mastodon/post", middleware.JWTMiddleware(
 		http.HandlerFunc(controllers.PostToMastodonHandler(lib.DB)),
 	)).Methods("POST")
+	// New: Fetch Mastodon posts
+	r.Handle("/api/mastodon/posts", middleware.JWTMiddleware(
+		http.HandlerFunc(controllers.GetMastodonPostsHandler(lib.DB)),
+	)).Methods("GET")
+
+	// New: Mastodon analytics endpoint
+	r.Handle("/api/analytics/mastodon", middleware.JWTMiddleware(
+		http.HandlerFunc(controllers.GetMastodonAnalyticsHandler(lib.DB)),
+	)).Methods("GET")
 
 	// ----------- Social Account Management ----------- //
 	r.Handle("/api/social-accounts", middleware.EnableCORS(middleware.JWTMiddleware(

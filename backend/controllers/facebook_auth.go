@@ -147,4 +147,3 @@ func FacebookCallbackHandler(db *sql.DB) http.HandlerFunc {
 		http.Redirect(w, r, "http://localhost:3000/home/manage-accounts?connected=facebook", http.StatusSeeOther)
 	}
 }
-

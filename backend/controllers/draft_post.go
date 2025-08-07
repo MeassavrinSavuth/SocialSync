@@ -49,6 +49,18 @@ func CreateDraftPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Fetch user information for the draft creator
+	var authorName, authorEmail, authorAvatar *string
+	err = lib.DB.QueryRow(`
+		SELECT name, email, profile_picture 
+		FROM users 
+		WHERE id = $1
+	`, userID).Scan(&authorName, &authorEmail, &authorAvatar)
+	if err != nil {
+		http.Error(w, "Failed to fetch user information", http.StatusInternalServerError)
+		return
+	}
+
 	draft := models.DraftPost{
 		ID:            draftID,
 		WorkspaceID:   workspaceID,
@@ -61,13 +73,35 @@ func CreateDraftPost(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:     now,
 		UpdatedAt:     now,
 	}
+
+	// Create response with author information
+	draftResponse := map[string]interface{}{
+		"id":             draft.ID,
+		"workspace_id":   draft.WorkspaceID,
+		"created_by":     draft.CreatedBy,
+		"content":        draft.Content,
+		"media":          draft.Media,
+		"platforms":      draft.Platforms,
+		"status":         draft.Status,
+		"scheduled_time": draft.ScheduledTime,
+		"published_time": nil,
+		"created_at":     draft.CreatedAt,
+		"updated_at":     draft.UpdatedAt,
+		"author": map[string]interface{}{
+			"id":     userID,
+			"name":   authorNameOrEmail(authorName, authorEmail),
+			"email":  authorEmailOrEmpty(authorEmail),
+			"avatar": authorAvatarOrDefault(authorAvatar),
+		},
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(draft)
+	json.NewEncoder(w).Encode(draftResponse)
 
 	msg, _ := json.Marshal(map[string]interface{}{
 		"type":  "draft_created",
-		"draft": draft,
+		"draft": draftResponse,
 	})
 	hub.broadcast(workspaceID, websocket.TextMessage, msg)
 }

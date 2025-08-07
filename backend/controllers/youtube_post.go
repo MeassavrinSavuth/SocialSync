@@ -284,3 +284,184 @@ func isValidVideoFile(filename string) bool {
 	}
 	return false
 }
+
+// GetYouTubePostsHandler fetches the user's YouTube videos with stats
+func GetYouTubePostsHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, err := middleware.GetUserIDFromContext(r)
+		if err != nil {
+			http.Error(w, "user not authenticated", http.StatusUnauthorized)
+			return
+		}
+
+		// Get YouTube access token
+		var accessToken string
+		var refreshToken string
+		err = db.QueryRow(`
+			SELECT access_token, refresh_token 
+			FROM social_accounts 
+			WHERE user_id = $1 AND platform = 'youtube'
+		`, userID).Scan(&accessToken, &refreshToken)
+		if err == sql.ErrNoRows {
+			http.Error(w, "YouTube account not connected", http.StatusBadRequest)
+			return
+		} else if err != nil {
+			http.Error(w, "failed to get YouTube account", http.StatusInternalServerError)
+			return
+		}
+
+		// Step 1: Get the user's channel ID
+		channelsURL := "https://www.googleapis.com/youtube/v3/channels?part=id,snippet&mine=true"
+		req, err := http.NewRequest("GET", channelsURL, nil)
+		if err != nil {
+			http.Error(w, "failed to create request to YouTube API", http.StatusInternalServerError)
+			return
+		}
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+		client := &http.Client{Timeout: 30 * time.Second}
+		resp, err := client.Do(req)
+		if err != nil {
+			http.Error(w, "failed to contact YouTube API", http.StatusInternalServerError)
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			http.Error(w, "failed to get YouTube channel: "+string(body), resp.StatusCode)
+			return
+		}
+		var channelsResp struct {
+			Items []struct {
+				ID      string `json:"id"`
+				Snippet struct {
+					Title       string                 `json:"title"`
+					Description string                 `json:"description"`
+					Thumbnails  map[string]interface{} `json:"thumbnails"`
+				} `json:"snippet"`
+			} `json:"items"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&channelsResp); err != nil {
+			http.Error(w, "failed to decode YouTube channel response", http.StatusInternalServerError)
+			return
+		}
+		if len(channelsResp.Items) == 0 {
+			http.Error(w, "No YouTube channel found", http.StatusBadRequest)
+			return
+		}
+		channelID := channelsResp.Items[0].ID
+
+		// Step 2: Get the user's videos (playlistItems for uploads)
+		playlistURL := fmt.Sprintf("https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=%s", channelID)
+		req2, err := http.NewRequest("GET", playlistURL, nil)
+		if err != nil {
+			http.Error(w, "failed to create request to YouTube API", http.StatusInternalServerError)
+			return
+		}
+		req2.Header.Set("Authorization", "Bearer "+accessToken)
+		resp2, err := client.Do(req2)
+		if err != nil {
+			http.Error(w, "failed to contact YouTube API", http.StatusInternalServerError)
+			return
+		}
+		defer resp2.Body.Close()
+		if resp2.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp2.Body)
+			http.Error(w, "failed to get YouTube uploads playlist: "+string(body), resp2.StatusCode)
+			return
+		}
+		var playlistResp struct {
+			Items []struct {
+				ContentDetails struct {
+					RelatedPlaylists struct {
+						Uploads string `json:"uploads"`
+					} `json:"relatedPlaylists"`
+				} `json:"contentDetails"`
+			} `json:"items"`
+		}
+		if err := json.NewDecoder(resp2.Body).Decode(&playlistResp); err != nil {
+			http.Error(w, "failed to decode YouTube playlist response", http.StatusInternalServerError)
+			return
+		}
+		if len(playlistResp.Items) == 0 {
+			http.Error(w, "No uploads playlist found", http.StatusBadRequest)
+			return
+		}
+		uploadsPlaylistID := playlistResp.Items[0].ContentDetails.RelatedPlaylists.Uploads
+
+		// Step 3: Get videos from the uploads playlist
+		videosURL := fmt.Sprintf("https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&maxResults=20&playlistId=%s", uploadsPlaylistID)
+		req3, err := http.NewRequest("GET", videosURL, nil)
+		if err != nil {
+			http.Error(w, "failed to create request to YouTube API", http.StatusInternalServerError)
+			return
+		}
+		req3.Header.Set("Authorization", "Bearer "+accessToken)
+		resp3, err := client.Do(req3)
+		if err != nil {
+			http.Error(w, "failed to contact YouTube API", http.StatusInternalServerError)
+			return
+		}
+		defer resp3.Body.Close()
+		if resp3.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp3.Body)
+			http.Error(w, "failed to get YouTube videos: "+string(body), resp3.StatusCode)
+			return
+		}
+		var videosResp struct {
+			Items []struct {
+				Snippet struct {
+					Title       string                 `json:"title"`
+					Description string                 `json:"description"`
+					Thumbnails  map[string]interface{} `json:"thumbnails"`
+					PublishedAt string                 `json:"publishedAt"`
+					ResourceID  struct {
+						VideoID string `json:"videoId"`
+					} `json:"resourceId"`
+				} `json:"snippet"`
+				ContentDetails struct {
+					VideoID string `json:"videoId"`
+				} `json:"contentDetails"`
+			} `json:"items"`
+		}
+		if err := json.NewDecoder(resp3.Body).Decode(&videosResp); err != nil {
+			http.Error(w, "failed to decode YouTube videos response", http.StatusInternalServerError)
+			return
+		}
+
+		// Step 4: Get video statistics for each video
+		videoIDs := []string{}
+		for _, item := range videosResp.Items {
+			videoIDs = append(videoIDs, item.Snippet.ResourceID.VideoID)
+		}
+		if len(videoIDs) == 0 {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode([]interface{}{})
+			return
+		}
+		statsURL := fmt.Sprintf("https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet&id=%s", strings.Join(videoIDs, ","))
+		req4, err := http.NewRequest("GET", statsURL, nil)
+		if err != nil {
+			http.Error(w, "failed to create request to YouTube API", http.StatusInternalServerError)
+			return
+		}
+		req4.Header.Set("Authorization", "Bearer "+accessToken)
+		resp4, err := client.Do(req4)
+		if err != nil {
+			http.Error(w, "failed to contact YouTube API", http.StatusInternalServerError)
+			return
+		}
+		defer resp4.Body.Close()
+		if resp4.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp4.Body)
+			http.Error(w, "failed to get YouTube video stats: "+string(body), resp4.StatusCode)
+			return
+		}
+		var statsResp map[string]interface{}
+		if err := json.NewDecoder(resp4.Body).Decode(&statsResp); err != nil {
+			http.Error(w, "failed to decode YouTube video stats", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(statsResp)
+	}
+}

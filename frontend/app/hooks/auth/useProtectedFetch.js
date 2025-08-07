@@ -23,6 +23,7 @@ export const useProtectedFetch = () => {
       if (!res.ok) {
         if (res.status === 401) {
           router.push('/login');
+          return null;
         }
         throw new Error(`HTTP error! status: ${res.status}`);
       }
@@ -30,8 +31,11 @@ export const useProtectedFetch = () => {
       return res;
     } catch (err) {
       console.error('Protected fetch error:', err);
-      router.push('/login');
-      return null;
+      // Only redirect to login for authentication errors, not all errors
+      if (err.message && err.message.includes('401')) {
+        router.push('/login');
+      }
+      throw err; // Re-throw the error so the calling code can handle it
     }
   };
 
