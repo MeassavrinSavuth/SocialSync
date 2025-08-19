@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useUser } from '../hooks/auth/useUser';
 import {
   FaHome, FaChartBar, FaCommentDots, FaFolder, FaUser, FaPlus, FaBriefcase,
-  FaAngleLeft, FaAngleRight
+  FaAngleLeft, FaAngleRight, FaCalendarAlt
 } from 'react-icons/fa';
 
 import { Pacifico } from 'next/font/google';
@@ -46,6 +46,8 @@ export default function DashboardLayout({ children }) {
       setActiveTab('Home');
     } else if (pathname.startsWith('/home/create-post')) {
       setActiveTab('Create Post');
+    } else if (pathname.startsWith('/home/scheduled-posts')) {
+      setActiveTab('Scheduled Posts');
     } else if (pathname.startsWith('/home/analytics')) {
       setActiveTab('Analytics');
     } else if (pathname.startsWith('/home/manage-comments')) {
@@ -99,6 +101,7 @@ export default function DashboardLayout({ children }) {
           <nav className="space-y-1">
             <NavItem icon={<FaHome />} label="Home" open={sidebarOpen} active={activeTab === 'Home'} onClick={() => handleNavClick('Home', '/home/dashboard')} />
             <NavItem icon={<FaPlus />} label="Create Post" open={sidebarOpen} active={activeTab === 'Create Post'} onClick={() => handleNavClick('Create Post', '/home/create-post')} />
+            <NavItem icon={<FaCalendarAlt />} label="Scheduled Posts" open={sidebarOpen} active={activeTab === 'Scheduled Posts'} onClick={() => handleNavClick('Scheduled Posts', '/home/scheduled-posts')} />
             <NavItem icon={<FaChartBar />} label="Analytics" open={sidebarOpen} active={activeTab === 'Analytics'} onClick={() => handleNavClick('Analytics', '/home/analytics')} />
             <NavItem icon={<FaCommentDots />} label="Manage Comments" open={sidebarOpen} active={activeTab === 'Manage Comments'} onClick={() => handleNavClick('Manage Comments', '/home/manage-comments')} />
             <NavItem icon={<FaFolder />} label="Posts Folder" open={sidebarOpen} active={activeTab === 'Posts Folder'} onClick={() => handleNavClick('Posts Folder', '/home/posts-folder')} />

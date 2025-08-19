@@ -55,6 +55,12 @@ func main() {
 	}
 	log.Println("✅ Cloudinary initialized!")
 
+	// Initialize scheduled post processor
+	scheduledPostProcessor := utils.NewScheduledPostProcessor(lib.DB)
+	scheduledPostProcessor.Start()
+	defer scheduledPostProcessor.Stop()
+	log.Println("✅ Scheduled post processor started!")
+
 	// Setup cron job for social account sync
 	c := cron.New(cron.WithChain(
 		cron.Recover(cron.DefaultLogger),

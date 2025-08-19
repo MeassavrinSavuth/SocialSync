@@ -1,130 +1,269 @@
-import React, { useState } from 'react';
+'use client';
+
+import React from 'react';
+import { 
+  FaRetweet, 
+  FaHeart, 
+  FaReply, 
+  FaEllipsisH,
+  FaGlobeAmericas,
+  FaLock,
+  FaUsers
+} from 'react-icons/fa';
 
 function timeAgo(dateString) {
   const now = new Date();
   const date = new Date(dateString);
   const diff = Math.floor((now - date) / 1000);
-  if (diff < 60) return `${diff}s ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 60) return `${diff}s`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d`;
   return date.toLocaleDateString();
 }
 
 export default function MastodonPosts({ posts, loading, error, searchQuery, setSearchQuery }) {
-  // For demo: track which post is "reacted" (not persistent)
-  const [active, setActive] = useState({});
+  if (loading) {
+    return (
+      <div className="mt-8 max-w-2xl mx-auto">
+        {/* Search bar */}
+        <div className="mb-6 flex justify-center">
+          <input
+            type="text"
+            placeholder="Search toots..."
+            value={searchQuery || ''}
+            onChange={e => setSearchQuery && setSearchQuery(e.target.value)}
+            className="border rounded-lg px-4 py-3 w-full max-w-md text-gray-700 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none shadow-sm bg-gray-50"
+          />
+        </div>
+        <div className="space-y-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 animate-pulse">
+              <div className="p-4">
+                <div className="flex items-start space-x-3 mb-4">
+                  <div className="w-12 h-12 bg-gray-300 rounded-full"></div>
+                  <div className="flex-1">
+                    <div className="h-4 bg-gray-300 rounded w-1/3 mb-2"></div>
+                    <div className="h-3 bg-gray-300 rounded w-1/4"></div>
+                  </div>
+                  <div className="h-3 bg-gray-300 rounded w-12"></div>
+                </div>
+                <div className="space-y-2 mb-4">
+                  <div className="h-4 bg-gray-300 rounded w-full"></div>
+                  <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+                  <div className="h-4 bg-gray-300 rounded w-1/2"></div>
+                </div>
+                <div className="flex justify-between border-t pt-3">
+                  <div className="h-6 bg-gray-300 rounded w-16"></div>
+                  <div className="h-6 bg-gray-300 rounded w-16"></div>
+                  <div className="h-6 bg-gray-300 rounded w-16"></div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
-  const handleFakeAction = (postId, action) => {
-    setActive((prev) => ({ ...prev, [postId]: { ...prev[postId], [action]: !prev[postId]?.[action] } }));
-  };
+  if (error) {
+    return (
+      <div className="mt-8 max-w-2xl mx-auto">
+        {/* Search bar */}
+        <div className="mb-6 flex justify-center">
+          <input
+            type="text"
+            placeholder="Search toots..."
+            value={searchQuery || ''}
+            onChange={e => setSearchQuery && setSearchQuery(e.target.value)}
+            className="border rounded-lg px-4 py-3 w-full max-w-md text-gray-700 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none shadow-sm bg-gray-50"
+          />
+        </div>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+          <div className="text-red-500 text-4xl mx-auto mb-3">🐘</div>
+          <h3 className="text-lg font-medium text-red-800 mb-2">Unable to load Mastodon posts</h3>
+          <p className="text-red-600 text-sm">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
+  if (!posts || posts.length === 0) {
+    return (
+      <div className="mt-8 max-w-2xl mx-auto">
+        {/* Search bar */}
+        <div className="mb-6 flex justify-center">
+          <input
+            type="text"
+            placeholder="Search toots..."
+            value={searchQuery || ''}
+            onChange={e => setSearchQuery && setSearchQuery(e.target.value)}
+            className="border rounded-lg px-4 py-3 w-full max-w-md text-gray-700 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none shadow-sm bg-gray-50"
+          />
+        </div>
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+          <div className="text-gray-400 text-5xl mx-auto mb-4">🐘</div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No toots found</h3>
+          <p className="text-gray-500 text-sm">
+            Connect your Mastodon account or try refreshing to see your toots.
+          </p>
+        </div>
+      </div>
+    );
+  }
   return (
-    <div className="mt-8">
+    <div className="mt-8 max-w-2xl mx-auto">
       {/* Search bar */}
       <div className="mb-6 flex justify-center">
         <input
           type="text"
-          placeholder="Search Mastodon posts..."
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          className="border rounded px-3 py-2 w-full max-w-md text-gray-700 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400 outline-none shadow-sm"
+          placeholder="Search toots..."
+          value={searchQuery || ''}
+          onChange={e => setSearchQuery && setSearchQuery(e.target.value)}
+          className="border rounded-lg px-4 py-3 w-full max-w-md text-gray-700 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none shadow-sm bg-gray-50"
         />
       </div>
-      {loading && <div className="text-center text-gray-500">Loading Mastodon posts...</div>}
-      {error && <div className="text-center text-red-500">{error}</div>}
-      {!loading && !error && posts.length === 0 && (
-        <div className="text-center text-gray-400">No Mastodon posts found.</div>
-      )}
-      <div className="grid gap-6">
-        {posts.map((post) => (
-          <div
-            key={post.id}
-            className="bg-white rounded-lg shadow border border-gray-200 flex flex-col gap-3 p-5 max-w-2xl mx-auto"
-          >
-            {/* Author section */}
-            <div className="flex items-center gap-3 mb-1">
-              {post.account && post.account.avatar && (
-                <img
-                  src={post.account.avatar}
-                  alt={post.account.display_name || post.account.username || 'User'}
-                  className="w-10 h-10 rounded-full border"
-                />
-              )}
-              <div>
-                <div className="font-semibold text-gray-900 text-base">{post.account?.display_name || post.account?.username || 'User'}</div>
-                <div className="text-xs text-gray-500">@{post.account?.acct}</div>
-              </div>
-              <div className="ml-auto text-xs text-gray-400">{timeAgo(post.created_at)}</div>
-            </div>
-            {/* Content section */}
-            <div className="text-gray-800 text-[15px] leading-relaxed" style={{wordBreak: 'break-word'}} dangerouslySetInnerHTML={{ __html: post.content }} />
-            {/* Media section */}
-            {post.media_attachments && post.media_attachments.length > 0 && (
-              <div className="flex flex-wrap gap-3 mt-1">
-                {post.media_attachments.map((media) => (
-                  <div key={media.id} className="max-w-xs">
-                    {media.type === 'image' && (
-                      <img src={media.url} alt={media.description || 'Mastodon media'} className="rounded border max-h-48 object-contain" />
-                    )}
-                    {media.type === 'video' && (
-                      <video controls className="rounded border max-h-48 w-full">
-                        <source src={media.url} type={media.mime_type || 'video/mp4'} />
-                        Your browser does not support the video tag.
-                      </video>
+      
+      <div className="space-y-4">
+        {posts.map((post) => {
+          const account = post.account || {};
+          const favourites = post.favourites_count || 0;
+          const reblogs = post.reblogs_count || 0;
+          const replies = post.replies_count || 0;
+          
+          // Determine visibility icon
+          const getVisibilityIcon = (visibility) => {
+            switch (visibility) {
+              case 'public': return <FaGlobeAmericas className="text-xs" />;
+              case 'unlisted': return <FaLock className="text-xs" />;
+              case 'private': return <FaUsers className="text-xs" />;
+              default: return <FaGlobeAmericas className="text-xs" />;
+            }
+          };
+
+          return (
+            <div key={post.id} className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200">
+              {/* Header */}
+              <div className="flex items-start justify-between p-4 pb-3">
+                <div className="flex items-start space-x-3 flex-1">
+                  <div className="relative">
+                    <img
+                      src={account.avatar || '/default-avatar.png'}
+                      alt={account.display_name || account.username || 'User'}
+                      className="w-12 h-12 rounded-full border-2 border-gray-100"
+                    />
+                    {account.bot && (
+                      <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-purple-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                        🤖
+                      </div>
                     )}
                   </div>
-                ))}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center space-x-1">
+                      <h3 className="font-semibold text-gray-900 hover:underline cursor-pointer text-sm">
+                        {account.display_name || account.username || 'User'}
+                      </h3>
+                      {account.locked && <FaLock className="text-gray-400 text-xs" />}
+                    </div>
+                    <div className="flex items-center space-x-2 text-xs text-gray-500">
+                      <span>@{account.acct || account.username}</span>
+                      <span>·</span>
+                      <span>{timeAgo(post.created_at)}</span>
+                      <span>·</span>
+                      {getVisibilityIcon(post.visibility)}
+                    </div>
+                  </div>
+                </div>
+                <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                  <FaEllipsisH className="text-gray-500 text-sm" />
+                </button>
               </div>
-            )}
-            {/* Engagement section with interactive-looking actions */}
-            <div className="flex gap-6 items-center text-gray-600 text-sm mt-2 border-t pt-2">
-              {/* Favorite */}
-              <button
-                className={`flex items-center gap-1 group focus:outline-none transition-colors ${active[post.id]?.favorite ? 'text-pink-600' : 'hover:text-pink-500'}`}
-                title="Favorite"
-                onClick={() => handleFakeAction(post.id, 'favorite')}
-                type="button"
-              >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" /></svg>
-                <span>{post.favourites_count}</span>
-                <span className="ml-1 text-xs hidden sm:inline">Favorite</span>
-              </button>
-              {/* Boost */}
-              <button
-                className={`flex items-center gap-1 group focus:outline-none transition-colors ${active[post.id]?.boost ? 'text-green-600' : 'hover:text-green-500'}`}
-                title="Boost"
-                onClick={() => handleFakeAction(post.id, 'boost')}
-                type="button"
-              >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M4 10a1 1 0 011-1h6.586l-3.293-3.293a1 1 0 111.414-1.414l5 5a1 1 0 010 1.414l-5 5a1 1 0 01-1.414-1.414L11.586 11H5a1 1 0 01-1-1z" /></svg>
-                <span>{post.reblogs_count}</span>
-                <span className="ml-1 text-xs hidden sm:inline">Boost</span>
-              </button>
-              {/* Reply */}
-              <button
-                className={`flex items-center gap-1 group focus:outline-none transition-colors ${active[post.id]?.reply ? 'text-blue-600' : 'hover:text-blue-500'}`}
-                title="Reply"
-                onClick={() => handleFakeAction(post.id, 'reply')}
-                type="button"
-              >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M18 13v-2a4 4 0 00-4-4H6.414l1.293-1.293a1 1 0 00-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L6.414 11H14a2 2 0 012 2v2a1 1 0 102 0z" /></svg>
-                <span>{post.replies_count}</span>
-                <span className="ml-1 text-xs hidden sm:inline">Reply</span>
-              </button>
+
+              {/* Content */}
+              <div className="px-4 pb-3">
+                <div 
+                  className="text-gray-900 text-sm leading-relaxed prose prose-sm max-w-none"
+                  dangerouslySetInnerHTML={{ __html: post.content || 'Toot content' }}
+                />
+              </div>
+
+              {/* Media */}
+              {post.media_attachments && post.media_attachments.length > 0 && (
+                <div className="px-4 pb-3">
+                  <div className={`grid gap-2 ${post.media_attachments.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+                    {post.media_attachments.slice(0, 4).map((media, idx) => (
+                      <div key={media.id || idx} className="relative overflow-hidden rounded-lg border border-gray-200">
+                        {media.type === 'image' ? (
+                          <img 
+                            src={media.url || media.preview_url} 
+                            alt={media.description || 'Media attachment'} 
+                            className="w-full h-64 object-cover hover:opacity-95 transition-opacity cursor-pointer" 
+                          />
+                        ) : media.type === 'video' ? (
+                          <video 
+                            src={media.url} 
+                            className="w-full h-64 object-cover" 
+                            controls
+                            poster={media.preview_url}
+                          />
+                        ) : (
+                          <div className="w-full h-32 bg-gray-100 flex items-center justify-center text-gray-500">
+                            📎 {media.type} attachment
+                          </div>
+                        )}
+                        {idx === 3 && post.media_attachments.length > 4 && (
+                          <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center text-white text-xl font-bold cursor-pointer hover:bg-opacity-50 transition-all">
+                            +{post.media_attachments.length - 4}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="px-4 pt-2 pb-3 border-t border-gray-100">
+                <div className="flex items-center justify-between">
+                  <button className="flex items-center space-x-2 py-2 px-3 rounded-lg hover:bg-blue-50 transition-colors text-gray-600 hover:text-blue-600">
+                    <FaReply className="text-sm" />
+                    <span className="font-medium text-sm">
+                      Reply{replies > 0 ? ` ${replies}` : ''}
+                    </span>
+                  </button>
+                  <button className="flex items-center space-x-2 py-2 px-3 rounded-lg hover:bg-green-50 transition-colors text-gray-600 hover:text-green-600">
+                    <FaRetweet className="text-sm" />
+                    <span className="font-medium text-sm">
+                      Boost{reblogs > 0 ? ` ${reblogs}` : ''}
+                    </span>
+                  </button>
+                  <button className="flex items-center space-x-2 py-2 px-3 rounded-lg hover:bg-red-50 transition-colors text-gray-600 hover:text-red-600">
+                    <FaHeart className="text-sm" />
+                    <span className="font-medium text-sm">
+                      Favourite{favourites > 0 ? ` ${favourites}` : ''}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* View on Mastodon Link */}
               {post.url && (
-                <a
-                  href={post.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="ml-auto px-3 py-1 rounded bg-indigo-500 text-white text-xs font-medium hover:bg-indigo-600 transition-colors"
-                >
-                  View on Mastodon
-                </a>
+                <div className="px-4 pb-3 border-t border-gray-50 pt-3">
+                  <a 
+                    href={post.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="text-purple-600 text-xs hover:underline flex items-center space-x-1"
+                  >
+                    <span>🐘</span>
+                    <span>View on Mastodon</span>
+                  </a>
+                </div>
               )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
-} 
+}

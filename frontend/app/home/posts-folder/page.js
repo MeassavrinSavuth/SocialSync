@@ -8,13 +8,13 @@ import TwitterPosts from '../../components/postfolder/TwitterPosts';
 import YouTubePosts from '../../components/postfolder/YouTubePosts';
 import FacebookPosts from '../../components/postfolder/FacebookPosts';
 import InstagramPosts from '../../components/postfolder/InstagramPosts';
+import ConnectionStatus from '../../components/ConnectionStatus';
 
 function AppIconCard({ icon, label, color, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="flex flex-col items-center justify-center w-24 h-24 rounded-2xl shadow-lg bg-white hover:bg-gray-50 transition cursor-pointer border border-gray-100"
-      style={{ boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
+      className="group flex flex-col items-center justify-center bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-gray-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
     >
       <div className={`text-4xl mb-2 ${color}`}>{icon}</div>
       <span className="text-xs font-semibold text-gray-700">{label}</span>
@@ -28,96 +28,104 @@ export default function PostsFolderPage() {
   const [twitterPosts, setTwitterPosts] = useState([]);
   const [youtubePosts, setYouTubePosts] = useState([]);
   const [facebookPosts, setFacebookPosts] = useState([]);
+  const [facebookPageInfo, setFacebookPageInfo] = useState(null);
   const [instagramPosts, setInstagramPosts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [connectionStatus, setConnectionStatus] = useState({});
   const protectedFetch = useProtectedFetch();
 
-  useEffect(() => {
-    if (selectedPlatform === 'mastodon') {
-      setLoading(true);
-      setError(null);
-      setMastodonPosts([]); // Clear previous data immediately
-      protectedFetch('http://localhost:8080/api/mastodon/posts')
-        .then(async (res) => {
-          if (!res) return;
-          const data = await res.json();
-          setMastodonPosts(data);
-          setLoading(false);
-        })
-        .catch(() => {
-          setError('Failed to fetch Mastodon posts');
-          setLoading(false);
-        });
-    } else if (selectedPlatform === 'twitter') {
-      setLoading(true);
-      setError(null);
-      setTwitterPosts([]);
-      protectedFetch('http://localhost:8080/api/twitter/posts')
-        .then(async (res) => {
-          if (!res) return;
-          if (res.status === 429) {
-            setError('Twitter API rate limit exceeded. Please wait a few minutes and try again.');
-            setLoading(false);
-            return;
+  // Handle reconnection to social media platforms
+  const handleReconnect = (platform) => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.error('No token found');
+      return;
+    }
+    
+    // Redirect to the appropriate auth endpoint
+    if (platform === 'facebook') {
+      window.location.href = `http://localhost:8080/auth/facebook/login?token=${token}`;
+    } else if (platform === 'twitter') {
+      window.location.href = `http://localhost:8080/auth/twitter/login?token=${token}`;
+    } else if (platform === 'youtube') {
+      window.location.href = `http://localhost:8080/auth/youtube/login?token=${token}`;
+    } else if (platform === 'instagram') {
+      window.location.href = `http://localhost:8080/auth/instagram/login?token=${token}`;
+    } else if (platform === 'mastodon') {
+      window.location.href = `http://localhost:8080/auth/mastodon/login?token=${token}`;
+    }
+  };
+
+  // Update the fetch function to handle connection errors
+  const fetchPlatformPosts = async (platform) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const res = await protectedFetch(`http://localhost:8080/api/${platform}/posts`);
+      if (!res) return;
+      
+      const data = await res.json();
+      
+      // Check if response indicates need for reconnection
+      if (data.needsReconnect) {
+        setConnectionStatus(prev => ({
+          ...prev,
+          [platform]: {
+            isConnected: false,
+            error: data,
+            needsReconnect: true
           }
-          const data = await res.json();
-          setTwitterPosts(data);
-          setLoading(false);
-        })
-        .catch(() => {
-          setError('Failed to fetch Twitter posts');
-          setLoading(false);
-        });
-    } else if (selectedPlatform === 'youtube') {
-      setLoading(true);
-      setError(null);
-      setYouTubePosts([]);
-      protectedFetch('http://localhost:8080/api/youtube/posts')
-        .then(async (res) => {
-          if (!res) return;
-          const data = await res.json();
-          setYouTubePosts(data.items || []);
-          setLoading(false);
-        })
-        .catch((err) => {
-          console.error('YouTube posts error:', err);
-          setError('Failed to fetch YouTube videos');
-          setLoading(false);
-        });
-    } else if (selectedPlatform === 'facebook') {
-      setLoading(true);
-      setError(null);
-      setFacebookPosts([]);
-      protectedFetch('http://localhost:8080/api/facebook/posts')
-        .then(async (res) => {
-          if (!res) return;
-          const data = await res.json();
-          setFacebookPosts(data.data || []);
-          setLoading(false);
-        })
-        .catch((err) => {
-          console.error('Facebook posts error:', err);
-          setError('Failed to fetch Facebook posts');
-          setLoading(false);
-        });
-    } else if (selectedPlatform === 'instagram') {
-      setLoading(true);
-      setError(null);
-      setInstagramPosts([]);
-      protectedFetch('http://localhost:8080/api/instagram/posts')
-        .then(async (res) => {
-          if (!res) return;
-          const data = await res.json();
-          setInstagramPosts(data.data || []);
-          setLoading(false);
-        })
-        .catch((err) => {
-          console.error('Instagram posts error:', err);
-          setError('Failed to fetch Instagram posts');
-          setLoading(false);
-        });
+        }));
+        setError(null); // Clear general error since we have specific connection error
+        return;
+      }
+      
+      // Update connection status to success
+      setConnectionStatus(prev => ({
+        ...prev,
+        [platform]: {
+          isConnected: true,
+          error: null,
+          needsReconnect: false
+        }
+      }));
+      
+      // Handle different response formats
+      if (platform === 'facebook') {
+        setFacebookPosts(data.data || []);
+        setFacebookPageInfo(data.pageInfo || null);
+      } else if (platform === 'twitter') {
+        setTwitterPosts(data);
+      } else if (platform === 'youtube') {
+        setYouTubePosts(data.items || []);
+      } else if (platform === 'mastodon') {
+        setMastodonPosts(data);
+      } else if (platform === 'instagram') {
+        setInstagramPosts(data.data || []);
+      }
+      
+    } catch (err) {
+      console.error(`Error fetching ${platform} posts:`, err);
+      setError(`Failed to fetch ${platform} posts: ${err.message}`);
+      setConnectionStatus(prev => ({
+        ...prev,
+        [platform]: {
+          isConnected: false,
+          error: { message: err.message },
+          needsReconnect: false
+        }
+      }));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedPlatform) {
+      fetchPlatformPosts(selectedPlatform);
     }
   }, [selectedPlatform]);
 
@@ -127,12 +135,22 @@ export default function PostsFolderPage() {
     setTwitterPosts([]);
     setYouTubePosts([]);
     setFacebookPosts([]);
+    setFacebookPageInfo(null);
     setInstagramPosts([]);
     setError(null);
     setSearchQuery('');
+    // Clear connection status for new platform
+    setConnectionStatus(prev => ({
+      ...prev,
+      [platform]: {
+        isConnected: true,
+        error: null,
+        needsReconnect: false
+      }
+    }));
   };
 
-  // Filter posts by search query (case-insensitive, search in HTML content or tweet text)
+  // Filter posts by search query
   const filteredMastodonPosts = mastodonPosts.filter(post =>
     post.content.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -152,16 +170,16 @@ export default function PostsFolderPage() {
   const filteredInstagramPosts = instagramPosts.filter(post =>
     (post.caption && post.caption.toLowerCase().includes(searchQuery.toLowerCase()))
   );
-  // Helper: get media for a tweet
+
+  // Helper functions for Twitter
   const getTweetMedia = (tweet, includes) => {
     if (!tweet.attachments || !tweet.attachments.media_keys || !includes || !includes.media) return [];
     return tweet.attachments.media_keys.map(key =>
       includes.media.find(m => m.media_key === key)
     ).filter(Boolean);
   };
-  // Helper: get tweet author info (for now, use the logged-in user info if available)
+
   const getTweetAuthor = (twitterPosts) => {
-    // Twitter API v2 /users/:id/tweets does not return author info per tweet, but you can use the user info from /users/me
     if (twitterPosts && twitterPosts.includes && twitterPosts.includes.users && twitterPosts.includes.users.length > 0) {
       return twitterPosts.includes.users[0];
     }
@@ -171,6 +189,85 @@ export default function PostsFolderPage() {
     return null;
   };
   const tweetAuthor = getTweetAuthor(twitterPosts);
+
+  // Render connection status or posts
+  const renderContent = () => {
+    if (!selectedPlatform) return null;
+    
+    const status = connectionStatus[selectedPlatform];
+    
+    // Show connection status if there are issues
+    if (status && (!status.isConnected || status.error)) {
+      return (
+        <ConnectionStatus
+          platform={selectedPlatform}
+          isConnected={status.isConnected}
+          error={status.error}
+          onReconnect={() => handleReconnect(selectedPlatform)}
+          lastConnected={status.lastConnected}
+        />
+      );
+    }
+
+    // Show posts based on selected platform
+    switch (selectedPlatform) {
+      case 'mastodon':
+        return (
+          <MastodonPosts
+            posts={filteredMastodonPosts}
+            loading={loading}
+            error={error}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+          />
+        );
+      case 'twitter':
+        return (
+          <TwitterPosts
+            posts={filteredTwitterPosts}
+            includes={twitterPosts.includes}
+            tweetAuthor={tweetAuthor}
+            loading={loading}
+            error={error}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+          />
+        );
+      case 'youtube':
+        return (
+          <YouTubePosts
+            posts={filteredYouTubePosts}
+            loading={loading}
+            error={error}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+          />
+        );
+      case 'facebook':
+        return (
+          <FacebookPosts
+            posts={filteredFacebookPosts}
+            pageInfo={facebookPageInfo}
+            loading={loading}
+            error={error}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+          />
+        );
+      case 'instagram':
+        return (
+          <InstagramPosts
+            posts={filteredInstagramPosts}
+            loading={loading}
+            error={error}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+          />
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className="w-full max-w-4xl mx-auto py-10 px-4">
@@ -189,59 +286,8 @@ export default function PostsFolderPage() {
           Selected platform: <span className="font-semibold capitalize">{selectedPlatform}</span>
         </div>
       )}
-      {/* Mastodon posts display */}
-      {selectedPlatform === 'mastodon' && (
-        <MastodonPosts
-          posts={filteredMastodonPosts}
-          loading={loading}
-          error={error}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-        />
-      )}
-      {/* Twitter posts display */}
-      {selectedPlatform === 'twitter' && (
-        <TwitterPosts
-          posts={filteredTwitterPosts}
-          includes={twitterPosts.includes}
-          tweetAuthor={tweetAuthor}
-          loading={loading}
-          error={error}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-        />
-      )}
-      {/* YouTube posts display */}
-      {selectedPlatform === 'youtube' && (
-        <YouTubePosts
-          posts={filteredYouTubePosts}
-          loading={loading}
-          error={error}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-        />
-      )}
-      {/* Facebook posts display */}
-      {selectedPlatform === 'facebook' && (
-        <FacebookPosts
-          posts={filteredFacebookPosts}
-          loading={loading}
-          error={error}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-        />
-      )}
-      {/* Instagram posts display */}
-      {selectedPlatform === 'instagram' && (
-        <InstagramPosts
-          posts={filteredInstagramPosts}
-          loading={loading}
-          error={error}
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-        />
-      )}
-      {/* Platform selector and posts grid/table will go here */}
+      
+      {renderContent()}
     </div>
   );
 }

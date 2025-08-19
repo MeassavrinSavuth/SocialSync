@@ -5,6 +5,7 @@ import PostEditor from '../../components/PostEditor';
 import PostPreview from '../../components/PostPreview';
 import PostQueue from '../../components/PostQueue';
 import { useMultiPlatformPublish } from '../../hooks/api/useMultiPlatformPublish';
+import { useScheduledPosts } from '../../hooks/api/useScheduledPosts';
 
 // Define the list of platforms here, or import from a constants file if preferred
 const platformsList = ['facebook', 'instagram', 'youtube', 'twitter', 'mastodon'];
@@ -15,8 +16,14 @@ export default function CreatePostPage() {
   const [youtubeConfig, setYoutubeConfig] = useState({ title: '', description: '' });
   const [mediaFiles, setMediaFiles] = useState([]); // array of Cloudinary URLs
   const [isPublishing, setIsPublishing] = useState(false);
+  const [isScheduling, setIsScheduling] = useState(false);
   const [status, setStatus] = useState(null); // { success: bool, message: string }
   const [postQueue, setPostQueue] = useState([]);
+
+  // Scheduling state
+  const [isScheduled, setIsScheduled] = useState(false);
+  const [scheduledDate, setScheduledDate] = useState('');
+  const [scheduledTime, setScheduledTime] = useState('');
 
   const togglePlatform = (platform) => {
     setSelectedPlatforms((prev) =>
@@ -32,6 +39,9 @@ export default function CreatePostPage() {
     youtubeConfig,
   });
 
+  const { createScheduledPost } = useScheduledPosts();
+
+  // Handle immediate posting (Post Now)
   const handlePublish = async () => {
     if (selectedPlatforms.length === 0) {
       setStatus({ success: false, message: 'Please select at least one platform.' });
@@ -53,10 +63,13 @@ export default function CreatePostPage() {
     try {
       const results = await publish(selectedPlatforms);
       
-
       const allSuccess = results.every((r) => r.success);
       if (allSuccess) {
         setStatus({ success: true, message: 'All posts published successfully!' });
+        // Clear form after successful immediate posting
+        setMessage('');
+        setMediaFiles([]);
+        setSelectedPlatforms([]);
       } else {
         const errors = results
           .filter((r) => !r.success)
@@ -90,6 +103,60 @@ export default function CreatePostPage() {
     }
   };
 
+  // Handle scheduled posting (Schedule for Later)
+  const handleSchedule = async () => {
+    if (selectedPlatforms.length === 0) {
+      setStatus({ success: false, message: 'Please select at least one platform.' });
+      return;
+    }
+
+    if (!scheduledDate || !scheduledTime) {
+      setStatus({ success: false, message: 'Please select a date and time for scheduling.' });
+      return;
+    }
+
+    // Combine date and time into ISO string
+    const scheduledDateTime = new Date(`${scheduledDate}T${scheduledTime}`);
+    
+    // Check if scheduled time is in the future
+    if (scheduledDateTime <= new Date()) {
+      setStatus({ success: false, message: 'Scheduled time must be in the future.' });
+      return;
+    }
+
+    setIsScheduling(true);
+    setStatus(null);
+
+    try {
+      const result = await createScheduledPost({
+        content: message,
+        mediaFiles,
+        platforms: selectedPlatforms,
+        scheduledTime: scheduledDateTime.toISOString(),
+      });
+
+      if (result.success) {
+        setStatus({ 
+          success: true, 
+          message: `Post scheduled for ${scheduledDateTime.toLocaleString()}!` 
+        });
+        // Clear form after successful scheduling
+        setMessage('');
+        setMediaFiles([]);
+        setSelectedPlatforms([]);
+        setScheduledDate('');
+        setScheduledTime('');
+        setIsScheduled(false);
+      } else {
+        setStatus({ success: false, message: `Failed to schedule post: ${result.error}` });
+      }
+    } catch (error) {
+      setStatus({ success: false, message: `Schedule failed: ${error.message}` });
+    } finally {
+      setIsScheduling(false);
+    }
+  };
+
   return (
     // Main page container with improved padding
     <div className="min-h-screen bg-gray-50 py-10 px-4 sm:px-6 lg:px-8 font-sans">
@@ -105,6 +172,7 @@ export default function CreatePostPage() {
             mediaFiles={mediaFiles}
             youtubeConfig={youtubeConfig}
             platformsList={platformsList} // Pass the platformsList to PostPreview
+            setMessage={setMessage}
           />
         </div>
 
@@ -122,6 +190,15 @@ export default function CreatePostPage() {
             handlePublish={handlePublish}
             isPublishing={isPublishing}
             status={status}
+            // Scheduling props
+            isScheduled={isScheduled}
+            setIsScheduled={setIsScheduled}
+            scheduledDate={scheduledDate}
+            setScheduledDate={setScheduledDate}
+            scheduledTime={scheduledTime}
+            setScheduledTime={setScheduledTime}
+            handleSchedule={handleSchedule}
+            isScheduling={isScheduling}
           />
         </div>
 

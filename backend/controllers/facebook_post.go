@@ -191,14 +191,20 @@ func GetFacebookPostsHandler(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Get Facebook access token and page ID
-		var accessToken, pageID string
+		var accessToken, pageID, pageName, pageAvatar string
 		err = db.QueryRow(`
-			SELECT access_token, social_id
+			SELECT access_token, social_id, profile_name, profile_picture_url
 			FROM social_accounts
 			WHERE user_id = $1 AND platform = 'facebook'
-		`, userID).Scan(&accessToken, &pageID)
+		`, userID).Scan(&accessToken, &pageID, &pageName, &pageAvatar)
 		if err == sql.ErrNoRows {
-			http.Error(w, "Facebook Page not connected", http.StatusBadRequest)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"error": "Facebook Page not connected",
+				"needsReconnect": true,
+				"message": "Please connect your Facebook Page to view posts.",
+			})
 			return
 		} else if err != nil {
 			http.Error(w, "Failed to get Facebook account", http.StatusInternalServerError)
@@ -213,9 +219,25 @@ func GetFacebookPostsHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		defer resp.Body.Close()
+		if resp.StatusCode == 401 || resp.StatusCode == 403 {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"error": "Invalid token",
+				"needsReconnect": true,
+				"message": "Your Facebook connection has expired. Please reconnect your account.",
+			})
+			return
+		}
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
-			http.Error(w, "Failed to fetch Facebook posts: "+string(body), resp.StatusCode)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(resp.StatusCode)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"error": "API error",
+				"needsReconnect": false,
+				"message": "Failed to fetch Facebook posts: " + string(body),
+			})
 			return
 		}
 		var fbResp struct {
@@ -277,6 +299,17 @@ func GetFacebookPostsHandler(db *sql.DB) http.HandlerFunc {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(fbResp)
+		
+		// Include page info with the response
+		response := map[string]interface{}{
+			"data": fbResp.Data,
+			"pageInfo": map[string]interface{}{
+				"name":   pageName,
+				"avatar": pageAvatar,
+				"id":     pageID,
+			},
+		}
+		
+		json.NewEncoder(w).Encode(response)
 	}
 }

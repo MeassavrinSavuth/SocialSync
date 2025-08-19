@@ -1,4 +1,7 @@
+'use client';
+
 import React from 'react';
+import { FaYoutube } from 'react-icons/fa';
 
 function timeAgo(dateString) {
   const now = new Date();
@@ -11,31 +14,116 @@ function timeAgo(dateString) {
 }
 
 export default function YouTubePosts({ posts, loading, error, searchQuery, setSearchQuery }) {
+  if (loading) {
+    return (
+      <div className="mt-8 max-w-4xl mx-auto">
+        {/* Search bar */}
+        <div className="mb-6 flex justify-center">
+          <input
+            type="text"
+            placeholder="Search YouTube videos..."
+            value={searchQuery || ''}
+            onChange={e => setSearchQuery && setSearchQuery(e.target.value)}
+            className="border rounded-lg px-4 py-3 w-full max-w-md text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none shadow-sm bg-gray-50"
+          />
+        </div>
+        <div className="space-y-6">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 animate-pulse">
+              <div className="flex flex-col md:flex-row gap-4 p-5">
+                <div className="flex-shrink-0">
+                  <div className="w-64 h-36 bg-gray-300 rounded-lg"></div>
+                </div>
+                <div className="flex-1 space-y-3">
+                  <div className="h-6 bg-gray-300 rounded w-3/4"></div>
+                  <div className="h-4 bg-gray-300 rounded w-1/2"></div>
+                  <div className="h-3 bg-gray-300 rounded w-1/4"></div>
+                  <div className="space-y-2">
+                    <div className="h-3 bg-gray-300 rounded w-full"></div>
+                    <div className="h-3 bg-gray-300 rounded w-4/5"></div>
+                    <div className="h-3 bg-gray-300 rounded w-2/3"></div>
+                  </div>
+                  <div className="flex gap-6 items-center pt-3 border-t">
+                    <div className="h-4 bg-gray-300 rounded w-16"></div>
+                    <div className="h-4 bg-gray-300 rounded w-16"></div>
+                    <div className="h-4 bg-gray-300 rounded w-20"></div>
+                    <div className="h-8 bg-gray-300 rounded w-24 ml-auto"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="mt-8 max-w-4xl mx-auto">
+        {/* Search bar */}
+        <div className="mb-6 flex justify-center">
+          <input
+            type="text"
+            placeholder="Search YouTube videos..."
+            value={searchQuery || ''}
+            onChange={e => setSearchQuery && setSearchQuery(e.target.value)}
+            className="border rounded-lg px-4 py-3 w-full max-w-md text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none shadow-sm bg-gray-50"
+          />
+        </div>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+          <FaYoutube className="text-red-500 text-4xl mx-auto mb-3" />
+          <h3 className="text-lg font-medium text-red-800 mb-2">Unable to load YouTube videos</h3>
+          <p className="text-red-600 text-sm">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!posts || posts.length === 0) {
+    return (
+      <div className="mt-8 max-w-4xl mx-auto">
+        {/* Search bar */}
+        <div className="mb-6 flex justify-center">
+          <input
+            type="text"
+            placeholder="Search YouTube videos..."
+            value={searchQuery || ''}
+            onChange={e => setSearchQuery && setSearchQuery(e.target.value)}
+            className="border rounded-lg px-4 py-3 w-full max-w-md text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none shadow-sm bg-gray-50"
+          />
+        </div>
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 text-center">
+          <FaYoutube className="text-gray-400 text-5xl mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No YouTube videos found</h3>
+          <p className="text-gray-500 text-sm">
+            Connect your YouTube account or try refreshing to see your videos.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="mt-8">
+    <div className="mt-8 max-w-4xl mx-auto">
       {/* Search bar */}
       <div className="mb-6 flex justify-center">
         <input
           type="text"
           placeholder="Search YouTube videos..."
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          className="border rounded px-3 py-2 w-full max-w-md text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none shadow-sm"
+          value={searchQuery || ''}
+          onChange={e => setSearchQuery && setSearchQuery(e.target.value)}
+          className="border rounded-lg px-4 py-3 w-full max-w-md text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none shadow-sm bg-gray-50"
         />
       </div>
-      {loading && <div className="text-center text-gray-500">Loading YouTube videos...</div>}
-      {error && <div className="text-center text-red-500">{error}</div>}
-      {!loading && !error && posts.length === 0 && (
-        <div className="text-center text-gray-400">No YouTube videos found.</div>
-      )}
-      <div className="grid gap-8">
+      <div className="grid gap-6">
         {posts.map((video) => {
           const snippet = video.snippet || {};
           const stats = video.statistics || {};
           const thumbnails = snippet.thumbnails || {};
           const thumb = thumbnails.high?.url || thumbnails.medium?.url || thumbnails.default?.url || '';
           return (
-            <div key={video.id} className="bg-white rounded-lg shadow border border-gray-200 flex flex-col md:flex-row gap-4 p-5 max-w-3xl mx-auto transition-transform hover:shadow-lg hover:border-red-400 duration-150">
+            <div key={video.id} className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col md:flex-row gap-4 p-5 transition-transform hover:shadow-md hover:border-red-400 duration-150">
               {/* Thumbnail */}
               <div className="flex-shrink-0 relative group">
                 <a href={`https://www.youtube.com/watch?v=${video.id}`} target="_blank" rel="noopener noreferrer">
@@ -92,4 +180,4 @@ export default function YouTubePosts({ posts, loading, error, searchQuery, setSe
       </div>
     </div>
   );
-} 
+}

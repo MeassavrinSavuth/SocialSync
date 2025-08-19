@@ -1,135 +1,242 @@
-import React from 'react';
-import { FaSearch, FaTwitter, FaHeart, FaRetweet, FaComment } from 'react-icons/fa';
+'use client';
 
-export default function TwitterPosts({ posts, includes, tweetAuthor, loading, error, searchQuery, setSearchQuery }) {
-  const getTweetMedia = (tweet, includes) => {
-    if (!tweet.attachments || !tweet.attachments.media_keys || !includes || !includes.media) return [];
-    return tweet.attachments.media_keys.map(key =>
-      includes.media.find(m => m.media_key === key)
-    ).filter(Boolean);
-  };
+import React from 'react';
+import { FaTwitter, FaHeart, FaRetweet, FaComment } from 'react-icons/fa';
+
+export default function TwitterPosts({ posts, loading, error, searchQuery, setSearchQuery, includes, tweetAuthor }) {
+  const tweets = posts || []; // Accept posts prop but use tweets internally for compatibility
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-8">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sky-500"></div>
-        <span className="ml-3 text-gray-600">Loading Twitter posts...</span>
+      <div className="mt-8 max-w-2xl mx-auto">
+        {/* Search bar */}
+        <div className="mb-6 flex justify-center">
+          <input
+            type="text"
+            placeholder="Search tweets..."
+            value={searchQuery || ''}
+            onChange={e => setSearchQuery && setSearchQuery(e.target.value)}
+            className="border rounded-full px-4 py-3 w-full max-w-md text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none shadow-sm bg-gray-50"
+          />
+        </div>
+        <div className="space-y-4">
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="bg-white border border-gray-200 rounded-2xl p-4 hover:bg-gray-50 transition-colors animate-pulse">
+              <div className="flex space-x-3">
+                {/* Profile Picture Skeleton */}
+                <div className="w-12 h-12 bg-gray-300 rounded-full flex-shrink-0"></div>
+                
+                <div className="flex-1 min-w-0">
+                  {/* Header Skeleton */}
+                  <div className="flex items-center space-x-2 mb-3">
+                    <div className="h-4 bg-gray-300 rounded w-20"></div>
+                    <div className="w-4 h-4 bg-gray-300 rounded"></div>
+                    <div className="h-4 bg-gray-300 rounded w-16"></div>
+                    <div className="h-4 bg-gray-300 rounded w-12"></div>
+                  </div>
+                  
+                  {/* Content Skeleton */}
+                  <div className="space-y-2 mb-4">
+                    <div className="h-4 bg-gray-300 rounded w-full"></div>
+                    <div className="h-4 bg-gray-300 rounded w-4/5"></div>
+                    <div className="h-4 bg-gray-300 rounded w-3/5"></div>
+                  </div>
+                  
+                  {/* Actions Skeleton */}
+                  <div className="flex items-center justify-between max-w-md">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-5 h-5 bg-gray-300 rounded"></div>
+                      <div className="h-3 bg-gray-300 rounded w-6"></div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-5 h-5 bg-gray-300 rounded"></div>
+                      <div className="h-3 bg-gray-300 rounded w-6"></div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-5 h-5 bg-gray-300 rounded"></div>
+                      <div className="h-3 bg-gray-300 rounded w-6"></div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-5 h-5 bg-gray-300 rounded"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="text-center py-8">
-        <div className="text-red-500 text-lg font-medium">{error}</div>
+      <div className="mt-8 max-w-2xl mx-auto">
+        {/* Search bar */}
+        <div className="mb-6 flex justify-center">
+          <input
+            type="text"
+            placeholder="Search tweets..."
+            value={searchQuery || ''}
+            onChange={e => setSearchQuery && setSearchQuery(e.target.value)}
+            className="border rounded-full px-4 py-3 w-full max-w-md text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none shadow-sm bg-gray-50"
+          />
+        </div>
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
+          <div className="flex items-center justify-center">
+            <FaTwitter className="text-red-500 mr-3 text-xl" />
+            <p className="text-red-700 font-medium">{error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!tweets || tweets.length === 0) {
+    return (
+      <div className="mt-8 max-w-2xl mx-auto">
+        {/* Search bar */}
+        <div className="mb-6 flex justify-center">
+          <input
+            type="text"
+            placeholder="Search tweets..."
+            value={searchQuery || ''}
+            onChange={e => setSearchQuery && setSearchQuery(e.target.value)}
+            className="border rounded-full px-4 py-3 w-full max-w-md text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none shadow-sm bg-gray-50"
+          />
+        </div>
+        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-12 text-center">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <FaTwitter className="text-blue-500 text-2xl" />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">No tweets found</h3>
+          <p className="text-gray-600 max-w-sm mx-auto">
+            Connect your Twitter account or try refreshing to see your tweets.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="mt-6">
+    <div className="mt-8 max-w-2xl mx-auto">
       {/* Search bar */}
-      <div className="relative mb-6">
-        <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+      <div className="mb-6 flex justify-center">
         <input
           type="text"
-          placeholder="Search Twitter posts..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent"
+          placeholder="Search tweets..."
+          value={searchQuery || ''}
+          onChange={e => setSearchQuery && setSearchQuery(e.target.value)}
+          className="border rounded-full px-4 py-3 w-full max-w-md text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none shadow-sm bg-gray-50"
         />
       </div>
-
-      {posts.length === 0 ? (
-        <div className="text-center py-8">
-          <FaTwitter className="mx-auto text-6xl text-gray-300 mb-4" />
-          <p className="text-gray-500 text-lg">No Twitter posts found</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {posts.map((tweet, index) => {
-            const media = getTweetMedia(tweet, includes);
-            return (
-              <div key={tweet.id || index} className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-                {/* Tweet Author */}
-                {tweetAuthor && (
-                  <div className="flex items-center mb-3">
-                    {tweetAuthor.profile_image_url && (
-                      <img
-                        src={tweetAuthor.profile_image_url}
-                        alt={tweetAuthor.name}
-                        className="w-10 h-10 rounded-full mr-3"
-                      />
-                    )}
-                    <div>
-                      <div className="font-semibold text-gray-900">{tweetAuthor.name}</div>
-                      <div className="text-gray-500 text-sm">@{tweetAuthor.username}</div>
-                    </div>
-                    <FaTwitter className="ml-auto text-sky-500" />
+      <div className="space-y-4">
+        {tweets.map((tweet, index) => (
+          <div key={tweet.id || index} className="bg-white border border-gray-200 rounded-2xl shadow-sm p-4 hover:bg-gray-50 transition-colors cursor-pointer">
+            <div className="flex space-x-3">
+              {/* Profile Picture */}
+              <div className="w-12 h-12 rounded-full flex-shrink-0 overflow-hidden">
+                {tweetAuthor?.profile_image_url ? (
+                  <img
+                    src={tweetAuthor.profile_image_url}
+                    alt={tweetAuthor.name || 'Twitter User'}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-bold">
+                    {tweetAuthor?.name ? tweetAuthor.name.charAt(0).toUpperCase() : '🐦'}
                   </div>
                 )}
-
-                {/* Tweet Text */}
-                <div className="text-gray-800 mb-4 whitespace-pre-wrap">
-                  {tweet.text}
+              </div>
+              
+              <div className="flex-1 min-w-0">
+                {/* Header */}
+                <div className="flex items-center space-x-2 mb-2">
+                  <p className="font-bold text-gray-900">
+                    {tweetAuthor?.name || 'Twitter User'}
+                  </p>
+                  {tweetAuthor?.verified && (
+                    <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                  <p className="text-gray-500">
+                    @{tweetAuthor?.username || 'username'}
+                  </p>
+                  <span className="text-gray-500">·</span>
+                  <p className="text-gray-500">
+                    {tweet.created_at ? new Date(tweet.created_at).toLocaleDateString() : 'Recently'}
+                  </p>
                 </div>
-
-                {/* Tweet Media */}
-                {media.length > 0 && (
-                  <div className="mb-4">
-                    {media.map((mediaItem, mediaIndex) => (
-                      <div key={mediaIndex} className="mb-2">
-                        {mediaItem.type === 'photo' && (
+                
+                {/* Tweet Content */}
+                <div className="text-gray-900 mb-3 whitespace-pre-line leading-relaxed">
+                  {tweet.text || tweet.full_text || 'Tweet content'}
+                </div>
+                
+                {/* Media (if any) */}
+                {tweet.attachments?.media && tweet.attachments.media.length > 0 && (
+                  <div className="mb-4 rounded-2xl overflow-hidden border border-gray-200">
+                    {tweet.attachments.media.slice(0, 4).map((media, i) => (
+                      <div key={i} className="relative aspect-video bg-gray-100">
+                        {media.type === 'photo' ? (
                           <img
-                            src={mediaItem.url}
+                            src={media.url}
                             alt="Tweet media"
-                            className="max-w-full h-auto rounded-lg"
+                            className="w-full h-full object-cover"
                           />
-                        )}
-                        {mediaItem.type === 'video' && (
+                        ) : (
                           <video
+                            src={media.url}
+                            className="w-full h-full object-cover"
                             controls
-                            className="max-w-full h-auto rounded-lg"
-                            poster={mediaItem.preview_image_url}
-                          >
-                            <source src={mediaItem.url} type="video/mp4" />
-                            Your browser does not support the video tag.
-                          </video>
+                          />
                         )}
                       </div>
                     ))}
                   </div>
                 )}
-
-                {/* Tweet Stats */}
-                <div className="flex items-center text-gray-500 text-sm space-x-6">
-                  {tweet.public_metrics && (
-                    <>
-                      <div className="flex items-center space-x-1">
-                        <FaComment />
-                        <span>{tweet.public_metrics.reply_count || 0}</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <FaRetweet />
-                        <span>{tweet.public_metrics.retweet_count || 0}</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <FaHeart />
-                        <span>{tweet.public_metrics.like_count || 0}</span>
-                      </div>
-                    </>
-                  )}
-                  {tweet.created_at && (
-                    <div className="ml-auto">
-                      {new Date(tweet.created_at).toLocaleDateString()}
+                
+                {/* Engagement Actions */}
+                <div className="flex items-center justify-between max-w-md text-gray-500 text-sm">
+                  <button className="flex items-center space-x-2 hover:text-blue-500 transition-colors group">
+                    <div className="p-2 rounded-full group-hover:bg-blue-50 transition-colors">
+                      <FaComment className="text-sm" />
                     </div>
-                  )}
+                    {tweet.public_metrics?.reply_count > 0 && (
+                      <span>{tweet.public_metrics.reply_count}</span>
+                    )}
+                  </button>
+                  
+                  <button className="flex items-center space-x-2 hover:text-green-500 transition-colors group">
+                    <div className="p-2 rounded-full group-hover:bg-green-50 transition-colors">
+                      <FaRetweet className="text-sm" />
+                    </div>
+                    {tweet.public_metrics?.retweet_count > 0 && (
+                      <span>{tweet.public_metrics.retweet_count}</span>
+                    )}
+                  </button>
+                  
+                  <button className="flex items-center space-x-2 hover:text-red-500 transition-colors group">
+                    <div className="p-2 rounded-full group-hover:bg-red-50 transition-colors">
+                      <FaHeart className="text-sm" />
+                    </div>
+                    {tweet.public_metrics?.like_count > 0 && (
+                      <span>{tweet.public_metrics.like_count}</span>
+                    )}
+                  </button>
+                  
+                  <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+                    </svg>
+                  </button>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

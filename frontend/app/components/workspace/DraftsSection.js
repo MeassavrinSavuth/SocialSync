@@ -253,7 +253,7 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
                     ...draft,
                     description: draft.content,
                     photo: draft.media && draft.media[0],
-                    author: draft.author || { name: 'Unknown', avatar: '/default-avatar.png' },
+                    author: draft.author || currentUser || { name: 'Unknown', avatar: '/default-avatar.png' },
                     reactions: draft.reactions || { thumbsUp: 0 },
                     comments: draft.comments || [],
                   }}
@@ -274,7 +274,7 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
                     ...draft,
                     description: draft.content,
                     photo: draft.media && draft.media[0],
-                    author: draft.author || { name: 'Unknown', avatar: '/default-avatar.png' },
+                    author: draft.author || currentUser || { name: 'Unknown', avatar: '/default-avatar.png' },
                     reactions: draft.reactions || { thumbsUp: 0 },
                     comments: draft.comments || [],
                   }}

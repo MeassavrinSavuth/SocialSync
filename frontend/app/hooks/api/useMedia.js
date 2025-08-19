@@ -71,9 +71,8 @@ export function useMedia(workspaceId) {
     }
     
     const newMedia = await response.json();
-    // Don't add media here - it will be added via WebSocket broadcast
-    // setMedia(prev => [newMedia, ...prev]);
-    // setTotal(prev => prev + 1);
+    setMedia(prev => [newMedia, ...prev]);
+    setTotal(prev => prev + 1);
     
     return newMedia;
   };
@@ -129,16 +128,8 @@ export function useMedia(workspaceId) {
         try {
           const msg = JSON.parse(event.data);
           if (msg.type === 'media_uploaded' && msg.media) {
-            setMedia(prev => {
-              // Check if media already exists to avoid duplicates
-              const exists = prev.some(m => m.id === msg.media.id);
-              if (exists) {
-                return prev; // Don't add if it already exists
-              }
-              // Increment total count only when actually adding new media
-              setTotal(prevTotal => prevTotal + 1);
-              return [msg.media, ...prev];
-            });
+            setMedia(prev => [msg.media, ...prev.filter(m => m.id !== msg.media.id)]);
+            setTotal(prev => prev + 1);
           }
         } catch (e) { /* ignore */ }
       };

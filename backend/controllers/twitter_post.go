@@ -238,104 +238,136 @@ func GetTwitterPostsHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, err := middleware.GetUserIDFromContext(r)
 		if err != nil {
-			http.Error(w, "user not authenticated", http.StatusUnauthorized)
+			http.Error(w, "Unauthorized: User not authenticated", http.StatusUnauthorized)
 			return
 		}
 
 		// Get Twitter access token
 		var accessToken string
-		var refreshToken string
 		err = db.QueryRow(`
-			SELECT access_token, refresh_token 
-			FROM social_accounts 
+			SELECT access_token
+			FROM social_accounts
 			WHERE user_id = $1 AND platform = 'twitter'
-		`, userID).Scan(&accessToken, &refreshToken)
+		`, userID).Scan(&accessToken)
 		if err == sql.ErrNoRows {
-			http.Error(w, "Twitter account not connected", http.StatusBadRequest)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"error": "Twitter account not connected",
+				"needsReconnect": true,
+				"message": "Please connect your Twitter account to view tweets.",
+			})
 			return
 		} else if err != nil {
-			http.Error(w, "failed to get Twitter account", http.StatusInternalServerError)
+			http.Error(w, "Failed to get Twitter account", http.StatusInternalServerError)
 			return
 		}
 
-		// Get user's Twitter ID first
-		meURL := "https://api.twitter.com/2/users/me"
-		meReq, err := http.NewRequest("GET", meURL, nil)
-		if err != nil {
-			http.Error(w, "failed to create request to Twitter API", http.StatusInternalServerError)
-			return
-		}
-		meReq.Header.Set("Authorization", "Bearer "+accessToken)
-		
-		client := &http.Client{Timeout: 30 * time.Second}
-		meResp, err := client.Do(meReq)
-		if err != nil {
-			http.Error(w, "failed to contact Twitter API", http.StatusInternalServerError)
-			return
-		}
-		defer meResp.Body.Close()
-		
-		if meResp.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(meResp.Body)
-			http.Error(w, "failed to get Twitter user info: "+string(body), meResp.StatusCode)
-			return
-		}
-		
-		var meData struct {
-			Data struct {
-				ID       string `json:"id"`
-				Name     string `json:"name"`
-				Username string `json:"username"`
-			} `json:"data"`
-		}
-		if err := json.NewDecoder(meResp.Body).Decode(&meData); err != nil {
-			http.Error(w, "failed to decode Twitter user response", http.StatusInternalServerError)
-			return
-		}
+	// First get the user ID and profile info
+	userURL := "https://api.twitter.com/2/users/me?user.fields=name,username,verified,profile_image_url"
+	req, err := http.NewRequest("GET", userURL, nil)
+	if err != nil {
+		http.Error(w, "Failed to create Twitter API request", http.StatusInternalServerError)
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+accessToken)
 
-		// Get user's tweets
-		tweetsURL := fmt.Sprintf("https://api.twitter.com/2/users/%s/tweets?tweet.fields=created_at,public_metrics,attachments&media.fields=type,url,preview_image_url&expansions=attachments.media_keys,author_id&max_results=20", meData.Data.ID)
-		tweetsReq, err := http.NewRequest("GET", tweetsURL, nil)
-		if err != nil {
-			http.Error(w, "failed to create request to Twitter API", http.StatusInternalServerError)
-			return
-		}
-		tweetsReq.Header.Set("Authorization", "Bearer "+accessToken)
-		
-		tweetsResp, err := client.Do(tweetsReq)
-		if err != nil {
-			http.Error(w, "failed to contact Twitter API", http.StatusInternalServerError)
-			return
-		}
-		defer tweetsResp.Body.Close()
-		
-		if tweetsResp.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(tweetsResp.Body)
-			http.Error(w, "failed to get Twitter posts: "+string(body), tweetsResp.StatusCode)
-			return
-		}
-		
-		var tweetsData map[string]interface{}
-		if err := json.NewDecoder(tweetsResp.Body).Decode(&tweetsData); err != nil {
-			http.Error(w, "failed to decode Twitter posts response", http.StatusInternalServerError)
-			return
-		}
-		
-		// Add user info to the response
-		if tweetsData["includes"] == nil {
-			tweetsData["includes"] = make(map[string]interface{})
-		}
-		includes := tweetsData["includes"].(map[string]interface{})
-		includes["users"] = []interface{}{
-			map[string]interface{}{
-				"id":                 meData.Data.ID,
-				"name":               meData.Data.Name,
-				"username":           meData.Data.Username,
-				"profile_image_url": "", // Twitter API v2 doesn't include this in /users/me by default
-			},
-		}
-		
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		http.Error(w, "Failed to contact Twitter API", http.StatusInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 429 {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(tweetsData)
+		w.WriteHeader(http.StatusTooManyRequests)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error": "Rate limit exceeded",
+			"needsReconnect": false,
+			"message": "Twitter API rate limit exceeded. Please try again later.",
+		})
+		return
+	}
+
+	if resp.StatusCode == 401 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error": "Invalid token",
+			"needsReconnect": true,
+			"message": "Your Twitter connection has expired. Please reconnect your account.",
+		})
+		return
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(resp.StatusCode)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"error": "API error",
+			"needsReconnect": resp.StatusCode == 403,
+			"message": "Failed to fetch Twitter data: " + string(body),
+		})
+		return
+	}
+
+	var userResp struct {
+		Data struct {
+			ID              string `json:"id"`
+			Name            string `json:"name"`
+			Username        string `json:"username"`
+			Verified        bool   `json:"verified"`
+			ProfileImageURL string `json:"profile_image_url"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&userResp); err != nil {
+		http.Error(w, "Failed to decode Twitter user response", http.StatusInternalServerError)
+		return
+	}		// Now fetch user's tweets
+		tweetsURL := fmt.Sprintf("https://api.twitter.com/2/users/%s/tweets?max_results=20&tweet.fields=created_at,public_metrics&expansions=attachments.media_keys&media.fields=url,preview_image_url", userResp.Data.ID)
+		req, err = http.NewRequest("GET", tweetsURL, nil)
+		if err != nil {
+			http.Error(w, "Failed to create Twitter tweets request", http.StatusInternalServerError)
+			return
+		}
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+
+		resp, err = client.Do(req)
+		if err != nil {
+			http.Error(w, "Failed to contact Twitter API for tweets", http.StatusInternalServerError)
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == 429 {
+			http.Error(w, "Twitter API rate limit exceeded. Please try again later.", http.StatusTooManyRequests)
+			return
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			http.Error(w, "Failed to fetch Twitter tweets: "+string(body), resp.StatusCode)
+			return
+		}
+
+		var tweetsResp map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&tweetsResp); err != nil {
+			http.Error(w, "Failed to decode Twitter tweets response", http.StatusInternalServerError)
+			return
+		}
+
+		// Add user info to the response
+		if tweetsResp["includes"] == nil {
+			tweetsResp["includes"] = make(map[string]interface{})
+		}
+		
+		includes := tweetsResp["includes"].(map[string]interface{})
+		includes["users"] = []interface{}{userResp.Data}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(tweetsResp)
 	}
 }
