@@ -32,6 +32,7 @@ export default function ScheduledPostsPage() {
   const [authErrors, setAuthErrors] = useState([]);
   const [showAuthErrorModal, setShowAuthErrorModal] = useState(false);
   const protectedFetch = useProtectedFetch();
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
 
   useEffect(() => {
     fetchScheduledPosts();
@@ -39,7 +40,7 @@ export default function ScheduledPostsPage() {
 
   const fetchScheduledPosts = async () => {
     try {
-      const response = await protectedFetch('http://localhost:8080/api/scheduled-posts');
+      const response = await protectedFetch(`${API_BASE_URL}/api/scheduled-posts`);
       
       if (!response || !response.ok) {
         throw new Error('Failed to fetch scheduled posts');
@@ -61,7 +62,7 @@ export default function ScheduledPostsPage() {
 
     setDeleteLoading(true);
     try {
-      const response = await protectedFetch(`http://localhost:8080/api/scheduled-posts/${postId}`, {
+      const response = await protectedFetch(`${API_BASE_URL}/api/scheduled-posts/${postId}`, {
         method: 'DELETE',
       });
       
