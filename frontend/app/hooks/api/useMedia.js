@@ -38,7 +38,7 @@ export function useMedia(workspaceId) {
       if (filters.tag) params.append('tag', filters.tag);
       
       const token = getAuthToken();
-      const response = await fetch(`${API_BASE_URL}/workspaces/${workspaceId}/media?${params}`, {
+      const response = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/media?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -172,7 +172,7 @@ export function useMedia(workspaceId) {
       };
       
       // Start the upload
-      xhr.open('POST', `${API_BASE_URL}/workspaces/${workspaceId}/media`);
+      xhr.open('POST', `${API_BASE_URL}/api/workspaces/${workspaceId}/media`);
       xhr.setRequestHeader('Authorization', `Bearer ${token}`);
       xhr.send(formData);
     });
@@ -187,7 +187,7 @@ export function useMedia(workspaceId) {
       
       // Log the request details for debugging (remove in production)
       console.log('Delete request details:', {
-        url: `${API_BASE_URL}/workspaces/${workspaceId}/media/${mediaId}`,
+        url: `${API_BASE_URL}/api/workspaces/${workspaceId}/media/${mediaId}`,
         workspaceId,
         mediaId,
         tokenExists: !!token
@@ -195,13 +195,13 @@ export function useMedia(workspaceId) {
 
       // Log the request details for debugging (remove in production)
       console.log('Delete request details:', {
-        url: `${API_BASE_URL}/workspaces/${workspaceId}/media/${mediaId}`,
+        url: `${API_BASE_URL}/api/workspaces/${workspaceId}/media/${mediaId}`,
         workspaceId,
         mediaId,
         tokenExists: !!token
       });
 
-      const response = await fetch(`${API_BASE_URL}/workspaces/${workspaceId}/media/${mediaId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/media/${mediaId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -253,7 +253,7 @@ export function useMedia(workspaceId) {
     if (!workspaceId) throw new Error('Workspace ID is required');
     
     const token = getAuthToken();
-    const response = await fetch(`${API_BASE_URL}/workspaces/${workspaceId}/media/${mediaId}/tags`, {
+    const response = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/media/${mediaId}/tags`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',

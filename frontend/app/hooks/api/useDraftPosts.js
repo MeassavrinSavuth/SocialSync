@@ -13,13 +13,19 @@ export function useDraftPosts(workspaceId) {
     setLoading(true);
     try {
       const token = getAuthToken();
-      const res = await fetch(`${API_BASE_URL}/workspaces/${workspaceId}/drafts`, {
+      const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/drafts`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      
       const data = await res.json();
       setDrafts(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err.message);
+      console.error('Error fetching drafts:', err);
     } finally {
       setLoading(false);
     }
@@ -27,7 +33,7 @@ export function useDraftPosts(workspaceId) {
 
   const createDraft = async (data) => {
     const token = getAuthToken();
-    const res = await fetch(`${API_BASE_URL}/workspaces/${workspaceId}/drafts`, {
+    const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/drafts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify(data)
@@ -38,7 +44,7 @@ export function useDraftPosts(workspaceId) {
 
   const updateDraft = async (draftId, data) => {
     const token = getAuthToken();
-    const res = await fetch(`${API_BASE_URL}/workspaces/${workspaceId}/drafts/${draftId}`, {
+    const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/drafts/${draftId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify(data)
@@ -49,7 +55,7 @@ export function useDraftPosts(workspaceId) {
 
   const deleteDraft = async (draftId) => {
     const token = getAuthToken();
-    const res = await fetch(`${API_BASE_URL}/workspaces/${workspaceId}/drafts/${draftId}`, {
+    const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/drafts/${draftId}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
     });
@@ -59,7 +65,7 @@ export function useDraftPosts(workspaceId) {
 
   const publishDraft = async (draftId) => {
     const token = getAuthToken();
-    const res = await fetch(`${API_BASE_URL}/workspaces/${workspaceId}/drafts/${draftId}/publish`, {
+    const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/drafts/${draftId}/publish`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` }
     });
