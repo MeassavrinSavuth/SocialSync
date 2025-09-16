@@ -1,7 +1,8 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useProtectedFetch } from '../../hooks/auth/useProtectedFetch';
-import { FaCalendarAlt, FaClock, FaFacebook, FaInstagram, FaYoutube, FaTwitter, FaEdit, FaTrash, FaExclamationTriangle } from 'react-icons/fa';
+import AuthErrorModal from '../../components/AuthErrorModal';
+import { FaCalendarAlt, FaClock, FaFacebook, FaInstagram, FaYoutube, FaTwitter, FaEdit, FaTrash, FaExclamationTriangle, FaPlug } from 'react-icons/fa';
 import { SiMastodon } from 'react-icons/si';
 
 // Platform icons mapping
@@ -28,6 +29,8 @@ export default function ScheduledPostsPage() {
   const [selectedDate, setSelectedDate] = useState(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [authErrors, setAuthErrors] = useState([]);
+  const [showAuthErrorModal, setShowAuthErrorModal] = useState(false);
   const protectedFetch = useProtectedFetch();
 
   useEffect(() => {
@@ -37,13 +40,15 @@ export default function ScheduledPostsPage() {
   const fetchScheduledPosts = async () => {
     try {
       const response = await protectedFetch('http://localhost:8080/api/scheduled-posts');
-      if (response && response.ok) {
-        const data = await response.json();
-        // Include all posts for the calendar view
-        setScheduledPosts(data || []);
+      
+      if (!response || !response.ok) {
+        throw new Error('Failed to fetch scheduled posts');
       }
+
+      const data = await response.json();
+      setScheduledPosts(data || []);
     } catch (err) {
-      setError('Failed to fetch scheduled posts');
+      setError(err.message || 'Failed to fetch scheduled posts');
     } finally {
       setLoading(false);
     }
@@ -60,17 +65,61 @@ export default function ScheduledPostsPage() {
         method: 'DELETE',
       });
       
-      if (response && response.ok) {
-        // Remove the deleted post from local state
-        setScheduledPosts(prev => prev.filter(post => post.id !== postId));
-      } else {
+      if (!response || !response.ok) {
         throw new Error('Failed to delete post');
       }
+
+      // Remove the deleted post from local state
+      setScheduledPosts(prev => prev.filter(post => post.id !== postId));
     } catch (err) {
-      setError('Failed to delete scheduled post');
+      setError(err.message || 'Failed to delete scheduled post');
     } finally {
       setDeleteLoading(false);
     }
+  };
+
+  const checkForAuthErrors = () => {
+    // Look for failed posts with authentication-related error messages
+    const authFailedPosts = scheduledPosts.filter(post => 
+      post.status === 'failed' && 
+      post.error_message &&
+      (post.error_message.includes('please reconnect') || 
+       post.error_message.includes('access token expired') ||
+       post.error_message.includes('refresh failed'))
+    );
+
+    if (authFailedPosts.length > 0) {
+      // Extract unique platforms that need reconnection
+      const platformsNeedingReconnect = [...new Set(
+        authFailedPosts.map(post => {
+          // Extract platform from error message or from platforms array
+          if (post.error_message.includes('YouTube')) return 'youtube';
+          if (post.error_message.includes('Facebook')) return 'facebook';
+          if (post.error_message.includes('Instagram')) return 'instagram';
+          if (post.error_message.includes('Twitter')) return 'twitter';
+          if (post.error_message.includes('Mastodon')) return 'mastodon';
+          // Fallback: check the first platform from the post's platforms array
+          return post.platforms?.[0] || 'unknown';
+        }).filter(platform => platform !== 'unknown')
+      )];
+
+      const authErrors = platformsNeedingReconnect.map(platform => ({
+        platform,
+        success: false,
+        error: 'Authentication expired',
+        errorType: 'AUTH_EXPIRED',
+        errorAction: 'RECONNECT_REQUIRED',
+        userFriendlyMessage: 'Your authentication has expired. Please reconnect to continue posting.'
+      }));
+
+      setAuthErrors(authErrors);
+      setShowAuthErrorModal(true);
+    }
+  };
+
+  const handleReconnect = () => {
+    setShowAuthErrorModal(false);
+    setAuthErrors([]);
   };
 
   // Calendar helper functions
@@ -82,14 +131,19 @@ export default function ScheduledPostsPage() {
     return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
   };
 
+  // return local YYYY-MM-DD (avoid toISOString which uses UTC and can shift the day)
   const formatDate = (date) => {
-    return date.toISOString().split('T')[0];
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   };
 
   const getPostsForDate = (date) => {
     const dateStr = formatDate(date);
     return scheduledPosts.filter(post => {
-      const postDate = new Date(post.scheduled_time).toISOString().split('T')[0];
+      // Use local date string for the post's scheduled time to match the calendar's local dates
+      const postDate = formatDate(new Date(post.scheduled_time));
       return postDate === dateStr;
     });
   };
@@ -138,16 +192,16 @@ export default function ScheduledPostsPage() {
         <div
           key={day}
           onClick={() => setSelectedDate(date)}
-          className={`h-12 flex items-center justify-center cursor-pointer rounded-lg relative transition-colors
+          className={`h-10 md:h-12 lg:h-14 flex items-center justify-center cursor-pointer rounded-lg relative transition-colors text-sm md:text-base font-medium min-h-[40px]
             ${isSelected ? 'bg-blue-600 text-white' : 
               isToday ? 'bg-blue-100 text-blue-600 font-bold' : 
-              'hover:bg-gray-100'}
-            ${hasPosts ? (hasFailedPosts ? 'ring-2 ring-red-400' : 'ring-2 ring-green-400') : ''}
+              'text-gray-800 hover:bg-gray-100 active:bg-gray-200'}
+            ${hasPosts ? (hasFailedPosts ? 'ring-1 md:ring-2 ring-red-400' : 'ring-1 md:ring-2 ring-green-400') : ''}
           `}
         >
           {day}
           {hasPosts && (
-            <div className={`absolute bottom-1 right-1 w-2 h-2 rounded-full ${
+            <div className={`absolute bottom-0.5 md:bottom-1 right-0.5 md:right-1 w-1.5 md:w-2 h-1.5 md:h-2 rounded-full ${
               hasFailedPosts ? 'bg-red-500' : 'bg-green-500'
             }`}></div>
           )}
@@ -160,11 +214,11 @@ export default function ScheduledPostsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-10 px-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading scheduled posts...</p>
+      <div className="min-h-screen bg-gray-50 py-4 md:py-6 lg:py-10 px-2 sm:px-4 lg:px-6 xl:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center py-12 md:py-20">
+            <div className="animate-spin rounded-full h-8 md:h-12 w-8 md:w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-3 md:mt-4 text-gray-600 text-sm md:text-base">Loading scheduled posts...</p>
           </div>
         </div>
       </div>
@@ -174,75 +228,79 @@ export default function ScheduledPostsPage() {
   const selectedDatePosts = selectedDate ? getPostsForDate(selectedDate) : [];
 
   return (
-    <div className="min-h-screen bg-gray-50 py-10 px-4">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Scheduled Posts</h1>
-          <p className="text-gray-700 font-medium">View your scheduled posts on the calendar</p>
+    <div className="min-h-screen bg-gray-50 py-3 md:py-6 lg:py-10 px-2 sm:px-4 lg:px-6 xl:px-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header - Mobile Optimized */}
+        <div className="mb-4 md:mb-6 lg:mb-8">
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 mb-1 md:mb-2">Scheduled Posts</h1>
+          <p className="text-gray-700 font-medium text-sm md:text-base">View your scheduled posts on the calendar</p>
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-600">{error}</p>
+          <div className="mb-4 md:mb-6 p-3 md:p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-600 text-sm md:text-base">{error}</p>
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Calendar */}
-          <div className="lg:col-span-2 bg-white rounded-lg shadow-md p-6">
+        {/* Responsive Layout: Stacked on mobile, side-by-side on larger screens */}
+        <div className="flex flex-col xl:grid xl:grid-cols-12 gap-4 md:gap-6">
+          {/* Calendar Section */}
+          <div className="xl:col-span-8 bg-white rounded-lg shadow-md p-3 md:p-4 lg:p-6">
             {/* Calendar Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4 md:mb-6">
               <button
                 onClick={goToPreviousMonth}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-1.5 md:p-2 rounded-lg transition-colors text-gray-600 hover:text-gray-800 hover:bg-gray-100 text-lg md:text-xl"
+                aria-label="Previous month"
               >
                 ←
               </button>
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2 className="text-lg md:text-xl lg:text-2xl font-extrabold text-gray-900 text-center">
                 {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
               </h2>
               <button
                 onClick={goToNextMonth}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-1.5 md:p-2 rounded-lg transition-colors text-gray-600 hover:text-gray-800 hover:bg-gray-100 text-lg md:text-xl"
+                aria-label="Next month"
               >
                 →
               </button>
             </div>
 
-            {/* Calendar Grid */}
-            <div className="grid grid-cols-7 gap-1 mb-4">
+            {/* Calendar Grid - Mobile Optimized */}
+            <div className="grid grid-cols-7 gap-0.5 md:gap-1 mb-2 md:mb-4">
               {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                <div key={day} className="h-12 flex items-center justify-center font-bold text-gray-800">
-                  {day}
+                <div key={day} className="h-8 md:h-12 flex items-center justify-center font-bold text-gray-900 text-xs md:text-sm">
+                  <span className="hidden sm:inline">{day}</span>
+                  <span className="sm:hidden">{day.slice(0, 1)}</span>
                 </div>
               ))}
             </div>
-            <div className="grid grid-cols-7 gap-1">
+            <div className="grid grid-cols-7 gap-0.5 md:gap-1">
               {renderCalendar()}
             </div>
 
-            {/* Legend */}
-            <div className="mt-6 flex items-center space-x-4 text-sm text-gray-800">
+            {/* Legend - Mobile Responsive */}
+            <div className="mt-4 md:mt-6 flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0 text-xs md:text-sm text-gray-800">
               <div className="flex items-center">
-                <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                <div className="w-2.5 md:w-3 h-2.5 md:h-3 bg-green-500 rounded-full mr-2"></div>
                 <span className="font-medium">Scheduled posts</span>
               </div>
               <div className="flex items-center">
-                <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                <div className="w-2.5 md:w-3 h-2.5 md:h-3 bg-red-500 rounded-full mr-2"></div>
                 <span className="font-medium">Failed posts</span>
               </div>
               <div className="flex items-center">
-                <div className="w-3 h-3 bg-blue-600 rounded-full mr-2"></div>
+                <div className="w-2.5 md:w-3 h-2.5 md:h-3 bg-blue-600 rounded-full mr-2"></div>
                 <span className="font-medium">Selected date</span>
               </div>
             </div>
           </div>
 
-          {/* Posts for selected date */}
-          <div className="bg-white rounded-lg shadow-md p-6 flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-gray-900">
+          {/* Posts for selected date - Mobile Optimized */}
+          <div className="xl:col-span-4 bg-white rounded-lg shadow-md p-3 md:p-4 lg:p-6 flex flex-col max-h-[500px] xl:max-h-[600px]">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 md:mb-4 space-y-2 sm:space-y-0">
+              <h3 className="text-base md:text-lg lg:text-xl font-bold text-gray-900">
                 {selectedDate ? (
                   <>Posts for {selectedDate.toLocaleDateString()}</>
                 ) : (
@@ -250,7 +308,7 @@ export default function ScheduledPostsPage() {
                 )}
               </h3>
               {selectedDate && selectedDatePosts.length > 0 && (
-                <span className="bg-blue-100 text-blue-800 text-sm font-medium px-2 py-1 rounded-full">
+                <span className="bg-blue-100 text-blue-800 text-xs md:text-sm font-medium px-2 py-1 rounded-full">
                   {selectedDatePosts.length} post{selectedDatePosts.length !== 1 ? 's' : ''}
                 </span>
               )}
@@ -258,14 +316,14 @@ export default function ScheduledPostsPage() {
 
             {selectedDate ? (
               selectedDatePosts.length > 0 ? (
-                <div className="space-y-3 overflow-y-auto max-h-96 pr-2">
+                <div className="space-y-2 md:space-y-3 overflow-y-auto flex-1 pr-1 md:pr-2">
                   {selectedDatePosts.map((post) => {
                     const scheduleTime = new Date(post.scheduled_time);
                     const isPastDue = scheduleTime < new Date();
                     return (
-                      <div key={post.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow bg-gray-50">
-                        {/* Post status */}
-                        <div className="flex items-center justify-between mb-3">
+                      <div key={post.id} className="border border-gray-200 rounded-lg p-3 md:p-4 hover:shadow-md transition-shadow bg-gray-50">
+                        {/* Post status - Mobile Optimized */}
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 md:mb-3 space-y-2 sm:space-y-0">
                           <div className="flex items-center space-x-2">
                             <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                               post.status === 'posted' ? 'bg-green-100 text-green-800' :
@@ -278,58 +336,86 @@ export default function ScheduledPostsPage() {
                                isPastDue ? 'Past Due' : 'Scheduled'}
                             </span>
                             {post.status === 'failed' && (
-                              <FaExclamationTriangle className="text-red-600" title={post.error_message} />
+                              <div className="flex items-center space-x-2">
+                                <FaExclamationTriangle className="text-red-600 text-sm" title={post.error_message} />
+                                {post.error_message && 
+                                 (post.error_message.includes('please reconnect') || 
+                                  post.error_message.includes('access token expired') ||
+                                  post.error_message.includes('refresh failed')) && (
+                                  <button
+                                    onClick={checkForAuthErrors}
+                                    className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 transition-colors"
+                                  >
+                                    Fix Connection
+                                  </button>
+                                )}
+                              </div>
                             )}
                           </div>
                           
-                          {/* Action buttons */}
+                          {/* Action buttons - Mobile optimized */}
                           {post.status === 'pending' && (
-                            <div className="flex space-x-2">
+                            <div className="flex space-x-1 md:space-x-2">
                               <button
                                 onClick={() => deleteScheduledPost(post.id)}
                                 disabled={deleteLoading}
-                                className="p-1 text-red-600 hover:text-red-800 transition-colors"
+                                className="p-1.5 md:p-2 text-red-600 hover:text-red-800 transition-colors hover:bg-red-50 rounded"
                                 title="Delete scheduled post"
                               >
-                                <FaTrash className="text-sm" />
+                                <FaTrash className="text-xs md:text-sm" />
                               </button>
                             </div>
                           )}
                         </div>
 
-                        {/* Post content preview */}
-                        <p className="text-gray-800 mb-3 line-clamp-3 font-medium">
+                        {/* Post content preview - Mobile optimized */}
+                        <p className="text-gray-800 mb-2 md:mb-3 text-sm md:text-base line-clamp-3 font-medium break-words">
                           {post.content || 'No content preview'}
                         </p>
 
-                        {/* Media thumbnail */}
+                        {/* Media thumbnail - Mobile optimized */}
                         {post.media_urls && post.media_urls.length > 0 && (
-                          <div className="mb-3">
-                            <img
-                              src={post.media_urls[0]}
-                              alt="Post media"
-                              className="w-16 h-16 object-cover rounded-lg border"
-                              onError={(e) => {
-                                e.target.style.display = 'none';
-                              }}
-                            />
+                          <div className="mb-2 md:mb-3">
+                            {(post.media_urls[0].includes('/video/') || 
+                              post.media_urls[0].match(/\.(mp4|mov|avi|webm|mkv)(\?|$)/i)) ? (
+                              <video
+                                src={post.media_urls[0]}
+                                className="w-12 h-12 md:w-16 md:h-16 object-cover rounded-lg border"
+                                muted
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                }}
+                              />
+                            ) : (
+                              <img
+                                src={post.media_urls[0]}
+                                alt="Post media"
+                                className="w-12 h-12 md:w-16 md:h-16 object-cover rounded-lg border"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                }}
+                              />
+                            )}
                           </div>
                         )}
 
-                        {/* Platforms */}
-                        <div className="flex space-x-2 mb-3">
+                        {/* Platforms - Mobile friendly */}
+                        <div className="flex flex-wrap gap-1 md:gap-2 mb-2 md:mb-3">
                           {post.platforms?.map((platform) => {
                             const Icon = platformIcons[platform];
                             const colorClass = platformColors[platform];
                             return Icon ? (
-                              <Icon key={platform} className={`text-lg ${colorClass}`} title={platform} />
+                              <div key={platform} className="flex items-center space-x-1 bg-gray-100 rounded-full px-2 py-1">
+                                <Icon className={`text-sm md:text-lg ${colorClass}`} title={platform} />
+                                <span className="text-xs font-medium text-gray-700 capitalize">{platform}</span>
+                              </div>
                             ) : null;
                           })}
                         </div>
 
-                        {/* Scheduled time */}
-                        <div className="flex items-center text-sm text-gray-700 font-medium">
-                          <FaClock className="mr-2 text-gray-500" />
+                        {/* Scheduled time - Mobile optimized */}
+                        <div className="flex items-center text-xs md:text-sm text-gray-700 font-medium">
+                          <FaClock className="mr-1 md:mr-2 text-gray-500" />
                           {scheduleTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </div>
                       </div>
@@ -337,43 +423,56 @@ export default function ScheduledPostsPage() {
                   })}
                 </div>
               ) : (
-                <p className="text-gray-700 text-center py-4 font-medium">No posts scheduled for this date</p>
+                <div className="text-center py-6 md:py-8">
+                  <p className="text-gray-700 font-medium text-sm md:text-base">No posts scheduled for this date</p>
+                </div>
               )
             ) : (
-              <div className="text-center py-8">
-                <FaCalendarAlt className="mx-auto h-12 w-12 text-gray-400 mb-3" />
-                <p className="text-gray-700 font-medium">Click on a calendar date to view scheduled posts</p>
+              <div className="text-center py-6 md:py-8">
+                <FaCalendarAlt className="mx-auto h-8 md:h-12 w-8 md:w-12 text-gray-400 mb-2 md:mb-3" />
+                <p className="text-gray-700 font-medium text-sm md:text-base">Click on a calendar date to view scheduled posts</p>
               </div>
             )}
           </div>
         </div>
 
-        {/* Quick stats */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-lg shadow-md p-6 text-center">
-            <div className="text-2xl font-bold text-blue-700">{scheduledPosts.length}</div>
-            <div className="text-gray-700 font-medium">Total Posts</div>
+        {/* Quick stats - Mobile Grid */}
+        <div className="mt-6 md:mt-8 grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+          <div className="bg-white rounded-lg shadow-md p-3 md:p-6 text-center">
+            <div className="text-xl md:text-2xl font-bold text-blue-700">{scheduledPosts.length}</div>
+            <div className="text-gray-700 font-medium text-xs md:text-sm">Total Posts</div>
           </div>
-          <div className="bg-white rounded-lg shadow-md p-6 text-center">
-            <div className="text-2xl font-bold text-orange-700">
+          <div className="bg-white rounded-lg shadow-md p-3 md:p-6 text-center">
+            <div className="text-xl md:text-2xl font-bold text-orange-700">
               {scheduledPosts.filter(p => p.status === 'pending').length}
             </div>
-            <div className="text-gray-700 font-medium">Pending</div>
+            <div className="text-gray-700 font-medium text-xs md:text-sm">Pending</div>
           </div>
-          <div className="bg-white rounded-lg shadow-md p-6 text-center">
-            <div className="text-2xl font-bold text-green-700">
+          <div className="bg-white rounded-lg shadow-md p-3 md:p-6 text-center">
+            <div className="text-xl md:text-2xl font-bold text-green-700">
               {scheduledPosts.filter(p => p.status === 'posted').length}
             </div>
-            <div className="text-gray-700 font-medium">Posted</div>
+            <div className="text-gray-700 font-medium text-xs md:text-sm">Posted</div>
           </div>
-          <div className="bg-white rounded-lg shadow-md p-6 text-center">
-            <div className="text-2xl font-bold text-red-700">
+          <div className="bg-white rounded-lg shadow-md p-3 md:p-6 text-center">
+            <div className="text-xl md:text-2xl font-bold text-red-700">
               {scheduledPosts.filter(p => p.status === 'failed').length}
             </div>
-            <div className="text-gray-700 font-medium">Failed</div>
+            <div className="text-gray-700 font-medium text-xs md:text-sm">Failed</div>
           </div>
         </div>
       </div>
+
+      {/* Authentication Error Modal */}
+      <AuthErrorModal
+        isOpen={showAuthErrorModal}
+        onClose={() => {
+          setShowAuthErrorModal(false);
+          setAuthErrors([]);
+        }}
+        errors={authErrors}
+        onReconnect={handleReconnect}
+      />
     </div>
   );
 }

@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -264,30 +263,47 @@ func DeleteMedia(w http.ResponseWriter, r *http.Request) {
 	workspaceID := vars["workspaceId"]
 	mediaID := vars["mediaId"]
 
-	// Check if user has permission to delete this media
-	var uploadedBy string
+	// Check if user is a member of the workspace (instead of checking if they're the uploader)
+	var isMember bool
 	err := lib.DB.QueryRow(`
-		SELECT uploaded_by FROM media 
-		WHERE id = $1 AND workspace_id = $2
-	`, mediaID, workspaceID).Scan(&uploadedBy)
+		SELECT EXISTS (
+			SELECT 1 FROM workspace_members 
+			WHERE workspace_id = $1 AND user_id = $2
+		)
+	`, workspaceID, userID).Scan(&isMember)
 
-	if err == sql.ErrNoRows {
-		http.Error(w, "Media not found", http.StatusNotFound)
-		return
-	}
 	if err != nil {
-		log.Println("Failed to check media ownership:", err)
-		http.Error(w, "Failed to check media ownership: "+err.Error(), http.StatusInternalServerError)
+		log.Println("Failed to check workspace membership:", err)
+		http.Error(w, "Failed to check workspace membership: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Only the uploader can delete the media
-	if uploadedBy != userID {
-		http.Error(w, "Unauthorized to delete this media", http.StatusForbidden)
+	if !isMember {
+		http.Error(w, "You must be a member of the workspace to delete media", http.StatusForbidden)
 		return
 	}
 
-	// Get cloudinary public ID for deletion
+	// Check if media exists in this workspace
+	var exists bool
+	err = lib.DB.QueryRow(`
+		SELECT EXISTS (
+			SELECT 1 FROM media 
+			WHERE id = $1 AND workspace_id = $2
+		)
+	`, mediaID, workspaceID).Scan(&exists)
+
+	if err != nil {
+		log.Println("Failed to check media existence:", err)
+		http.Error(w, "Failed to check media existence: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if !exists {
+		http.Error(w, "Media not found in this workspace", http.StatusNotFound)
+		return
+	}
+
+	// Get cloudinary public ID for deletion (optional)
 	var cloudinaryPublicID string
 	err = lib.DB.QueryRow(`
 		SELECT cloudinary_public_id FROM media WHERE id = $1
@@ -295,8 +311,7 @@ func DeleteMedia(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Println("Failed to get media info:", err)
-		http.Error(w, "Failed to get media info: "+err.Error(), http.StatusInternalServerError)
-		return
+		// Continue with deletion even if we can't get cloudinary ID
 	}
 
 	// Delete from Cloudinary (optional - you might want to keep files for a while)
@@ -304,13 +319,23 @@ func DeleteMedia(w http.ResponseWriter, r *http.Request) {
 	//     // Add Cloudinary deletion logic here
 	// }
 
-	// Delete from database
-	_, err = lib.DB.Exec("DELETE FROM media WHERE id = $1", mediaID)
+	// Delete from database - any workspace member can delete
+	_, err = lib.DB.Exec("DELETE FROM media WHERE id = $1 AND workspace_id = $2", mediaID, workspaceID)
 	if err != nil {
 		log.Println("Failed to delete media:", err)
 		http.Error(w, "Failed to delete media: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	// --- WebSocket broadcast for real-time media deletion ---
+	msg, _ := json.Marshal(map[string]interface{}{
+		"type":    "media_deleted",
+		"mediaId": mediaID,
+		"workspaceId": workspaceID,
+		"deletedBy": userID,
+		"timestamp": time.Now(),
+	})
+	hub.broadcast(workspaceID, websocket.TextMessage, msg)
 
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -332,38 +357,84 @@ func UpdateMediaTags(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if user has permission to update this media
-	var uploadedBy string
+	// Check if user is a member of the workspace (instead of checking if they're the uploader)
+	var isMember bool
 	err := lib.DB.QueryRow(`
-		SELECT uploaded_by FROM media 
-		WHERE id = $1 AND workspace_id = $2
-	`, mediaID, workspaceID).Scan(&uploadedBy)
+		SELECT EXISTS (
+			SELECT 1 FROM workspace_members 
+			WHERE workspace_id = $1 AND user_id = $2
+		)
+	`, workspaceID, userID).Scan(&isMember)
 
-	if err == sql.ErrNoRows {
-		http.Error(w, "Media not found", http.StatusNotFound)
-		return
-	}
 	if err != nil {
-		log.Println("Failed to check media ownership:", err)
-		http.Error(w, "Failed to check media ownership: "+err.Error(), http.StatusInternalServerError)
+		log.Println("Failed to check workspace membership:", err)
+		http.Error(w, "Failed to check workspace membership: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	// Only the uploader can update the media
-	if uploadedBy != userID {
-		http.Error(w, "Unauthorized to update this media", http.StatusForbidden)
+	if !isMember {
+		http.Error(w, "You must be a member of the workspace to update media", http.StatusForbidden)
 		return
 	}
 
-	// Update tags
+	// Check if media exists in this workspace
+	var exists bool
+	err = lib.DB.QueryRow(`
+		SELECT EXISTS (
+			SELECT 1 FROM media 
+			WHERE id = $1 AND workspace_id = $2
+		)
+	`, mediaID, workspaceID).Scan(&exists)
+
+	if err != nil {
+		log.Println("Failed to check media existence:", err)
+		http.Error(w, "Failed to check media existence: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if !exists {
+		http.Error(w, "Media not found in this workspace", http.StatusNotFound)
+		return
+	}
+
+	// Update tags - any workspace member can update
 	_, err = lib.DB.Exec(`
-		UPDATE media SET tags = $1, updated_at = $2 WHERE id = $3
-	`, req.Tags, time.Now(), mediaID)
+		UPDATE media SET tags = $1, updated_at = $2 WHERE id = $3 AND workspace_id = $4
+	`, req.Tags, time.Now(), mediaID, workspaceID)
 
 	if err != nil {
 		log.Println("Failed to update media tags:", err)
 		http.Error(w, "Failed to update media tags: "+err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	// Get updated media info for WebSocket broadcast
+	var updatedMedia models.Media
+	err = lib.DB.QueryRow(`
+		SELECT id, workspace_id, file_url, file_type, original_name, tags, uploaded_by, 
+		       created_at, updated_at, cloudinary_public_id 
+		FROM media 
+		WHERE id = $1 AND workspace_id = $2
+	`, mediaID, workspaceID).Scan(
+		&updatedMedia.ID, &updatedMedia.WorkspaceID, &updatedMedia.FileURL,
+		&updatedMedia.FileType, &updatedMedia.OriginalName, &updatedMedia.Tags,
+		&updatedMedia.UploadedBy, &updatedMedia.CreatedAt, &updatedMedia.UpdatedAt,
+		&updatedMedia.CloudinaryPublicID,
+	)
+
+	if err != nil {
+		log.Println("Failed to get updated media info:", err)
+		// Don't fail the request, just skip WebSocket broadcast
+	} else {
+		// --- WebSocket broadcast for real-time media update ---
+		msg, _ := json.Marshal(map[string]interface{}{
+			"type":      "media_updated",
+			"media":     updatedMedia,
+			"workspaceId": workspaceID,
+			"updatedBy": userID,
+			"timestamp": time.Now(),
+		})
+		hub.broadcast(workspaceID, websocket.TextMessage, msg)
 	}
 
 	w.WriteHeader(http.StatusNoContent)

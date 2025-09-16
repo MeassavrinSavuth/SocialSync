@@ -13,6 +13,7 @@ import {
   FaHeart,
   FaRetweet,
   FaPlay,
+  FaTelegramPlane,
 } from 'react-icons/fa'; // Import icons
 
 const mockProfile = { // Mock data for previews
@@ -27,6 +28,7 @@ const platformLimits = {
   instagram: 2200,
   youtube: 5000,
   mastodon: 500,
+  telegram: 4096,
 };
 
 const getCharacterWarning = (message, platform) => {
@@ -46,7 +48,8 @@ const getEngagementMetrics = (platform, messageLength) => {
     facebook: { likes: 89, comments: 23, shares: 8 },
     instagram: { likes: 234, comments: 31 },
     youtube: { likes: 2340, dislikes: 12, comments: 178, views: 42000 },
-    mastodon: { favorites: 67, boosts: 23, replies: 15 }
+    mastodon: { favorites: 67, boosts: 23, replies: 15 },
+    telegram: { views: 5400, forwards: 15, comments: 34 }
   };
   
   // Adjust metrics based on content length (longer content = more engagement)
@@ -72,7 +75,8 @@ const getBestPostingTime = (platforms) => {
     facebook: { weekday: [9, 13, 15], weekend: [12, 14] },
     instagram: { weekday: [11, 14, 17], weekend: [10, 13] },
     youtube: { weekday: [14, 16, 20], weekend: [9, 11] },
-    mastodon: { weekday: [10, 14, 18], weekend: [11, 15] }
+    mastodon: { weekday: [10, 14, 18], weekend: [11, 15] },
+    telegram: { weekday: [10, 14, 18], weekend: [12, 16] }
   };
   
   const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
@@ -138,7 +142,8 @@ const suggestHashtags = (message, platforms) => {
     instagram: ['#InstaGood', '#PhotoOfTheDay'],
     facebook: ['#Community', '#Share'],
     youtube: ['#Video', '#Subscribe'],
-    mastodon: ['#Fediverse', '#OpenSource']
+    mastodon: ['#Fediverse', '#OpenSource'],
+    telegram: ['#TelegramTips', '#Channel']
   };
   
   platforms.forEach(platform => {
@@ -478,93 +483,120 @@ const YoutubePreview = ({ message, mediaFiles, youtubeConfig }) => (
   </div>
 );
 
-const MastodonPreview = ({ message, mediaFiles }) => (
-  <div className="bg-white border border-gray-300 rounded-lg shadow-sm overflow-hidden">
-    {/* Header */}
-    <div className="flex items-center p-3 border-b border-gray-200">
-      <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
-        YB
-      </div>
-      <div className="flex-grow">
-        <p className="font-semibold text-sm text-gray-900">{mockProfile.name}</p>
-        <p className="text-xs text-gray-500">@yourbrand@mastodon.social</p>
-      </div>
-      <span className="text-xs text-gray-500">{mockProfile.timestamp}</span>
-    </div>
+const MastodonPreview = ({ message, mediaFiles }) => {
+  const metrics = getEngagementMetrics('mastodon', message?.length || 0);
 
-    {/* Content */}
-    <div className="p-3">
-      {/* Message */}
-      {message && <div className="text-sm text-gray-900 mb-3 whitespace-pre-line">{message}</div>}
+  return (
+    <div className="bg-white border border-gray-300 rounded-lg shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center p-3 border-b border-gray-200">
+        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
+          YB
+        </div>
+        <div className="flex-grow">
+          <p className="font-semibold text-sm text-gray-900">{mockProfile.name}</p>
+          <p className="text-xs text-gray-500">@yourbrand@mastodon.social</p>
+        </div>
+        <span className="text-xs text-gray-500">{mockProfile.timestamp}</span>
+      </div>
+
+      {/* Content */}
+      <div className="p-3">
+        {/* Message */}
+        {message && <div className="text-sm text-gray-900 mb-3 whitespace-pre-line">{message}</div>}
+
+        {/* Media */}
+        {mediaFiles && mediaFiles.length > 0 && (
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            {mediaFiles.slice(0, 4).map((url, i) => (
+              <div key={i} className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                {isVideoFile(url) ? (
+                  <video 
+                    src={url} 
+                    className="w-full h-full object-cover"
+                    muted
+                  />
+                ) : (
+                  <img
+                    src={url}
+                    alt={`Media ${i + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        
+        {/* Actions */}
+        <div className="flex items-center space-x-6 text-gray-500 text-sm">
+          <button className="hover:text-purple-600 transition-colors flex items-center">
+            <FaCommentAlt className="mr-1" />
+            <span className="text-xs">{metrics.replies}</span>
+          </button>
+          <button className="hover:text-green-600 transition-colors flex items-center">
+            <FaRetweet className="mr-1" />
+            <span className="text-xs">{metrics.boosts}</span>
+          </button>
+          <button className="hover:text-yellow-600 transition-colors flex items-center">
+            <FaHeart className="mr-1" />
+            <span className="text-xs">{metrics.favorites}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const TelegramPreview = ({ message, mediaFiles }) => {
+  const metrics = getEngagementMetrics('telegram', message?.length || 0);
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center p-3 border-b border-gray-200">
+        <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
+          <FaTelegramPlane />
+        </div>
+        <div className="flex-grow">
+          <p className="font-semibold text-sm text-gray-900">{mockProfile.name}</p>
+          <p className="text-xs text-gray-500">@yourbrand_channel</p>
+        </div>
+        <FaEllipsisH className="text-gray-400 text-lg cursor-pointer" />
+      </div>
 
       {/* Media */}
       {mediaFiles && mediaFiles.length > 0 && (
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          {mediaFiles.slice(0, 4).map((url, i) => (
-            <div key={i} className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden">
-              {isVideoFile(url) ? (
-                <video 
-                  src={url} 
-                  className="w-full h-full object-cover"
-                  muted
-                />
-              ) : (
-                <img
-                  src={url}
-                  alt={`Media ${i + 1}`}
-                  className="w-full h-full object-cover"
-                />
-              )}
-            </div>
-          ))}
+        <div className="relative w-full bg-gray-100 aspect-video">
+          {mediaFiles.slice(0, 1).map((url, i) => {
+            const isVideo = isVideoFile(url);
+            return isVideo ? (
+              <video key={i} src={url} className="w-full h-full object-cover" muted />
+            ) : (
+              <img key={i} src={url} alt="Telegram media" className="w-full h-full object-cover" />
+            );
+          })}
         </div>
       )}
-      
-      {/* Actions */}
-      <div className="flex items-center space-x-6 text-gray-500 text-sm">
-        <button className="hover:text-purple-600 transition-colors">
-          <FaCommentAlt className="mr-1" />
-          Reply
-        </button>
-        <button className="hover:text-green-600 transition-colors">
-          <FaRetweet className="mr-1" />
-          Boost
-        </button>
-        <button className="hover:text-yellow-600 transition-colors">
-          <FaHeart className="mr-1" />
-          Favourite
-        </button>
+
+      {/* Message */}
+      <div className="p-3">
+        {message && <div className="text-sm text-gray-900 whitespace-pre-line mb-2">{message}</div>}
+        <div className="flex items-center justify-between text-xs text-gray-500 mt-1">
+          <span>{mockProfile.timestamp}</span>
+          <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1">
+              <FaPlay />
+              <span>{metrics.views}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 export default function PostPreview({ selectedPlatforms, message, mediaFiles, youtubeConfig, setMessage }) {
-  const bestTime = getBestPostingTime(selectedPlatforms);
-  const hashtagSuggestions = suggestHashtags(message, selectedPlatforms);
-
-  // Helper: insert or copy hashtag
-  const handleHashtagClick = async (tag, evt) => {
-    try {
-      if (evt && evt.shiftKey) {
-        if (navigator?.clipboard?.writeText) {
-          await navigator.clipboard.writeText(tag);
-        }
-        return;
-      }
-      if (typeof setMessage === 'function') {
-        setMessage(prev => {
-          const current = prev || '';
-          const exists = new RegExp(`(^|\\s)${tag}(\\s|$)`).test(current);
-          if (exists) return current;
-          const needsSpace = current.length > 0 && !/\s$/.test(current);
-          return `${current}${needsSpace ? ' ' : ''}${tag}`;
-        });
-      }
-    } catch (_) {
-      // no-op
-    }
-  };
   
   // Show empty state if nothing to preview
   if (selectedPlatforms.length === 0 && !message?.trim() && (!mediaFiles || mediaFiles.length === 0)) {
@@ -583,42 +615,7 @@ export default function PostPreview({ selectedPlatforms, message, mediaFiles, yo
 
   return (
     <div className="space-y-4">
-      {/* Best Time Suggestion */}
-      {bestTime && (
-        <div className={`p-3 rounded-lg border ${
-          bestTime.optimal 
-            ? 'bg-green-50 border-green-200 text-green-800' 
-            : 'bg-blue-50 border-blue-200 text-blue-800'
-        }`}>
-          <div className="flex items-center">
-            <span className="mr-2">{bestTime.optimal ? '🎯' : '💡'}</span>
-            <span className="text-sm font-medium">{bestTime.message}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Hashtag Suggestions */}
-      {hashtagSuggestions.length > 0 && (
-        <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
-          <div className="flex items-center mb-2">
-            <span className="mr-2">🏷️</span>
-            <span className="text-sm font-medium text-purple-800">Suggested Hashtags</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {hashtagSuggestions.map((tag, i) => (
-              <button 
-                key={i} 
-                type="button"
-                onClick={(e) => handleHashtagClick(tag, e)}
-                className="inline-block bg-purple-100 text-purple-700 text-xs px-2 py-1 rounded-full cursor-pointer hover:bg-purple-200 transition-colors"
-                title="Click to insert • Shift+Click to copy"
-              >
-                {tag}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+  {/* Recommendations removed per user request */}
 
       {/* Platform Previews */}
       {selectedPlatforms.includes('facebook') && (
@@ -694,6 +691,16 @@ export default function PostPreview({ selectedPlatforms, message, mediaFiles, yo
           <MastodonPreview message={message} mediaFiles={mediaFiles} />
         </div>
       )}
+      
+      {selectedPlatforms.includes('telegram') && (
+        <div>
+          <div className="flex items-center mb-2">
+            <FaTelegramPlane className="text-blue-500 mr-2" />
+            <span className="text-sm font-medium text-gray-700">Telegram</span>
+          </div>
+          <TelegramPreview message={message} mediaFiles={mediaFiles} />
+        </div>
+      )}
 
       {/* Platform selection summary */}
       {selectedPlatforms.length > 0 && (
@@ -710,6 +717,7 @@ export default function PostPreview({ selectedPlatforms, message, mediaFiles, yo
                   twitter: FaTwitter,
                   youtube: FaYoutube,
                   mastodon: FaMastodon,
+                  telegram: FaTelegramPlane,
                 };
                 const colors = {
                   facebook: 'text-blue-600',
@@ -717,6 +725,7 @@ export default function PostPreview({ selectedPlatforms, message, mediaFiles, yo
                   twitter: 'text-blue-400',
                   youtube: 'text-red-600',
                   mastodon: 'text-purple-600',
+                  telegram: 'text-blue-500',
                 };
                 const IconComponent = icons[platform];
                 return (

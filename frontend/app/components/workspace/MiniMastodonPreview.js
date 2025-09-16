@@ -71,7 +71,7 @@ export default function MiniMastodonPreview({ task, onReact, showReactions = tru
       </div>
       {task.photo && (
         <div className="px-4 pb-4">
-          <img src={task.photo} alt="Preview" className="mx-auto my-2 max-w-xs h-60 object-contain rounded-xl border" />
+          <img src={task.photo} alt="Preview" className="w-full h-32 md:h-40 object-cover rounded-lg border" />
         </div>
       )}
       {/* Reactions Bar */}

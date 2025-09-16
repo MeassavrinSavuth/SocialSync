@@ -18,7 +18,7 @@ const pacifico = Pacifico({
 export default function DashboardLayout({ children }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // Default to closed on mobile
   const [activeTab, setActiveTab] = useState(null);
   const { profileData, isLoading } = useUser();
 
@@ -27,6 +27,46 @@ export default function DashboardLayout({ children }) {
   profileData?.profileImage && profileData.profileImage.startsWith('http')
     ? profileData.profileImage
     : defaultProfilePic;
+
+  // Close sidebar when clicking outside on mobile
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (window.innerWidth < 1024 && sidebarOpen) {
+        const sidebar = document.querySelector('aside');
+        const menuButton = document.querySelector('[aria-label="Open Menu"]');
+        
+        if (sidebar && !sidebar.contains(event.target) && 
+            menuButton && !menuButton.contains(event.target)) {
+          setSidebarOpen(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [sidebarOpen]);
+
+  // Set sidebar default state based on screen size
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) { // lg breakpoint
+        setSidebarOpen(true); // Open by default on desktop
+      } else {
+        setSidebarOpen(false); // Closed by default on mobile
+      }
+    };
+
+    // Set initial state
+    if (typeof window !== 'undefined') {
+      handleResize();
+    }
+    
+    // Add event listener
+    window.addEventListener('resize', handleResize);
+    
+    // Cleanup
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Redirect to login if no tokens
   useEffect(() => {
@@ -70,10 +110,22 @@ export default function DashboardLayout({ children }) {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50 font-sans">
+    <div className="flex h-screen bg-gray-50 font-sans relative">
+      {/* Mobile menu button when sidebar is closed */}
+      {!sidebarOpen && (
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="fixed top-4 left-4 z-30 lg:hidden flex items-center justify-center w-10 h-10 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-lg transition-colors"
+          aria-label="Open Menu"
+        >
+          <FaAngleRight className="text-lg" />
+        </button>
+      )}
+
+      {/* Sidebar */}
       <aside
-        className={`transition-all duration-300 ease-in-out bg-white shadow-md p-4 flex flex-col justify-between border-r border-gray-200 ${
-          sidebarOpen ? 'w-64' : 'w-20'
+        className={`fixed lg:relative z-50 h-full transition-all duration-300 ease-in-out bg-white shadow-lg lg:shadow-md p-4 flex flex-col justify-between border-r border-gray-200 ${
+          sidebarOpen ? 'w-64 translate-x-0' : 'w-64 -translate-x-full lg:w-20 lg:translate-x-0'
         }`}
       >
         {/* Logo & Toggle */}
@@ -86,7 +138,7 @@ export default function DashboardLayout({ children }) {
             )}
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="flex items-center justify-center w-10 h-10 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition"
+              className="flex items-center justify-center w-10 h-10 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors"
               aria-label="Toggle Sidebar"
             >
               {sidebarOpen ? (
@@ -137,7 +189,14 @@ export default function DashboardLayout({ children }) {
 
       </aside>
 
-      <main className="flex-1 p-6 overflow-y-auto bg-white rounded-l-2xl shadow-inner">{children}</main>
+      {/* Main content */}
+      <main className={`flex-1 overflow-y-auto bg-white transition-all duration-300 ${
+        sidebarOpen 
+          ? 'lg:rounded-l-2xl lg:shadow-inner lg:ml-0' 
+          : 'lg:rounded-l-2xl lg:shadow-inner lg:ml-0'
+      } ${!sidebarOpen ? 'pt-16 px-4 pb-4 lg:pt-6 lg:px-6 lg:pb-6' : 'p-4 lg:p-6'}`}>
+        {children}
+      </main>
     </div>
   );
 }

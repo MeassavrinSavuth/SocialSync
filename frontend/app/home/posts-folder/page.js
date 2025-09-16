@@ -14,10 +14,10 @@ function AppIconCard({ icon, label, color, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="group flex flex-col items-center justify-center bg-white p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-gray-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+      className="group flex flex-col items-center justify-center bg-white p-3 md:p-4 lg:p-6 rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-gray-300 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 min-h-[80px] md:min-h-[100px] lg:min-h-[120px] w-full"
     >
-      <div className={`text-4xl mb-2 ${color}`}>{icon}</div>
-      <span className="text-xs font-semibold text-gray-700">{label}</span>
+      <div className={`text-2xl md:text-3xl lg:text-4xl mb-1 md:mb-2 ${color}`}>{icon}</div>
+      <span className="text-xs md:text-sm font-semibold text-gray-700">{label}</span>
     </button>
   );
 }
@@ -43,8 +43,7 @@ export default function PostsFolderPage() {
       console.error('No token found');
       return;
     }
-    
-    // Redirect to the appropriate auth endpoint
+
     if (platform === 'facebook') {
       window.location.href = `http://localhost:8080/auth/facebook/login?token=${token}`;
     } else if (platform === 'twitter') {
@@ -58,42 +57,38 @@ export default function PostsFolderPage() {
     }
   };
 
-  // Update the fetch function to handle connection errors
+  // Fetch posts for a platform
   const fetchPlatformPosts = async (platform) => {
     setLoading(true);
     setError(null);
-    
+
     try {
-      const res = await protectedFetch(`http://localhost:8080/api/${platform}/posts`);
-      if (!res) return;
-      
-      const data = await res.json();
-      
-      // Check if response indicates need for reconnection
+      const { data, error, status } = await protectedFetch(`/${platform}/posts`);
+      if (error) throw new Error(error);
+      if (!data) return;
+
       if (data.needsReconnect) {
-        setConnectionStatus(prev => ({
+        setConnectionStatus((prev) => ({
           ...prev,
           [platform]: {
             isConnected: false,
             error: data,
-            needsReconnect: true
-          }
+            needsReconnect: true,
+          },
         }));
-        setError(null); // Clear general error since we have specific connection error
         return;
       }
-      
-      // Update connection status to success
-      setConnectionStatus(prev => ({
+
+      setConnectionStatus((prev) => ({
         ...prev,
         [platform]: {
           isConnected: true,
           error: null,
-          needsReconnect: false
-        }
+          needsReconnect: false,
+        },
       }));
-      
-      // Handle different response formats
+
+      // Handle platform-specific data structures
       if (platform === 'facebook') {
         setFacebookPosts(data.data || []);
         setFacebookPageInfo(data.pageInfo || null);
@@ -106,17 +101,16 @@ export default function PostsFolderPage() {
       } else if (platform === 'instagram') {
         setInstagramPosts(data.data || []);
       }
-      
     } catch (err) {
       console.error(`Error fetching ${platform} posts:`, err);
       setError(`Failed to fetch ${platform} posts: ${err.message}`);
-      setConnectionStatus(prev => ({
+      setConnectionStatus((prev) => ({
         ...prev,
         [platform]: {
           isConnected: false,
           error: { message: err.message },
-          needsReconnect: false
-        }
+          needsReconnect: false,
+        },
       }));
     } finally {
       setLoading(false);
@@ -139,64 +133,60 @@ export default function PostsFolderPage() {
     setInstagramPosts([]);
     setError(null);
     setSearchQuery('');
-    // Clear connection status for new platform
-    setConnectionStatus(prev => ({
+    setConnectionStatus((prev) => ({
       ...prev,
       [platform]: {
         isConnected: true,
         error: null,
-        needsReconnect: false
-      }
+        needsReconnect: false,
+      },
     }));
   };
 
   // Filter posts by search query
-  const filteredMastodonPosts = mastodonPosts.filter(post =>
+  const filteredMastodonPosts = mastodonPosts.filter((post) =>
     post.content.toLowerCase().includes(searchQuery.toLowerCase())
   );
-  const filteredTwitterPosts = (twitterPosts.data || []).filter(tweet =>
-    tweet.text && tweet.text.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredTwitterPosts = (twitterPosts.data || []).filter(
+    (tweet) =>
+      tweet.text && tweet.text.toLowerCase().includes(searchQuery.toLowerCase())
   );
-  const filteredYouTubePosts = youtubePosts.filter(video => {
+  const filteredYouTubePosts = youtubePosts.filter((video) => {
     const snippet = video.snippet || {};
     return (
-      (snippet.title && snippet.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (snippet.description && snippet.description.toLowerCase().includes(searchQuery.toLowerCase()))
+      (snippet.title &&
+        snippet.title.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (snippet.description &&
+        snippet.description.toLowerCase().includes(searchQuery.toLowerCase()))
     );
   });
-  const filteredFacebookPosts = facebookPosts.filter(post =>
-    (post.message && post.message.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredFacebookPosts = facebookPosts.filter(
+    (post) =>
+      post.message && post.message.toLowerCase().includes(searchQuery.toLowerCase())
   );
-  const filteredInstagramPosts = instagramPosts.filter(post =>
-    (post.caption && post.caption.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredInstagramPosts = instagramPosts.filter(
+    (post) =>
+      post.caption && post.caption.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Helper functions for Twitter
-  const getTweetMedia = (tweet, includes) => {
-    if (!tweet.attachments || !tweet.attachments.media_keys || !includes || !includes.media) return [];
-    return tweet.attachments.media_keys.map(key =>
-      includes.media.find(m => m.media_key === key)
-    ).filter(Boolean);
-  };
-
+  // Helpers for Twitter
   const getTweetAuthor = (twitterPosts) => {
-    if (twitterPosts && twitterPosts.includes && twitterPosts.includes.users && twitterPosts.includes.users.length > 0) {
+    if (twitterPosts?.includes?.users?.length > 0) {
       return twitterPosts.includes.users[0];
     }
-    if (twitterPosts && twitterPosts.data && twitterPosts.data.length > 0 && twitterPosts.data[0].author) {
+    if (twitterPosts?.data?.length > 0 && twitterPosts.data[0].author) {
       return twitterPosts.data[0].author;
     }
     return null;
   };
   const tweetAuthor = getTweetAuthor(twitterPosts);
 
-  // Render connection status or posts
+  // Render platform content
   const renderContent = () => {
     if (!selectedPlatform) return null;
-    
+
     const status = connectionStatus[selectedPlatform];
-    
-    // Show connection status if there are issues
+
     if (status && (!status.isConnected || status.error)) {
       return (
         <ConnectionStatus
@@ -209,7 +199,6 @@ export default function PostsFolderPage() {
       );
     }
 
-    // Show posts based on selected platform
     switch (selectedPlatform) {
       case 'mastodon':
         return (
@@ -270,24 +259,51 @@ export default function PostsFolderPage() {
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto py-10 px-4">
-      <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6 text-center">
+    <div className="w-full max-w-7xl mx-auto py-4 md:py-6 lg:py-8 px-4 md:px-6 lg:px-8">
+      <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 mb-4 md:mb-6 text-center">
         Select platform to see the post
       </h1>
-      <div className="flex gap-6 justify-center my-6 flex-wrap">
-        <AppIconCard icon={<FaFacebook />} label="Facebook" color="text-blue-600" onClick={() => handlePlatformClick('facebook')} />
-        <AppIconCard icon={<FaInstagram />} label="Instagram" color="text-pink-500" onClick={() => handlePlatformClick('instagram')} />
-        <AppIconCard icon={<FaYoutube />} label="YouTube" color="text-red-600" onClick={() => handlePlatformClick('youtube')} />
-        <AppIconCard icon={<SiMastodon />} label="Mastodon" color="text-purple-600" onClick={() => handlePlatformClick('mastodon')} />
-        <AppIconCard icon={<FaTwitter />} label="Twitter" color="text-sky-500" onClick={() => handlePlatformClick('twitter')} />
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4 lg:gap-6 my-4 md:my-6 justify-items-center">
+        <AppIconCard
+          icon={<FaFacebook />}
+          label="Facebook"
+          color="text-blue-600"
+          onClick={() => handlePlatformClick('facebook')}
+        />
+        <AppIconCard
+          icon={<FaInstagram />}
+          label="Instagram"
+          color="text-pink-500"
+          onClick={() => handlePlatformClick('instagram')}
+        />
+        <AppIconCard
+          icon={<FaYoutube />}
+          label="YouTube"
+          color="text-red-600"
+          onClick={() => handlePlatformClick('youtube')}
+        />
+        <AppIconCard
+          icon={<SiMastodon />}
+          label="Mastodon"
+          color="text-purple-600"
+          onClick={() => handlePlatformClick('mastodon')}
+        />
+        <AppIconCard
+          icon={<FaTwitter />}
+          label="Twitter"
+          color="text-sky-500"
+          onClick={() => handlePlatformClick('twitter')}
+        />
       </div>
       {selectedPlatform && (
-        <div className="text-center text-lg mt-4">
-          Selected platform: <span className="font-semibold capitalize">{selectedPlatform}</span>
+        <div className="text-center text-sm md:text-base lg:text-lg mt-3 md:mt-4 mb-4 md:mb-6">
+          Selected platform:{' '}
+          <span className="font-semibold capitalize text-blue-600">{selectedPlatform}</span>
         </div>
       )}
-      
-      {renderContent()}
+      <div className="mt-4 md:mt-6">
+        {renderContent()}
+      </div>
     </div>
   );
 }

@@ -13,6 +13,6 @@ func RegisterMediaRoutes(r *mux.Router) {
 
 	media.HandleFunc("", controllers.UploadMedia).Methods("POST")
 	media.HandleFunc("", controllers.ListMedia).Methods("GET")
-	media.HandleFunc("/{mediaId}", controllers.DeleteMedia).Methods("DELETE")
+	media.HandleFunc("/{mediaId}", controllers.DeleteMedia).Methods("DELETE") // Updated to allow all workspace members to delete
 	media.HandleFunc("/{mediaId}/tags", controllers.UpdateMediaTags).Methods("PATCH")
 }

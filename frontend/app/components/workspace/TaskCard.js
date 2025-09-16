@@ -3,7 +3,7 @@ import { useToggle } from '../../hooks/ui/useToggle';
 import CommentSection from './CommentSection';
 import { useUser } from '../../hooks/auth/useUser';
 
-const TaskCard = ({ task, onUpdate, onDelete, workspaceId }) => {
+const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [] }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [showComments, toggleComments] = useToggle(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -21,6 +21,20 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId }) => {
     'In Progress': 'bg-blue-100 text-blue-800',
     'Review': 'bg-yellow-100 text-yellow-800',
     'Done': 'bg-green-100 text-green-800',
+  };
+
+  // Helper function to get user display name
+  const getUserDisplayName = (userId) => {
+    if (!userId) return 'Unassigned';
+    const member = teamMembers.find(m => m.id === userId || m.email === userId);
+    return member ? member.name : userId;
+  };
+
+  // Helper function to get user avatar
+  const getUserAvatar = (userId) => {
+    if (!userId) return '/default-avatar.png';
+    const member = teamMembers.find(m => m.id === userId || m.email === userId);
+    return member ? member.avatar : '/default-avatar.png';
   };
 
   const handleSave = async () => {
@@ -56,20 +70,20 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId }) => {
   const isOwner = true;
 
   return (
-    <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6 mb-4">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 transition-all duration-200 hover:shadow-md hover:border-gray-300">
       {isEditing ? (
         <div className="space-y-4">
           <input
             type="text"
             value={editForm.title}
             onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 placeholder-gray-500"
             placeholder="Task title"
           />
           <textarea
             value={editForm.description}
             onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 placeholder-gray-500"
             placeholder="Task description"
             rows="3"
           />
@@ -77,7 +91,7 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId }) => {
             <select
               value={editForm.status}
               onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
             >
               <option value="Todo">Todo</option>
               <option value="In Progress">In Progress</option>
@@ -88,16 +102,21 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId }) => {
               type="date"
               value={editForm.due_date}
               onChange={(e) => setEditForm({ ...editForm, due_date: e.target.value })}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
             />
           </div>
-          <input
-            type="text"
+          <select
             value={editForm.assigned_to}
             onChange={(e) => setEditForm({ ...editForm, assigned_to: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Assigned to (email)"
-          />
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
+          >
+            <option value="">Unassigned</option>
+            {teamMembers.map((member) => (
+              <option key={member.id} value={member.id}>
+                {member.name} ({member.email})
+              </option>
+            ))}
+          </select>
           <div className="flex space-x-2">
             <button
               onClick={handleSave}
@@ -115,81 +134,114 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId }) => {
         </div>
       ) : (
         <div>
-          <div className="flex items-center justify-between mb-4">
-            {/* Creator info and 3-dot menu */}
-            <div className="flex items-center">
+          {/* Header with creator and menu */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
               <img
                 src={task.creator_avatar || '/default-avatar.png'}
                 alt={task.creator_name || 'Unknown'}
-                className="w-9 h-9 rounded-full border mr-3 shadow-sm"
-                title={task.creator_name || 'Unknown'}
+                className="w-7 h-7 rounded-full border"
               />
-              {/* 3-dot menu for all users, right next to avatar */}
-              <div className="relative ml-3 flex items-center">
-                <button
-                  onClick={() => setMenuOpen((open) => !open)}
-                  className="p-2 text-gray-500 hover:text-gray-700 focus:outline-none"
-                  aria-label="Task options"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <circle cx="12" cy="6" r="1.5"/>
-                    <circle cx="12" cy="12" r="1.5"/>
-                    <circle cx="12" cy="18" r="1.5"/>
-                  </svg>
-                </button>
-                {menuOpen && (
-                  <div className="absolute right-0 mt-2 w-32 bg-white border rounded shadow z-10">
-                    <button
-                      className="block w-full text-left px-4 py-2 text-blue-700 hover:bg-blue-100 font-semibold"
-                      onClick={() => { setIsEditing(true); setMenuOpen(false); }}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 font-semibold"
-                      onClick={() => { setMenuOpen(false); handleDelete(); }}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                )}
+              <div>
+                <p className="text-sm font-medium text-gray-900 truncate">{task.creator_name || 'Unknown'}</p>
+                <p className="text-xs text-gray-500">{task.created_at ? new Date(task.created_at).toLocaleDateString() : 'Today'}</p>
               </div>
-              <div className="flex flex-col ml-3">
-                <span className="font-semibold text-base text-gray-900 leading-tight">
-                  {task.creator_name || 'Unknown'}
-                </span>
-                <span className="text-xs text-gray-500">{task.created_at ? new Date(task.created_at).toLocaleString() : 'Just now'}</span>
-              </div>
-              <span className="ml-2 text-xs text-gray-400">(Posted by)</span>
             </div>
-            {/* Status and Assignee with headers (unchanged) */}
-            <div className="flex flex-wrap gap-2 mb-4">
-              <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[task.status] || statusColors['Todo']}`}>
-                {task.status}
-              </span>
-              {task.assigned_to && (
-                <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
-                  Assigned to: {task.assigned_to}
-                </span>
+            {/* Three-dot menu */}
+            <div className="relative">
+              <button
+                className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+                onClick={() => setMenuOpen(!menuOpen)}
+              >
+                <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                </svg>
+              </button>
+              {menuOpen && (
+                <div className="absolute right-0 top-8 w-32 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                  <button
+                    className="block w-full text-left px-4 py-2 text-blue-700 hover:bg-blue-100 font-semibold"
+                    onClick={() => { setIsEditing(true); setMenuOpen(false); }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 font-semibold"
+                    onClick={() => { setMenuOpen(false); handleDelete(); }}
+                  >
+                    Delete
+                  </button>
+                </div>
               )}
+            </div>
+          </div>
+
+          {/* Task Title */}
+          <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2">{task.title}</h3>
+          
+          {/* Task Description */}
+          {task.description && (
+            <p className="text-sm text-gray-600 mb-3 line-clamp-3 bg-gray-50 rounded-md px-3 py-2 border border-gray-100">
+              {task.description}
+            </p>
+          )}
+
+          {/* Status and Tags */}
+          <div className="flex flex-wrap gap-2 mb-3">
+            <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[task.status] || statusColors['Todo']}`}>
+              {task.status}
+            </span>
+            {task.assigned_to && (
+              <div className="flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                <img
+                  src={getUserAvatar(task.assigned_to)}
+                  alt={getUserDisplayName(task.assigned_to)}
+                  className="w-4 h-4 rounded-full border"
+                />
+                <span>{getUserDisplayName(task.assigned_to)}</span>
+              </div>
+            )}
+            {task.due_date && (
               <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                 isOverdue ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
               }`}>
-                Due: {formatDate(task.due_date)}
+                {formatDate(task.due_date)}
               </span>
-            </div>
+            )}
           </div>
-          <div className="flex justify-between items-center">
-            <button
-              onClick={toggleComments}
-              className="text-sm text-blue-500 hover:text-blue-700 focus:outline-none"
+
+          {/* Comments Toggle and Quick Actions */}
+          <div className="flex justify-between items-center gap-2">
+            <div className="flex gap-2">
+              <button
+                onClick={toggleComments}
+                className="text-sm text-blue-500 hover:text-blue-700 focus:outline-none"
+              >
+                {showComments ? 'Hide Comments' : 'Show Comments'}
+              </button>
+              {!task.assigned_to && (
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="text-sm text-green-500 hover:text-green-700 focus:outline-none"
+                >
+                  Assign
+                </button>
+              )}
+            </div>
+            <select
+              value={task.status}
+              onChange={async (e) => {
+                await onUpdate(task.id, { status: e.target.value });
+              }}
+              className="text-xs border rounded px-2 py-1 text-gray-800 bg-white min-w-0"
             >
-              {showComments ? 'Hide Comments' : 'Show Comments'}
-            </button>
-            <div className="text-xs text-gray-500">
-              Created {new Date(task.created_at).toLocaleDateString()}
-            </div>
+              <option value="Todo">Todo</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Review">Review</option>
+              <option value="Done">Done</option>
+            </select>
           </div>
+          
           {showComments && (
             <div className="mt-4 pt-4 border-t border-gray-200">
               <CommentSection taskId={task.id} workspaceId={workspaceId} />

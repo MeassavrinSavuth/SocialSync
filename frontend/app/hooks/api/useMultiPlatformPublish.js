@@ -95,6 +95,18 @@ export function useMultiPlatformPublish({ message, mediaFiles, youtubeConfig }) 
             break;
           }
 
+          case 'telegram':
+            // Telegram expects JSON: { message, mediaUrls: [...] }
+            res = await fetch('http://localhost:8080/api/telegram/post', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ message, mediaUrls: mediaFiles }),
+            });
+            break;
+
           default:
             results.push({ platform, success: false, error: 'Unsupported platform' });
             continue;
@@ -103,11 +115,21 @@ export function useMultiPlatformPublish({ message, mediaFiles, youtubeConfig }) 
         const responseData = await res.json().catch(() => ({}));
 
         if (!res.ok) {
-          results.push({
+          // Handle structured error responses (especially for YouTube auth errors)
+          const errorInfo = {
             platform,
             success: false,
             error: responseData?.error || res.statusText || 'Unknown error',
-          });
+          };
+
+          // Check if this is a structured error response with type and action
+          if (responseData?.type && responseData?.action) {
+            errorInfo.errorType = responseData.type;
+            errorInfo.errorAction = responseData.action;
+            errorInfo.userFriendlyMessage = responseData.userMessage || responseData.error;
+          }
+
+          results.push(errorInfo);
         } else {
           results.push({ platform, success: true, data: responseData });
         }

@@ -7,11 +7,65 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"os"
 	"strings"
 	"time"
 
 	"social-sync-backend/middleware"
 )
+
+// refreshTwitterToken uses the refresh token to get a new access token
+func refreshTwitterToken(refreshToken string) (string, error) {
+	clientID := os.Getenv("TWITTER_CLIENT_ID")
+	clientSecret := os.Getenv("TWITTER_CLIENT_SECRET")
+
+	if clientID == "" || clientSecret == "" {
+		return "", fmt.Errorf("missing Twitter OAuth credentials")
+	}
+
+	// Prepare refresh token request
+	data := url.Values{}
+	data.Set("grant_type", "refresh_token")
+	data.Set("refresh_token", refreshToken)
+	data.Set("client_id", clientID)
+
+	req, err := http.NewRequest("POST", "https://api.twitter.com/2/oauth2/token", strings.NewReader(data.Encode()))
+	if err != nil {
+		return "", fmt.Errorf("failed to create refresh request: %v", err)
+	}
+
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetBasicAuth(clientID, clientSecret)
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("refresh request failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("Twitter refresh failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var tokenResponse struct {
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		ExpiresIn    int    `json:"expires_in"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&tokenResponse); err != nil {
+		return "", fmt.Errorf("failed to decode refresh response: %v", err)
+	}
+
+	if tokenResponse.AccessToken == "" {
+		return "", fmt.Errorf("received empty access token from Twitter")
+	}
+
+	return tokenResponse.AccessToken, nil
+}
 
 type TwitterPostRequest struct {
 	Message string `json:"message"`
@@ -84,10 +138,48 @@ func PostToTwitterHandler(db *sql.DB) http.HandlerFunc {
 
 		// Check if token is expired (if expiry is set)
 		if tokenExpiry != nil && time.Now().After(*tokenExpiry) {
-			// In a production app, you'd refresh the token here
-			// For now, we'll return an error
-			http.Error(w, "Twitter access token has expired. Please reconnect your account.", http.StatusUnauthorized)
-			return
+			if refreshToken != nil && *refreshToken != "" {
+				// Try to refresh the token
+				newAccessToken, refreshErr := refreshTwitterToken(*refreshToken)
+				if refreshErr != nil {
+					// Return structured error for frontend
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusUnauthorized)
+					json.NewEncoder(w).Encode(map[string]interface{}{
+						"error":       "Your Twitter connection has expired. Please reconnect your Twitter account to continue posting.",
+						"userMessage": "Your Twitter connection has expired. Please reconnect your Twitter account to continue posting.",
+						"type":        "AUTH_EXPIRED",
+						"action":      "RECONNECT_REQUIRED",
+					})
+					return
+				}
+
+				// Update token in database
+				_, updateErr := db.Exec(`
+					UPDATE social_accounts 
+					SET access_token = $1, access_token_expires_at = $2, last_synced_at = $3
+					WHERE user_id = $4 AND platform = 'twitter'
+				`, newAccessToken, time.Now().Add(2*time.Hour), time.Now(), userID)
+				if updateErr != nil {
+					http.Error(w, "Failed to update access token", http.StatusInternalServerError)
+					return
+				}
+
+				// Use the new token for the request
+				accessToken = newAccessToken
+				fmt.Printf("DEBUG: Twitter token refreshed successfully\n")
+			} else {
+				// No refresh token available
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"error":       "Your Twitter connection has expired. Please reconnect your Twitter account to continue posting.",
+					"userMessage": "Your Twitter connection has expired. Please reconnect your Twitter account to continue posting.",
+					"type":        "AUTH_EXPIRED",
+					"action":      "RECONNECT_REQUIRED",
+				})
+				return
+			}
 		}
 
 		// Prepare tweet payload
@@ -127,7 +219,7 @@ func PostToTwitterHandler(db *sql.DB) http.HandlerFunc {
 			Timeout: 30 * time.Second,
 		}
 
-		// Simple retry mechanism
+		// Simple retry mechanism with token refresh for 401 errors
 		var resp *http.Response
 		for attempt := 1; attempt <= 2; attempt++ {
 			resp, err = client.Do(req_twitter)
@@ -137,6 +229,37 @@ func PostToTwitterHandler(db *sql.DB) http.HandlerFunc {
 					return
 				}
 				time.Sleep(2 * time.Second)
+				continue
+			}
+
+			// If we get a 401 error and have a refresh token, try to refresh and retry
+			if resp.StatusCode == 401 && attempt == 1 && refreshToken != nil && *refreshToken != "" {
+				fmt.Printf("DEBUG: Twitter API 401 error, attempting token refresh...\n")
+				resp.Body.Close()
+
+				// Try to refresh the token
+				newAccessToken, refreshErr := refreshTwitterToken(*refreshToken)
+				if refreshErr != nil {
+					fmt.Printf("DEBUG: Twitter token refresh failed: %v\n", refreshErr)
+					break // Exit retry loop and handle 401 error normally
+				}
+
+				// Update token in database
+				_, updateErr := db.Exec(`
+					UPDATE social_accounts 
+					SET access_token = $1, access_token_expires_at = $2, last_synced_at = $3
+					WHERE user_id = $4 AND platform = 'twitter'
+				`, newAccessToken, time.Now().Add(2*time.Hour), time.Now(), userID)
+				if updateErr != nil {
+					fmt.Printf("DEBUG: Failed to update Twitter token in database: %v\n", updateErr)
+					break
+				}
+
+				// Update the request with the new token and retry
+				req_twitter.Header.Set("Authorization", "Bearer "+newAccessToken)
+				accessToken = newAccessToken
+				fmt.Printf("DEBUG: Twitter token refreshed successfully, retrying request...\n")
+				time.Sleep(1 * time.Second)
 				continue
 			}
 
@@ -295,9 +418,10 @@ func GetTwitterPostsHandler(db *sql.DB) http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"error": "Invalid token",
-			"needsReconnect": true,
-			"message": "Your Twitter connection has expired. Please reconnect your account.",
+			"error":       "Your Twitter connection has expired. Please reconnect your Twitter account to continue posting.",
+			"userMessage": "Your Twitter connection has expired. Please reconnect your Twitter account to continue posting.",
+			"type":        "AUTH_EXPIRED",
+			"action":      "RECONNECT_REQUIRED",
 		})
 		return
 	}

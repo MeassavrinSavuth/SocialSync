@@ -8,15 +8,15 @@ export default function TwitterPosts({ posts, loading, error, searchQuery, setSe
 
   if (loading) {
     return (
-      <div className="mt-8 max-w-2xl mx-auto">
-        {/* Search bar */}
-        <div className="mb-6 flex justify-center">
+      <div className="mt-4 md:mt-6 lg:mt-8 max-w-4xl mx-auto px-2 md:px-4">
+        {/* Search bar - Mobile optimized */}
+        <div className="mb-4 md:mb-6 flex justify-center">
           <input
             type="text"
             placeholder="Search tweets..."
             value={searchQuery || ''}
             onChange={e => setSearchQuery && setSearchQuery(e.target.value)}
-            className="border rounded-full px-4 py-3 w-full max-w-md text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none shadow-sm bg-gray-50"
+            className="border rounded-full px-3 md:px-4 py-2 md:py-3 w-full max-w-md text-sm md:text-base text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none shadow-sm bg-gray-50"
           />
         </div>
         <div className="space-y-4">
@@ -119,18 +119,18 @@ export default function TwitterPosts({ posts, loading, error, searchQuery, setSe
   }
 
   return (
-    <div className="mt-8 max-w-2xl mx-auto">
-      {/* Search bar */}
-      <div className="mb-6 flex justify-center">
+    <div className="mt-4 md:mt-6 lg:mt-8 max-w-4xl mx-auto px-2 md:px-4">
+      {/* Search bar - Mobile optimized */}
+      <div className="mb-4 md:mb-6 flex justify-center">
         <input
           type="text"
           placeholder="Search tweets..."
           value={searchQuery || ''}
           onChange={e => setSearchQuery && setSearchQuery(e.target.value)}
-          className="border rounded-full px-4 py-3 w-full max-w-md text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none shadow-sm bg-gray-50"
+          className="border rounded-full px-3 md:px-4 py-2 md:py-3 w-full max-w-md text-sm md:text-base text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none shadow-sm bg-gray-50"
         />
       </div>
-      <div className="space-y-4">
+      <div className="space-y-3 md:space-y-4">
         {tweets.map((tweet, index) => (
           <div key={tweet.id || index} className="bg-white border border-gray-200 rounded-2xl shadow-sm p-4 hover:bg-gray-50 transition-colors cursor-pointer">
             <div className="flex space-x-3">

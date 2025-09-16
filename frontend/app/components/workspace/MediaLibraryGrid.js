@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useRef, Fragment } from 'react';
-import { FaPlus, FaTimes, FaCloudUploadAlt, FaTag, FaTrash, FaEdit } from 'react-icons/fa';
+import { FaPlus, FaTimes, FaCloudUploadAlt, FaTag, FaTrash, FaEdit, FaDownload, FaEye, FaCheck, FaExclamationTriangle } from 'react-icons/fa';
 import { useMedia } from '../../hooks/api/useMedia';
 
 const FILTERS = [
@@ -9,14 +9,20 @@ const FILTERS = [
   { key: 'video', label: 'Videos' },
 ];
 
-function AddMediaCard({ onUpload, tags, onCancel }) {
+function AddMediaCard({ onUpload, tags, onCancel, uploadProgress, isUploading, uploadSpeed, uploadSuccess, uploadError }) {
   const [file, setFile] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
   const [tagInput, setTagInput] = useState('');
   const [selectedTags, setSelectedTags] = useState([]);
   const [error, setError] = useState('');
   const [dragActive, setDragActive] = useState(false);
+  const [localUploadError, setLocalUploadError] = useState(null);
   const fileInputRef = useRef(null);
+
+  // Sync upload error with local state
+  React.useEffect(() => {
+    setLocalUploadError(uploadError);
+  }, [uploadError]);
 
   const handleFileChange = (e) => {
     const f = e.target.files[0];
@@ -86,8 +92,7 @@ function AddMediaCard({ onUpload, tags, onCancel }) {
     setTagInput('');
     setError('');
   };
-  // Filter tag suggestions
-  const tagSuggestions = tags.filter(t => !selectedTags.includes(t) && t.includes(tagInput.toLowerCase()) && tagInput);
+  // (Removed tag suggestion dropdown per UX request)
 
   return (
     <div className="relative animate-fade-in mb-8 w-full max-w-2xl mx-auto bg-white rounded-3xl shadow-2xl p-10 border border-gray-100 flex flex-col gap-6 transition-all duration-300">
@@ -106,11 +111,36 @@ function AddMediaCard({ onUpload, tags, onCancel }) {
               onDragLeave={handleDragLeave}
             >
               {filePreview ? (
-                file && file.type && file.type.startsWith('video') ? (
-                  <video src={filePreview} controls className="mx-auto max-w-xs h-32 object-contain rounded-xl border" />
-                ) : (
-                  <img src={filePreview} alt="Preview" className="mx-auto max-w-xs h-32 object-contain rounded-xl border" />
-                )
+                <div className="relative">
+                  {file && file.type && file.type.startsWith('video') ? (
+                    <video src={filePreview} controls className="mx-auto max-w-xs h-32 object-contain rounded-xl border" />
+                  ) : (
+                    <img src={filePreview} alt="Preview" className="mx-auto max-w-xs h-32 object-contain rounded-xl border" />
+                  )}
+                  
+                  {/* Upload overlay when uploading */}
+                  {isUploading && !uploadSuccess && (
+                    <div className="absolute inset-0 bg-black bg-opacity-60 rounded-xl flex flex-col items-center justify-center">
+                      <div className="text-white text-center">
+                        <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin mb-2"></div>
+                        <div className="text-sm font-medium">Uploading...</div>
+                        <div className="text-xs opacity-80">{uploadProgress}%</div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Success overlay */}
+                  {uploadSuccess && (
+                    <div className="absolute inset-0 bg-green-500 bg-opacity-80 rounded-xl flex flex-col items-center justify-center">
+                      <div className="text-white text-center">
+                        <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mb-2">
+                          <FaCheck className="text-green-500 text-xl" />
+                        </div>
+                        <div className="text-sm font-medium">Upload Complete!</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <>
                   <FaCloudUploadAlt className="text-4xl text-blue-400 mb-2" />
@@ -148,20 +178,109 @@ function AddMediaCard({ onUpload, tags, onCancel }) {
               onKeyDown={handleTagInputKeyDown}
               autoFocus={selectedTags.length === 0}
             />
-            {/* Tag suggestions dropdown */}
-            {tagSuggestions.length > 0 && (
-              <div className="absolute mt-1 bg-white border border-gray-200 rounded shadow z-10 w-48">
-                {tagSuggestions.map(tag => (
-                  <button key={tag} type="button" className="block w-full text-left px-4 py-2 text-sm hover:bg-blue-50" onClick={() => handleTagDropdown(tag)}>{tag}</button>
-                ))}
-              </div>
-            )}
+            {/* Tag suggestions removed - users can add tags manually */}
           </div>
         </div>
         {error && <div className="text-red-500 text-sm mb-2">{error}</div>}
+        
+        {/* Upload Progress Bar */}
+        {(isUploading || uploadSuccess) && (
+          <div className="space-y-3 mb-6">
+            {/* Main progress bar */}
+            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden shadow-inner">
+              <div 
+                className={`h-2 rounded-full transition-all duration-500 ease-out shadow-sm ${
+                  uploadSuccess 
+                    ? 'bg-gradient-to-r from-green-500 to-green-600' 
+                    : 'bg-gradient-to-r from-blue-500 to-blue-600'
+                }`}
+                style={{ width: `${uploadProgress}%` }}
+              >
+                <div className="h-full bg-gradient-to-r from-transparent to-white opacity-30 rounded-full"></div>
+              </div>
+            </div>
+            
+            {/* Upload status */}
+            <div className="flex items-center justify-between text-sm">
+              <div className={`flex items-center space-x-2 ${uploadSuccess ? 'text-green-600' : 'text-blue-600'}`}>
+                {uploadSuccess ? (
+                  <>
+                    <FaCheck className="text-green-600" />
+                    <span className="font-medium">Upload completed successfully!</span>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="font-medium">
+                      {uploadProgress < 100 ? `Uploading ${file?.name}...` : 'Processing...'}
+                    </span>
+                  </>
+                )}
+              </div>
+              <div className={`font-semibold ${uploadSuccess ? 'text-green-600' : 'text-gray-600'}`}>
+                {uploadProgress}%
+              </div>
+            </div>
+            
+            {/* Upload details */}
+            {!uploadSuccess && (
+              <div className="text-xs text-gray-500 text-center">
+                {uploadProgress < 100 ? (
+                  <div className="space-y-1">
+                    <div>
+                      {Math.round((file?.size || 0) * (uploadProgress / 100) / (1024 * 1024))}MB of {Math.round((file?.size || 0) / (1024 * 1024))}MB uploaded
+                    </div>
+                    {uploadSpeed > 0 && (
+                      <div className="text-blue-500">
+                        {uploadSpeed > 1024 * 1024 
+                          ? `${(uploadSpeed / (1024 * 1024)).toFixed(1)} MB/s`
+                          : `${(uploadSpeed / 1024).toFixed(0)} KB/s`
+                        }
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  'Almost done! Finalizing upload...'
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Upload Error */}
+        {localUploadError && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-center space-x-2 text-red-600">
+              <FaExclamationTriangle className="text-red-500" />
+              <span className="font-medium">Upload failed</span>
+            </div>
+            <p className="text-red-600 text-sm mt-1">{localUploadError}</p>
+            <button 
+              onClick={() => setLocalUploadError(null)} 
+              className="text-red-500 text-xs mt-2 underline hover:no-underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+        
         <div className="flex gap-2 mt-8 justify-end">
-          <button type="button" className="px-5 py-2 bg-gray-100 text-gray-700 rounded-full font-semibold hover:bg-gray-200 text-lg" onClick={onCancel}>Cancel</button>
-          <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-full font-semibold hover:bg-blue-700 text-lg flex items-center gap-2"><FaCloudUploadAlt /> Upload</button>
+          <button 
+            type="button" 
+            className="px-5 py-2 bg-gray-100 text-gray-700 rounded-full font-semibold hover:bg-gray-200 text-lg disabled:opacity-50 disabled:cursor-not-allowed" 
+            onClick={onCancel}
+            disabled={isUploading}
+          >
+            Cancel
+          </button>
+          <button 
+            type="submit" 
+            className="px-6 py-2 bg-blue-600 text-white rounded-full font-semibold hover:bg-blue-700 text-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" 
+            disabled={isUploading || !file}
+          >
+            <FaCloudUploadAlt /> 
+            {isUploading ? 'Uploading...' : 'Upload'}
+          </button>
         </div>
       </form>
     </div>
@@ -176,7 +295,7 @@ export default function MediaLibraryGrid({ workspaceId }) {
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
   const [addCardOpen, setAddCardOpen] = useState(false);
   
-  const { media, loading, error, uploadMedia, deleteMedia, updateMediaTags } = useMedia(workspaceId);
+  const { media, loading, error, uploadProgress, isUploading, uploadSpeed, uploadSuccess, uploadError, uploadMedia, deleteMedia, updateMediaTags } = useMedia(workspaceId);
 
   // Dynamically compute unique tags from the media list
   const tags = Array.from(
@@ -188,14 +307,29 @@ export default function MediaLibraryGrid({ workspaceId }) {
   const handleUploadClick = () => setAddCardOpen((open) => !open);
   const handleCancelAdd = () => setAddCardOpen(false);
 
-  const handleDeleteMedia = async (mediaId) => {
-    if (window.confirm('Are you sure you want to delete this media?')) {
-      try {
-        await deleteMedia(mediaId);
-      } catch (error) {
-        console.error('Failed to delete media:', error);
-        // You could add a toast notification here
-      }
+  const handleDownloadMedia = async (media) => {
+    try {
+      // Fetch the file as a blob
+      const response = await fetch(media.file_url);
+      const blob = await response.blob();
+      
+      // Create a temporary URL for the blob
+      const url = window.URL.createObjectURL(blob);
+      
+      // Create a temporary anchor element and trigger download
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = media.original_name; // Use the original filename
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to download media:', error);
+      // Fallback to opening in new tab
+      window.open(media.file_url, '_blank');
     }
   };
 
@@ -206,6 +340,20 @@ export default function MediaLibraryGrid({ workspaceId }) {
     } catch (error) {
       console.error('Failed to upload media:', error);
       // You could add a toast notification here
+    }
+  };
+
+  const handleDeleteMedia = async (mediaId) => {
+    if (!mediaId) return;
+    
+    if (window.confirm('Are you sure you want to delete this media?')) {
+      try {
+        await deleteMedia(mediaId);
+        // Real-time updates will handle UI updates via WebSocket
+      } catch (error) {
+        console.error('Failed to delete media:', error);
+        alert(error.message || 'Failed to delete media. Please try again.');
+      }
     }
   };
 
@@ -227,7 +375,16 @@ export default function MediaLibraryGrid({ workspaceId }) {
         </button>
       </div>
       {addCardOpen && (
-        <AddMediaCard onUpload={handleUpload} tags={tags} onCancel={handleCancelAdd} />
+        <AddMediaCard 
+          onUpload={handleUpload} 
+          tags={tags} 
+          onCancel={handleCancelAdd} 
+          uploadProgress={uploadProgress}
+          isUploading={isUploading}
+          uploadSpeed={uploadSpeed}
+          uploadSuccess={uploadSuccess}
+          uploadError={uploadError}
+        />
       )}
       {/* Modern Toolbar */}
       <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 mb-8 bg-white rounded-xl shadow p-4 border border-gray-100">
@@ -306,6 +463,20 @@ export default function MediaLibraryGrid({ workspaceId }) {
             
             {/* Action buttons */}
             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-1">
+              <button
+                onClick={() => window.open(media.file_url, '_blank')}
+                className="p-1 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition"
+                title="View media"
+              >
+                <FaEye className="text-xs" />
+              </button>
+              <button
+                onClick={() => handleDownloadMedia(media)}
+                className="p-1 bg-green-500 text-white rounded-full hover:bg-green-600 transition"
+                title="Download media"
+              >
+                <FaDownload className="text-xs" />
+              </button>
               <button
                 onClick={() => handleDeleteMedia(media.id)}
                 className="p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition"

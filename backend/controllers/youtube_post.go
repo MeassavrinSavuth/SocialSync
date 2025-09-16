@@ -126,30 +126,63 @@ func PostToYouTubeHandler(db *sql.DB) http.HandlerFunc {
 
 		videoID, err := uploadVideoToYouTube(file, title, description, tags, privacy, categoryID, accessToken)
 		if err != nil {
-			if strings.Contains(err.Error(), "401") && refreshToken != "" {
-				newAccessToken, err := refreshYouTubeToken(refreshToken)
-				if err != nil {
-					http.Error(w, "failed to refresh YouTube token", http.StatusUnauthorized)
-					return
-				}
+			// Check if it's an authentication error
+			if strings.Contains(err.Error(), "401") || strings.Contains(err.Error(), "UNAUTHENTICATED") || strings.Contains(err.Error(), "Invalid Credentials") {
+				if refreshToken != "" {
+					// Try to refresh token
+					newAccessToken, refreshErr := refreshYouTubeToken(refreshToken)
+					if refreshErr != nil {
+						// Return user-friendly error with specific error type
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(http.StatusUnauthorized)
+						json.NewEncoder(w).Encode(map[string]interface{}{
+							"error":       "Your YouTube connection has expired. Please reconnect your YouTube account to continue uploading videos.",
+							"userMessage": "Your YouTube connection has expired. Please reconnect your YouTube account to continue uploading videos.",
+							"type":        "AUTH_EXPIRED",
+							"action":      "RECONNECT_REQUIRED",
+						})
+						return
+					}
 
-				_, err = db.Exec(`
-					UPDATE social_accounts 
-					SET access_token = $1, last_synced_at = $2
-					WHERE user_id = $3 AND platform = 'youtube'
-				`, newAccessToken, time.Now(), userID)
-				if err != nil {
-					http.Error(w, "failed to update access token", http.StatusInternalServerError)
-					return
-				}
+					// Update token in database
+					_, updateErr := db.Exec(`
+						UPDATE social_accounts 
+						SET access_token = $1, last_synced_at = $2
+						WHERE user_id = $3 AND platform = 'youtube'
+					`, newAccessToken, time.Now(), userID)
+					if updateErr != nil {
+						http.Error(w, "failed to update access token", http.StatusInternalServerError)
+						return
+					}
 
-				file.Seek(0, 0)
-				videoID, err = uploadVideoToYouTube(file, title, description, tags, privacy, categoryID, newAccessToken)
-				if err != nil {
-					http.Error(w, fmt.Sprintf("failed to upload to YouTube: %v", err), http.StatusInternalServerError)
+					// Retry upload with new token
+					file.Seek(0, 0)
+					videoID, err = uploadVideoToYouTube(file, title, description, tags, privacy, categoryID, newAccessToken)
+					if err != nil {
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(http.StatusUnauthorized)
+						json.NewEncoder(w).Encode(map[string]interface{}{
+							"error":       "YouTube upload failed even after refreshing connection. Please reconnect your YouTube account.",
+							"userMessage": "YouTube upload failed even after refreshing connection. Please reconnect your YouTube account.",
+							"type":        "AUTH_EXPIRED", 
+							"action":      "RECONNECT_REQUIRED",
+						})
+						return
+					}
+				} else {
+					// No refresh token available
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusUnauthorized)
+					json.NewEncoder(w).Encode(map[string]interface{}{
+						"error":       "Your YouTube connection has expired. Please reconnect your YouTube account to continue uploading videos.",
+						"userMessage": "Your YouTube connection has expired. Please reconnect your YouTube account to continue uploading videos.",
+						"type":        "AUTH_EXPIRED",
+						"action":      "RECONNECT_REQUIRED",
+					})
 					return
 				}
 			} else {
+				// Other types of errors
 				http.Error(w, fmt.Sprintf("failed to upload to YouTube: %v", err), http.StatusInternalServerError)
 				return
 			}
@@ -463,5 +496,154 @@ func GetYouTubePostsHandler(db *sql.DB) http.HandlerFunc {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(statsResp)
+	}
+}
+
+
+// GetYouTubeAnalyticsHandler fetches real analytics from YouTube Data API v3
+func GetYouTubeAnalyticsHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, err := middleware.GetUserIDFromContext(r)
+		if err != nil {
+			http.Error(w, "Unauthorized: User not authenticated", http.StatusUnauthorized)
+			return
+		}
+
+		// 1. Get YouTube access token from DB
+		var accessToken string
+		var tokenExpiry *time.Time
+		err = db.QueryRow(`
+			SELECT access_token, access_token_expires_at
+			FROM social_accounts
+			WHERE user_id = $1 AND platform = 'youtube'
+		`, userID).Scan(&accessToken, &tokenExpiry)
+		if err != nil {
+			http.Error(w, "YouTube account not connected", http.StatusBadRequest)
+			return
+		}
+		if tokenExpiry != nil && time.Now().After(*tokenExpiry) {
+			http.Error(w, "YouTube access token expired. Please reconnect.", http.StatusUnauthorized)
+			return
+		}
+
+		client := &http.Client{Timeout: 30 * time.Second}
+
+		// 2. Fetch channel stats (subscriberCount, videoCount, viewCount)
+		channelsURL := "https://www.googleapis.com/youtube/v3/channels?part=statistics&mine=true"
+		req, _ := http.NewRequest("GET", channelsURL, nil)
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+		resp, err := client.Do(req)
+		if err != nil {
+			http.Error(w, "Failed to fetch YouTube channel stats", http.StatusInternalServerError)
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			http.Error(w, "YouTube API error (channels)", resp.StatusCode)
+			return
+		}
+		var channelData struct {
+			Items []struct {
+				Statistics struct {
+					ViewCount     string `json:"viewCount"`
+					SubscriberCount string `json:"subscriberCount"`
+					VideoCount    string `json:"videoCount"`
+				} `json:"statistics"`
+			} `json:"items"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&channelData); err != nil {
+			http.Error(w, "Failed to decode YouTube channel stats", http.StatusInternalServerError)
+			return
+		}
+		if len(channelData.Items) == 0 {
+			http.Error(w, "No YouTube channel found", http.StatusNotFound)
+			return
+		}
+		stats := channelData.Items[0].Statistics
+
+		// 3. Fetch latest videos (title, views, likes, comments)
+		videosURL := "https://www.googleapis.com/youtube/v3/search?part=id&forMine=true&maxResults=5&order=date&type=video"
+		req2, _ := http.NewRequest("GET", videosURL, nil)
+		req2.Header.Set("Authorization", "Bearer "+accessToken)
+		resp2, err := client.Do(req2)
+		if err != nil {
+			http.Error(w, "Failed to fetch YouTube videos", http.StatusInternalServerError)
+			return
+		}
+		defer resp2.Body.Close()
+		if resp2.StatusCode != http.StatusOK {
+			http.Error(w, "YouTube API error (videos)", resp2.StatusCode)
+			return
+		}
+		var videoSearch struct {
+			Items []struct {
+				ID struct {
+					VideoID string `json:"videoId"`
+				} `json:"id"`
+			} `json:"items"`
+		}
+		if err := json.NewDecoder(resp2.Body).Decode(&videoSearch); err != nil {
+			http.Error(w, "Failed to decode YouTube videos", http.StatusInternalServerError)
+			return
+		}
+
+		videoIDs := ""
+		for _, v := range videoSearch.Items {
+			if videoIDs != "" {
+				videoIDs += ","
+			}
+			videoIDs += v.ID.VideoID
+		}
+
+		videoDetails := []map[string]interface{}{}
+		if videoIDs != "" {
+			videosStatsURL := fmt.Sprintf("https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics&id=%s", videoIDs)
+			req3, _ := http.NewRequest("GET", videosStatsURL, nil)
+			req3.Header.Set("Authorization", "Bearer "+accessToken)
+			resp3, err := client.Do(req3)
+			if err != nil {
+				http.Error(w, "Failed to fetch video stats", http.StatusInternalServerError)
+				return
+			}
+			defer resp3.Body.Close()
+			if resp3.StatusCode != http.StatusOK {
+				http.Error(w, "YouTube API error (video stats)", resp3.StatusCode)
+				return
+			}
+			var videosResp struct {
+				Items []struct {
+					ID       string `json:"id"`
+					Snippet  struct {
+						Title string `json:"title"`
+					} `json:"snippet"`
+					Statistics struct {
+						ViewCount    string `json:"viewCount"`
+						LikeCount    string `json:"likeCount"`
+						CommentCount string `json:"commentCount"`
+					} `json:"statistics"`
+				} `json:"items"`
+			}
+			if err := json.NewDecoder(resp3.Body).Decode(&videosResp); err != nil {
+				http.Error(w, "Failed to decode video stats", http.StatusInternalServerError)
+				return
+			}
+			for _, v := range videosResp.Items {
+				videoDetails = append(videoDetails, map[string]interface{}{
+					"id":       v.ID,
+					"title":    v.Snippet.Title,
+					"views":    v.Statistics.ViewCount,
+					"likes":    v.Statistics.LikeCount,
+					"comments": v.Statistics.CommentCount,
+				})
+			}
+		}
+
+		result := map[string]interface{}{
+			"channelStats": stats,
+			"videos":       videoDetails,
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(result)
 	}
 }

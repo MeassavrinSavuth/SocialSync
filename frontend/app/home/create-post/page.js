@@ -4,11 +4,12 @@ import { useState } from 'react';
 import PostEditor from '../../components/PostEditor';
 import PostPreview from '../../components/PostPreview';
 import PostQueue from '../../components/PostQueue';
+import AuthErrorModal from '../../components/AuthErrorModal';
 import { useMultiPlatformPublish } from '../../hooks/api/useMultiPlatformPublish';
 import { useScheduledPosts } from '../../hooks/api/useScheduledPosts';
 
-// Define the list of platforms here, or import from a constants file if preferred
-const platformsList = ['facebook', 'instagram', 'youtube', 'twitter', 'mastodon'];
+// Define the list of platforms here, now including Telegram
+const platformsList = ['facebook', 'instagram', 'youtube', 'twitter', 'mastodon', 'telegram'];
 
 export default function CreatePostPage() {
   const [selectedPlatforms, setSelectedPlatforms] = useState([]);
@@ -19,6 +20,8 @@ export default function CreatePostPage() {
   const [isScheduling, setIsScheduling] = useState(false);
   const [status, setStatus] = useState(null); // { success: bool, message: string }
   const [postQueue, setPostQueue] = useState([]);
+  const [authErrors, setAuthErrors] = useState([]); // For authentication errors
+  const [showAuthErrorModal, setShowAuthErrorModal] = useState(false);
 
   // Scheduling state
   const [isScheduled, setIsScheduled] = useState(false);
@@ -40,6 +43,15 @@ export default function CreatePostPage() {
   });
 
   const { createScheduledPost } = useScheduledPosts();
+
+  const handleReconnect = (platform) => {
+    // Close the modal
+    setShowAuthErrorModal(false);
+    setAuthErrors([]);
+    
+    // This function will be called by the AuthErrorModal component
+    // The actual redirection is handled in the modal component
+  };
 
   // Handle immediate posting (Post Now)
   const handlePublish = async () => {
@@ -63,17 +75,45 @@ export default function CreatePostPage() {
     try {
       const results = await publish(selectedPlatforms);
       
-      const allSuccess = results.every((r) => r.success);
-      if (allSuccess) {
+      // Separate successful results from errors
+      const successfulResults = results.filter(r => r.success);
+      const failedResults = results.filter(r => !r.success);
+      
+      // Check for authentication errors that require reconnection
+      const authErrorResults = failedResults.filter(r => 
+        r.errorType === 'AUTH_EXPIRED' && r.errorAction === 'RECONNECT_REQUIRED'
+      );
+      
+      // Other errors that don't require reconnection
+      const otherErrors = failedResults.filter(r => 
+        !(r.errorType === 'AUTH_EXPIRED' && r.errorAction === 'RECONNECT_REQUIRED')
+      );
+
+      if (successfulResults.length === selectedPlatforms.length) {
+        // All succeeded
         setStatus({ success: true, message: 'All posts published successfully!' });
         // Clear form after successful immediate posting
         setMessage('');
         setMediaFiles([]);
         setSelectedPlatforms([]);
+      } else if (authErrorResults.length > 0) {
+        // Show authentication error modal
+        setAuthErrors(authErrorResults);
+        setShowAuthErrorModal(true);
+        
+        // Also show regular status for other errors if any
+        if (otherErrors.length > 0) {
+          const errorMessages = otherErrors
+            .map((r) => `${r.platform}: ${r.userFriendlyMessage || r.error}`)
+            .join('; ');
+          setStatus({ success: false, message: `Some posts failed: ${errorMessages}` });
+        } else {
+          setStatus({ success: false, message: 'Please reconnect your social media accounts to continue posting.' });
+        }
       } else {
-        const errors = results
-          .filter((r) => !r.success)
-          .map((r) => `${r.platform}: ${r.error || 'Unknown error'}`)
+        // Only regular errors, no auth issues
+        const errors = otherErrors
+          .map((r) => `${r.platform}: ${r.userFriendlyMessage || r.error}`)
           .join('; ');
         setStatus({ success: false, message: `Some posts failed: ${errors}` });
       }
@@ -85,7 +125,7 @@ export default function CreatePostPage() {
             ...item,
             status: result.success ? 'completed' : 'failed',
             resultId: result.postId,
-            error: result.error,
+            error: result.userFriendlyMessage || result.error,
           };
         }
         return item;
@@ -158,56 +198,72 @@ export default function CreatePostPage() {
   };
 
   return (
-    // Main page container with improved padding
-    <div className="min-h-screen bg-gray-50 py-10 px-4 sm:px-6 lg:px-8 font-sans">
+    // Main page container with sidebar-aware responsive design
+    <div className="min-h-screen bg-gray-50 py-3 md:py-6 lg:py-10 px-2 sm:px-4 lg:px-6 xl:px-8 font-sans">
 
-      {/* Grid container for the three columns */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_2fr_1fr] gap-6 max-w-8xl mx-auto items-start">
-        {/* Left Column: Post Preview */}
-        <div className="bg-white rounded-lg shadow-md p-6 h-full">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Post Preview</h2>
-          <PostPreview
-            selectedPlatforms={selectedPlatforms}
-            message={message}
-            mediaFiles={mediaFiles}
-            youtubeConfig={youtubeConfig}
-            platformsList={platformsList} // Pass the platformsList to PostPreview
-            setMessage={setMessage}
-          />
-        </div>
+      {/* Responsive container that adapts to sidebar state */}
+      <div className="w-full max-w-7xl mx-auto">
+        
+        {/* Adaptive layout: stacked on small/medium screens, flexible columns on large screens */}
+        <div className="flex flex-col xl:grid xl:grid-cols-12 gap-3 md:gap-4 lg:gap-6">
+          
+          {/* Post Editor - Primary content, takes most space */}
+          <div className="order-2 xl:order-2 xl:col-span-6 w-full bg-white rounded-lg shadow-md p-3 md:p-4 lg:p-6">
+            <PostEditor
+              message={message}
+              setMessage={setMessage}
+              mediaFiles={mediaFiles}
+              setMediaFiles={setMediaFiles}
+              youtubeConfig={youtubeConfig}
+              setYoutubeConfig={setYoutubeConfig}
+              selectedPlatforms={selectedPlatforms}
+              togglePlatform={togglePlatform}
+              handlePublish={handlePublish}
+              isPublishing={isPublishing}
+              status={status}
+              // Scheduling props
+              isScheduled={isScheduled}
+              setIsScheduled={setIsScheduled}
+              scheduledDate={scheduledDate}
+              setScheduledDate={setScheduledDate}
+              scheduledTime={scheduledTime}
+              setScheduledTime={setScheduledTime}
+              handleSchedule={handleSchedule}
+              isScheduling={isScheduling}
+            />
+          </div>
 
-        {/* Middle Column: Post Editor (now includes Platform Selection) */}
-        <div className="bg-white rounded-lg shadow-md p-6 h-full">
-          <PostEditor
-            message={message}
-            setMessage={setMessage}
-            mediaFiles={mediaFiles}
-            setMediaFiles={setMediaFiles}
-            youtubeConfig={youtubeConfig}
-            setYoutubeConfig={setYoutubeConfig}
-            selectedPlatforms={selectedPlatforms}
-            togglePlatform={togglePlatform}
-            handlePublish={handlePublish}
-            isPublishing={isPublishing}
-            status={status}
-            // Scheduling props
-            isScheduled={isScheduled}
-            setIsScheduled={setIsScheduled}
-            scheduledDate={scheduledDate}
-            setScheduledDate={setScheduledDate}
-            scheduledTime={scheduledTime}
-            setScheduledTime={setScheduledTime}
-            handleSchedule={handleSchedule}
-            isScheduling={isScheduling}
-          />
-        </div>
+          {/* Post Preview - Compact but visible */}
+          <div className="order-1 xl:order-1 xl:col-span-3 w-full bg-white rounded-lg shadow-md p-3 md:p-4 lg:p-6">
+            <h2 className="text-base md:text-lg lg:text-xl font-semibold text-gray-800 mb-3 md:mb-4">Post Preview</h2>
+            <PostPreview
+              selectedPlatforms={selectedPlatforms}
+              message={message}
+              mediaFiles={mediaFiles}
+              youtubeConfig={youtubeConfig}
+              platformsList={platformsList}
+              setMessage={setMessage}
+            />
+          </div>
 
-        {/* Right Column: Post Queue */}
-        <div className="bg-white rounded-lg shadow-md p-6 h-full">
-          <h2 className="text-xl font-semibold text-gray-800 mb-4">Posting Queue</h2>
-          <PostQueue postQueue={postQueue} />
+          {/* Post Queue - Collapsible on smaller screens */}
+          <div className="order-3 xl:order-3 xl:col-span-3 w-full bg-white rounded-lg shadow-md p-3 md:p-4 lg:p-6">
+            <h2 className="text-base md:text-lg lg:text-xl font-semibold text-gray-800 mb-3 md:mb-4">Posting Queue</h2>
+            <PostQueue postQueue={postQueue} />
+          </div>
         </div>
       </div>
+
+      {/* Authentication Error Modal */}
+      <AuthErrorModal
+        isOpen={showAuthErrorModal}
+        onClose={() => {
+          setShowAuthErrorModal(false);
+          setAuthErrors([]);
+        }}
+        errors={authErrors}
+        onReconnect={handleReconnect}
+      />
     </div>
   );
 }

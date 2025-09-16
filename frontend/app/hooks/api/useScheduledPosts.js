@@ -33,7 +33,7 @@ export function useScheduledPosts() {
   const getScheduledPosts = async () => {
     try {
       const response = await protectedFetch('http://localhost:8080/api/scheduled-posts');
-      
+      console.log('Fetch scheduled posts response:', response);
       if (!response.ok) {
         throw new Error('Failed to fetch scheduled posts');
       }
@@ -41,6 +41,7 @@ export function useScheduledPosts() {
       const data = await response.json();
       return { success: true, data };
     } catch (error) {
+      console.log('Error fetching scheduled posts:', error);
       return { success: false, error: error.message };
     }
   };
