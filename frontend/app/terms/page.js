@@ -136,7 +136,7 @@ export default function TermsPage() {
                       <h3 className="text-xl font-semibold text-green-900 mb-4">Agreement to Terms</h3>
                       <p className="text-green-800 mb-4">
                         By creating an account or using SocialSync, you agree to be bound by these Terms of Service. 
-                        If you don't agree with any part of these terms, please don't use our service.
+                        If you don&apos;t agree with any part of these terms, please don&apos;t use our service.
                       </p>
                       <div className="bg-white rounded-lg p-4">
                         <h4 className="font-semibold text-gray-900 mb-2">What This Means</h4>
@@ -152,7 +152,7 @@ export default function TermsPage() {
                     <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
                       <h3 className="text-xl font-semibold text-blue-900 mb-4">Changes to Terms</h3>
                       <p className="text-blue-800 mb-4">
-                        We may update these terms from time to time. We'll notify you of significant changes and give you time to review them.
+                        We may update these terms from time to time. We&apos;ll notify you of significant changes and give you time to review them.
                       </p>
                       <div className="grid md:grid-cols-2 gap-4">
                         <div className="bg-white rounded-lg p-4">
@@ -386,7 +386,7 @@ export default function TermsPage() {
                     <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
                       <h3 className="text-xl font-semibold text-gray-900 mb-4">Limitation of Liability</h3>
                       <p className="text-gray-800 mb-4">
-                        SocialSync provides its service "as is" and shall not be liable for any indirect, 
+                        SocialSync provides its service &quot;as is&quot; and shall not be liable for any indirect, 
                         incidental, special, consequential, or punitive damages resulting from your use 
                         of or inability to use the service.
                       </p>
@@ -405,7 +405,7 @@ export default function TermsPage() {
                         <div className="bg-white rounded-lg p-4">
                           <h4 className="font-semibold text-gray-900 mb-2">Our Platform</h4>
                           <p className="text-gray-700 text-sm">
-                            SocialSync's technology, design, and branding are our intellectual property. 
+                            SocialSync&apos;s technology, design, and branding are our intellectual property. 
                             You may not copy, modify, or redistribute our platform.
                           </p>
                         </div>

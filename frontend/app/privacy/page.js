@@ -95,7 +95,7 @@ export default function PrivacyPage() {
                       <div className="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center mx-auto mb-4">
                         <FaUsers className="text-white" />
                       </div>
-                      <h3 className="font-semibold text-gray-900 mb-2">You're in Control</h3>
+                      <h3 className="font-semibold text-gray-900 mb-2">You&apos;re in Control</h3>
                       <p className="text-gray-600 text-sm">Manage your privacy settings and data permissions at any time.</p>
                     </div>
                     
