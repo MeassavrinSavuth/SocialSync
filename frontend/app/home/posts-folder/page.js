@@ -28,6 +28,7 @@ export default function PostsFolderPage() {
   const [twitterPosts, setTwitterPosts] = useState([]);
   const [youtubePosts, setYouTubePosts] = useState([]);
   const [facebookPosts, setFacebookPosts] = useState([]);
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
   const [facebookPageInfo, setFacebookPageInfo] = useState(null);
   const [instagramPosts, setInstagramPosts] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -45,15 +46,15 @@ export default function PostsFolderPage() {
     }
 
     if (platform === 'facebook') {
-      window.location.href = `http://localhost:8080/auth/facebook/login?token=${token}`;
+      window.location.href = `${API_BASE_URL}/auth/facebook/login?token=${token}`;
     } else if (platform === 'twitter') {
-      window.location.href = `http://localhost:8080/auth/twitter/login?token=${token}`;
+      window.location.href = `${API_BASE_URL}/auth/twitter/login?token=${token}`;
     } else if (platform === 'youtube') {
-      window.location.href = `http://localhost:8080/auth/youtube/login?token=${token}`;
+      window.location.href = `${API_BASE_URL}/auth/youtube/login?token=${token}`;
     } else if (platform === 'instagram') {
-      window.location.href = `http://localhost:8080/auth/instagram/login?token=${token}`;
+      window.location.href = `${API_BASE_URL}/auth/instagram/login?token=${token}`;
     } else if (platform === 'mastodon') {
-      window.location.href = `http://localhost:8080/auth/mastodon/login?token=${token}`;
+      window.location.href = `${API_BASE_URL}/auth/mastodon/login?token=${token}`;
     }
   };
 
