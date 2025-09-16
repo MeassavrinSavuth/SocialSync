@@ -114,7 +114,8 @@ export const useWorkspaces = () => {
   // Real-time: Remove workspace if kicked or left
   useEffect(() => {
     if (!currentUser?.email) return;
-    const ws = new window.WebSocket(`ws://localhost:8080/ws/invitations/${encodeURIComponent(currentUser.email)}`);
+    const wsUrl = API_BASE_URL.replace(/^http/, 'ws').replace(/^https/, 'wss').replace('/api', '');
+    const ws = new window.WebSocket(`${wsUrl}/ws/invitations/${encodeURIComponent(currentUser.email)}`);
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);

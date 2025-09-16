@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
 
 export function useDraftPosts(workspaceId) {
   const [drafts, setDrafts] = useState([]);
@@ -70,7 +70,8 @@ export function useDraftPosts(workspaceId) {
   useEffect(() => {
     if (workspaceId) {
       fetchDrafts();
-      const ws = new window.WebSocket(`ws://localhost:8080/ws/${workspaceId}`);
+      const wsUrl = API_BASE_URL.replace(/^http/, 'ws').replace(/^https/, 'wss');
+      const ws = new window.WebSocket(`${wsUrl}/ws/${workspaceId}`);
       ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data);

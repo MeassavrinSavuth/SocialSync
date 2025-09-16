@@ -275,7 +275,8 @@ export function useMedia(workspaceId) {
   useEffect(() => {
     if (workspaceId) {
       fetchMedia();
-      const ws = new window.WebSocket(`ws://localhost:8080/ws/${workspaceId}`);
+      const wsUrl = API_BASE_URL.replace(/^http/, 'ws').replace(/^https/, 'wss').replace('/api', '');
+      const ws = new window.WebSocket(`${wsUrl}/ws/${workspaceId}`);
       ws.onmessage = (event) => {
         try {
           const msg = JSON.parse(event.data);
