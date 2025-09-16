@@ -5,6 +5,7 @@ import (
     "fmt"
     "log"
     "net/http"
+    "os"
 
     "social-sync-backend/lib"
     "social-sync-backend/middleware"
@@ -16,7 +17,11 @@ func ProfileHandler(w http.ResponseWriter, r *http.Request) {
     userID := r.Context().Value(middleware.UserIDKey).(string)
 
     w.Header().Set("Content-Type", "application/json")
-    w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+    frontendURL := os.Getenv("FRONTEND_URL")
+    if frontendURL == "" {
+        frontendURL = "http://localhost:3000" // fallback
+    }
+    w.Header().Set("Access-Control-Allow-Origin", frontendURL)
     w.Header().Set("Access-Control-Allow-Methods", "GET, PUT, DELETE, OPTIONS")
     w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
@@ -131,7 +136,11 @@ func ProfileImageHandler(w http.ResponseWriter, r *http.Request) {
     userID := r.Context().Value(middleware.UserIDKey).(string)
 
     w.Header().Set("Content-Type", "application/json")
-    w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+    frontendURL := os.Getenv("FRONTEND_URL")
+    if frontendURL == "" {
+        frontendURL = "http://localhost:3000" // fallback
+    }
+    w.Header().Set("Access-Control-Allow-Origin", frontendURL)
     w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
     w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 

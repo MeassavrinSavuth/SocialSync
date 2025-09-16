@@ -17,7 +17,11 @@ import (
 // CORSMiddleware sets CORS headers.
 func CORSMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+		frontendURL := os.Getenv("FRONTEND_URL")
+		if frontendURL == "" {
+			frontendURL = "http://localhost:3000" // fallback
+		}
+		w.Header().Set("Access-Control-Allow-Origin", frontendURL)
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
@@ -31,9 +35,11 @@ func CORSMiddleware(next http.Handler) http.Handler {
 }
 
 func main() {
-	// Load environment variables
+	// Load environment variables from a .env file if present. In production (Render)
+	// environment variables are provided by the platform so a missing .env should
+	// not be fatal — only warn and continue.
 	if err := godotenv.Load(); err != nil {
-		log.Fatalf("❌ Error loading .env file: %v", err)
+		log.Printf("⚠️  .env file not found or failed to load: %v — continuing, ensure env vars are set in Render", err)
 	}
 
 	// Initialize database

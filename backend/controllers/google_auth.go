@@ -105,7 +105,12 @@ func GoogleCallbackHandler(db *sql.DB) http.HandlerFunc {
             return
         }
 
-        redirectURL := "http://localhost:3000/auth/callback?access_token=" + accessToken + "&refresh_token=" + refreshToken
+//        redirectURL := "http://localhost:3000/auth/callback?access_token=" + accessToken + "&refresh_token=" + refreshToken
+        frontendURL := os.Getenv("FRONTEND_URL")
+        if frontendURL == "" {
+            frontendURL = "http://localhost:3000" // fallback
+        }
+        redirectURL := frontendURL + "/auth/callback?access_token=" + accessToken + "&refresh_token=" + refreshToken
         http.Redirect(w, r, redirectURL, http.StatusSeeOther)
     }
 }

@@ -4,6 +4,7 @@ import (
     "database/sql"
     "encoding/json"
     "net/http"
+    "os"
 
     "golang.org/x/crypto/bcrypt"
     "social-sync-backend/lib"
@@ -13,7 +14,11 @@ import (
 // EnableCORS (Note: This function seems to be misplaced. It's usually in your router/middleware setup, not in a controllers file as a standalone func. Assuming it's here for context)
 func EnableCORS(h http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+        frontendURL := os.Getenv("FRONTEND_URL")
+        if frontendURL == "" {
+            frontendURL = "http://localhost:3000" // fallback
+        }
+        w.Header().Set("Access-Control-Allow-Origin", frontendURL)
         w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 

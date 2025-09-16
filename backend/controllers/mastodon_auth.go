@@ -271,6 +271,10 @@ func MastodonCallbackHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		http.Redirect(w, r, "http://localhost:3000/home/manage-accounts?connected=mastodon", http.StatusSeeOther)
+		frontendURL := os.Getenv("FRONTEND_URL")
+		if frontendURL == "" {
+			frontendURL = "http://localhost:3000" // fallback
+		}
+		http.Redirect(w, r, frontendURL+"/home/manage-accounts?connected=mastodon", http.StatusSeeOther)
 	}
 }

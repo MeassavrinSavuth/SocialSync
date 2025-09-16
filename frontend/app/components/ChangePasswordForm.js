@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { FaEye, FaEyeSlash } from 'react-icons/fa';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+
 // Separate component outside to prevent redefinition on each render
 function PasswordInput({ label, placeholder, value, onChange, show, toggleShow }) {
   return (
@@ -55,7 +57,7 @@ export default function ChangePasswordForm() {
     setLoading(true);
     try {
       const accessToken = localStorage.getItem('accessToken');
-      const res = await fetch('http://localhost:8080/api/profile/password', {
+      const res = await fetch(`${API_BASE_URL}/api/profile/password`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

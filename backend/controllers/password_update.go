@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"social-sync-backend/lib"
 	"social-sync-backend/middleware"
 	// "social-sync-backend/models"
@@ -20,7 +21,11 @@ func ProfilePasswordHandler(w http.ResponseWriter, r *http.Request) {
 
 	// CORS headers
 	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	frontendURL := os.Getenv("FRONTEND_URL")
+	if frontendURL == "" {
+		frontendURL = "http://localhost:3000" // fallback
+	}
+	w.Header().Set("Access-Control-Allow-Origin", frontendURL)
 	w.Header().Set("Access-Control-Allow-Methods", "PUT, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 

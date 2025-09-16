@@ -4,6 +4,8 @@ import React from 'react';
 import { FaExclamationTriangle, FaPlug, FaYoutube, FaFacebook, FaInstagram, FaTwitter } from 'react-icons/fa';
 import { SiMastodon, SiTelegram } from 'react-icons/si';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+
 const platformIcons = {
   youtube: FaYoutube,
   facebook: FaFacebook,
@@ -39,9 +41,7 @@ const AuthErrorModal = ({ isOpen, onClose, errors, onReconnect }) => {
 
   const handleReconnect = (platform) => {
     // This will redirect the user to reconnect their account
-    const baseUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://your-domain.com' 
-      : 'http://localhost:3000';
+    const baseUrl = window.location.origin;
     
     // Get the JWT token from localStorage
     const token = localStorage.getItem('accessToken');
@@ -57,17 +57,17 @@ const AuthErrorModal = ({ isOpen, onClose, errors, onReconnect }) => {
     
     switch (platform) {
       case 'youtube':
-        oauthUrl = `http://localhost:8080/auth/youtube/login?token=${token}`;
+        oauthUrl = `${API_BASE_URL}/auth/youtube/login?token=${token}`;
         break;
       case 'facebook':
-        oauthUrl = `http://localhost:8080/auth/facebook/login?token=${token}`;
+        oauthUrl = `${API_BASE_URL}/auth/facebook/login?token=${token}`;
         break;
       case 'twitter':
-        oauthUrl = `http://localhost:8080/auth/twitter/login?token=${token}`;
+        oauthUrl = `${API_BASE_URL}/auth/twitter/login?token=${token}`;
         break;
       case 'mastodon':
         const instance = 'mastodon.social'; // Default instance
-        oauthUrl = `http://localhost:8080/auth/mastodon/login?instance=${encodeURIComponent(instance)}&token=${token}`;
+        oauthUrl = `${API_BASE_URL}/auth/mastodon/login?instance=${encodeURIComponent(instance)}&token=${token}`;
         break;
       case 'instagram':
         // Instagram uses a different approach with axios POST request

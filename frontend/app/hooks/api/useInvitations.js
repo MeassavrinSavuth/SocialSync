@@ -203,7 +203,8 @@ export const useInvitations = () => {
   // Real-time WebSocket for invitations
   useEffect(() => {
     if (!currentUser?.email) return;
-    const ws = new window.WebSocket(`ws://localhost:8080/ws/invitations/${encodeURIComponent(currentUser.email)}`);
+    const wsUrl = API_BASE_URL.replace(/^http/, 'ws');
+    const ws = new window.WebSocket(`${wsUrl}/ws/invitations/${encodeURIComponent(currentUser.email)}`);
     ws.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
