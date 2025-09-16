@@ -5,6 +5,8 @@ import SocialAccountCard from '../../components/SocialAccountCard';
 import DisconnectModal from '../../components/DisconnectModal'; // Updated import statement
 import { SiMastodon } from 'react-icons/si';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+
 import {
   FaFacebook,
   FaInstagram,
@@ -90,7 +92,7 @@ export default function ManageAccountPage() {
     }
 
     try {
-      const res = await axios.get('http://localhost:8080/api/social-accounts', {
+      const res = await axios.get(`${API_BASE_URL}/api/social-accounts`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -158,10 +160,10 @@ export default function ManageAccountPage() {
 
       try {
         if (platformName === 'Facebook') {
-          window.location.href = `http://localhost:8080/auth/facebook/login?token=${token}`;
+          window.location.href = `${API_BASE_URL}/auth/facebook/login?token=${token}`;
         } else if (platformName === 'Instagram') {
           await axios.post(
-            'http://localhost:8080/connect/instagram',
+            `${API_BASE_URL}/connect/instagram`,
             {},
             {
               headers: { Authorization: `Bearer ${token}` },
@@ -171,18 +173,18 @@ export default function ManageAccountPage() {
           setStatusType('success');
           fetchAccounts();
         } else if (platformName === 'YouTube') {
-          window.location.href = `http://localhost:8080/auth/youtube/login?token=${token}`;
+          window.location.href = `${API_BASE_URL}/auth/youtube/login?token=${token}`;
         } else if (platformName === 'TikTok') {
-          window.location.href = `http://localhost:8080/auth/tiktok/login?token=${token}`;
+          window.location.href = `${API_BASE_URL}/auth/tiktok/login?token=${token}`;
         } else if (platformName === 'Twitter (X)') {
-          window.location.href = `http://localhost:8080/auth/twitter/login?token=${token}`;
+          window.location.href = `${API_BASE_URL}/auth/twitter/login?token=${token}`;
         } else if (platformName === 'Mastodon') {
           const instance = 'mastodon.social';
-          window.location.href = `http://localhost:8080/auth/mastodon/login?instance=${encodeURIComponent(
+          window.location.href = `${API_BASE_URL}/auth/mastodon/login?instance=${encodeURIComponent(
             instance
           )}&token=${token}`;
         } else if (platformName === 'Threads') {
-          window.location.href = `http://localhost:8080/auth/threads/login?token=${token}`;
+          window.location.href = `${API_BASE_URL}/auth/threads/login?token=${token}`;
         } else if (platformName === 'Telegram') {
           setShowTelegramModal(true);
           return;
@@ -207,7 +209,7 @@ export default function ManageAccountPage() {
     if (!platformToDisconnect) return;
 
     try {
-      await axios.delete(`http://localhost:8080/api/social-accounts/${platformToDisconnect.toLowerCase()}`, {
+      await axios.delete(`${API_BASE_URL}/api/social-accounts/${platformToDisconnect.toLowerCase()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
@@ -244,7 +246,7 @@ export default function ManageAccountPage() {
     setTelegramLoading(true);
     try {
       await axios.post(
-        'http://localhost:8080/connect/telegram',
+        `${API_BASE_URL}/connect/telegram`,
         { chat_id: telegramChatId },
         { headers: { Authorization: `Bearer ${token}` } }
       );
