@@ -3,7 +3,7 @@
 import React, { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
-const VerifyEmail = () => {
+const VerifyEmailContent = () => {
   const [formData, setFormData] = useState({ email: '', token: '' });
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -49,9 +49,6 @@ const VerifyEmail = () => {
   };
 
   return (
-    <Suspense fallback={<div>Loading ...</div>}>
-
-
     <div className="max-w-md mx-auto mt-20 p-6 bg-white rounded shadow">
       <h2 className="text-2xl text-black font-bold mb-4">Verify Your Email</h2>
       {message && <div className="bg-green-100 text-green-800 p-2 mb-4 rounded">{message}</div>}
@@ -80,7 +77,14 @@ const VerifyEmail = () => {
         </button>
       </form>
     </div>
-        </Suspense>
+  );
+};
+
+const VerifyEmail = () => {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <VerifyEmailContent />
+    </Suspense>
   );
 };
 

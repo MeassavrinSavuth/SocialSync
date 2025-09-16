@@ -835,7 +835,7 @@ export default function PostEditor({
         {/* Blocked platforms warning */}
         {blockedPlatforms.length > 0 && (
           <div className="p-2 md:p-3 bg-red-50 border border-red-200 rounded text-xs md:text-sm text-red-800">
-            <p className="font-medium">Some selected platforms aren't compatible with the current media:</p>
+            <p className="font-medium">Some selected platforms aren&apos;t compatible with the current media:</p>
             <ul className="mt-1 md:mt-2 list-disc list-inside space-y-0.5 md:space-y-1">
               {blockedPlatforms.map((p) => (
                 <li key={p} className="text-xs md:text-sm">
