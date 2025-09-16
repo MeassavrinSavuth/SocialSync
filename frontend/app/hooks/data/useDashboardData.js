@@ -5,10 +5,11 @@ export const useDashboardData = () => {
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
   const protectedFetch = useProtectedFetch();
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
 
   useEffect(() => {
     const fetchDashboard = async () => {
-      const res = await protectedFetch('/api/dashboard');
+      const res = await protectedFetch(`${API_BASE_URL}/api/dashboard`);
       if (!res) return;
 
       const data = await res.text(); // or res.json()
@@ -17,7 +18,7 @@ export const useDashboardData = () => {
     };
 
     fetchDashboard();
-  }, [protectedFetch]);
+  }, [protectedFetch, API_BASE_URL]);
 
   return { loading, dashboardData };
 };
