@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useUser } from '../auth/useUser';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api';
+import { useState, useEffect } from 'react';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
 
 export const useWorkspaceMembers = (workspaceId) => {
   const [members, setMembers] = useState([]);
@@ -24,7 +26,7 @@ export const useWorkspaceMembers = (workspaceId) => {
     setError(null);
     try {
       const token = getAuthToken();
-      const response = await fetch(`${API_BASE_URL}/workspaces/${workspaceId}/members`, {
+      const response = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/members`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -51,7 +53,7 @@ export const useWorkspaceMembers = (workspaceId) => {
     
     try {
       const token = getAuthToken();
-      const response = await fetch(`${API_BASE_URL}/workspaces/${workspaceId}/leave`, {
+      const response = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/leave`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -78,7 +80,7 @@ export const useWorkspaceMembers = (workspaceId) => {
     
     try {
       const token = getAuthToken();
-      const response = await fetch(`${API_BASE_URL}/workspaces/${workspaceId}/members/${memberId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/members/${memberId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -104,7 +106,7 @@ export const useWorkspaceMembers = (workspaceId) => {
     if (!workspaceId || !memberId) return;
     try {
       const token = getAuthToken();
-      const response = await fetch(`${API_BASE_URL}/workspaces/${workspaceId}/members/${memberId}/role`, {
+      const response = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/members/${memberId}/role`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

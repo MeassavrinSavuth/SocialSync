@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
 
 export const useComments = (workspaceId, taskId) => {
   const [comments, setComments] = useState([]);
@@ -23,7 +23,7 @@ export const useComments = (workspaceId, taskId) => {
     
     try {
       const token = getAuthToken();
-      const response = await fetch(`${API_BASE_URL}/workspaces/${workspaceId}/tasks/${taskId}/comments`, {
+      const response = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/tasks/${taskId}/comments`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -53,7 +53,7 @@ export const useComments = (workspaceId, taskId) => {
     
     try {
       const token = getAuthToken();
-      const response = await fetch(`${API_BASE_URL}/workspaces/${workspaceId}/tasks/${taskId}/comments`, {
+      const response = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/tasks/${taskId}/comments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -84,7 +84,7 @@ export const useComments = (workspaceId, taskId) => {
     
     try {
       const token = getAuthToken();
-      const response = await fetch(`${API_BASE_URL}/workspaces/${workspaceId}/tasks/${taskId}/comments/${commentId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/tasks/${taskId}/comments/${commentId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',

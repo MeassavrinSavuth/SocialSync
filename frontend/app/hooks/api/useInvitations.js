@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useUser } from '../auth/useUser';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
 
 export const useInvitations = () => {
   const [invitations, setInvitations] = useState([]);
@@ -30,7 +30,7 @@ export const useInvitations = () => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
-      const response = await fetch(`${API_BASE_URL}/invitations`, {
+      const response = await fetch(`${API_BASE_URL}/api/invitations`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -74,7 +74,7 @@ export const useInvitations = () => {
     
     try {
       const token = getAuthToken();
-      const response = await fetch(`${API_BASE_URL}/workspaces/${workspaceId}/invite`, {
+      const response = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/invite`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -133,7 +133,7 @@ export const useInvitations = () => {
     
     try {
       const token = getAuthToken();
-      const response = await fetch(`${API_BASE_URL}/invitations/${invitationId}/accept`, {
+      const response = await fetch(`${API_BASE_URL}/api/invitations/${invitationId}/accept`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -168,7 +168,7 @@ export const useInvitations = () => {
     
     try {
       const token = getAuthToken();
-      const response = await fetch(`${API_BASE_URL}/invitations/${invitationId}/decline`, {
+      const response = await fetch(`${API_BASE_URL}/api/invitations/${invitationId}/decline`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useUser } from '../auth/useUser';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
 
 export const useWorkspaces = () => {
   const [workspaces, setWorkspaces] = useState([]);
@@ -24,7 +24,7 @@ export const useWorkspaces = () => {
     
     try {
       const token = getAuthToken();
-      const response = await fetch(`${API_BASE_URL}/workspaces`, {
+      const response = await fetch(`${API_BASE_URL}/api/workspaces`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -53,7 +53,7 @@ export const useWorkspaces = () => {
     
     try {
       const token = getAuthToken();
-      const response = await fetch(`${API_BASE_URL}/workspaces`, {
+      const response = await fetch(`${API_BASE_URL}/api/workspaces`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -84,7 +84,7 @@ export const useWorkspaces = () => {
     setError(null);
     try {
       const token = getAuthToken();
-      const response = await fetch(`${API_BASE_URL}/workspaces/${workspaceId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
