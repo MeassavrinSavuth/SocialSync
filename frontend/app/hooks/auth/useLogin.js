@@ -2,12 +2,13 @@
 import { useState } from 'react';
 
 export const useLogin = () => {
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
   const [isLoading, setIsLoading] = useState(false);
 
   const login = async (email, password) => {
     setIsLoading(true);
     try {
-      const response = await fetch('http://localhost:8080/api/auth/login', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim(), password }),

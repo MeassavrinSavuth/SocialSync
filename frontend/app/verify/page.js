@@ -4,6 +4,7 @@ import React, { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 const VerifyEmailContent = () => {
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
   const [formData, setFormData] = useState({ email: '', token: '' });
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -27,7 +28,7 @@ const VerifyEmailContent = () => {
     setError('');
 
     try {
-      const res = await fetch('http://localhost:8080/api/auth/verify', {
+      const res = await fetch(`${API_BASE_URL}/api/auth/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),

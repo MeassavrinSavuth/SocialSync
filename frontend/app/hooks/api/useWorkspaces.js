@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useUser } from '../auth/useUser';
 
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api';
 
 export const useWorkspaces = () => {
   const [workspaces, setWorkspaces] = useState([]);

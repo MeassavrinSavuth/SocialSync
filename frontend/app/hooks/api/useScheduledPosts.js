@@ -1,11 +1,12 @@
 import { useProtectedFetch } from '../auth/useProtectedFetch';
 
 export function useScheduledPosts() {
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
   const protectedFetch = useProtectedFetch();
 
   const createScheduledPost = async ({ content, mediaFiles, platforms, scheduledTime }) => {
     try {
-      const response = await protectedFetch('http://localhost:8080/api/scheduled-posts', {
+      const response = await protectedFetch(`${API_BASE_URL}/api/scheduled-posts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -32,7 +33,7 @@ export function useScheduledPosts() {
 
   const getScheduledPosts = async () => {
     try {
-      const response = await protectedFetch('http://localhost:8080/api/scheduled-posts');
+      const response = await protectedFetch(`${API_BASE_URL}/api/scheduled-posts`);
       console.log('Fetch scheduled posts response:', response);
       if (!response.ok) {
         throw new Error('Failed to fetch scheduled posts');
@@ -48,7 +49,7 @@ export function useScheduledPosts() {
 
   const updateScheduledPost = async (postId, updateData) => {
     try {
-      const response = await protectedFetch(`http://localhost:8080/api/scheduled-posts/${postId}`, {
+      const response = await protectedFetch(`${API_BASE_URL}/api/scheduled-posts/${postId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -70,7 +71,7 @@ export function useScheduledPosts() {
 
   const deleteScheduledPost = async (postId) => {
     try {
-      const response = await protectedFetch(`http://localhost:8080/api/scheduled-posts/${postId}`, {
+      const response = await protectedFetch(`${API_BASE_URL}/api/scheduled-posts/${postId}`, {
         method: 'DELETE',
       });
 
