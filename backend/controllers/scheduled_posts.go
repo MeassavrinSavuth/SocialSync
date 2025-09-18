@@ -53,6 +53,7 @@ func CreateScheduledPostHandler(db *sql.DB) http.HandlerFunc {
 			"youtube":   true,
 			"twitter":   true,
 			"mastodon":  true,
+			"telegram":  true,
 		}
 
 		for _, platform := range req.Platforms {
