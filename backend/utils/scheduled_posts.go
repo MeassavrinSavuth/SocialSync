@@ -177,6 +177,8 @@ func (spp *ScheduledPostProcessor) postToPlatform(post models.ScheduledPost, pla
 		return spp.postToTwitter(post.Content, post.MediaURLs, accessToken)
 	case "mastodon":
 		return spp.postToMastodon(post.Content, post.MediaURLs, accessToken)
+	case "telegram":
+		return spp.postToTelegram(post.Content, post.MediaURLs, post.UserID)
 	default:
 		return fmt.Errorf("unsupported platform: %s", platform)
 	}
@@ -910,4 +912,173 @@ func (spp *ScheduledPostProcessor) updatePostRetry(postID, retryCount int, error
 	if err != nil {
 		log.Printf("Failed to update post retry for ID %d: %v", postID, err)
 	}
+}
+
+// postToTelegram posts content to Telegram using the bot API
+func (spp *ScheduledPostProcessor) postToTelegram(content string, mediaURLs []string, userID string) error {
+	// Get bot token from environment
+	botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
+	if botToken == "" {
+		return fmt.Errorf("telegram bot token not configured")
+	}
+
+	// Get user's connected Telegram channel
+	query := `
+		SELECT social_id
+		FROM social_accounts 
+		WHERE user_id = $1 AND platform = 'telegram'
+		ORDER BY connected_at DESC 
+		LIMIT 1
+	`
+	
+	var chatID string
+	err := spp.db.QueryRow(query, userID).Scan(&chatID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return fmt.Errorf("user not connected to telegram")
+		}
+		return fmt.Errorf("database error: %v", err)
+	}
+
+	log.Printf("Telegram: Posting to chat ID %s", chatID)
+
+	// Send message using the same logic as the live posting
+	return spp.sendTelegramMessage(botToken, chatID, content, mediaURLs)
+}
+
+// sendTelegramMessage sends a message with optional media to Telegram
+func (spp *ScheduledPostProcessor) sendTelegramMessage(botToken, chatID, message string, mediaUrls []string) error {
+	if len(mediaUrls) == 0 {
+		// Send text-only message
+		return spp.sendTelegramTextMessage(botToken, chatID, message)
+	} else if len(mediaUrls) == 1 {
+		// Send single media with caption
+		return spp.sendTelegramSingleMedia(botToken, chatID, message, mediaUrls[0])
+	} else {
+		// Send media group with caption
+		return spp.sendTelegramMediaGroup(botToken, chatID, message, mediaUrls)
+	}
+}
+
+// sendTelegramTextMessage sends a text-only message
+func (spp *ScheduledPostProcessor) sendTelegramTextMessage(botToken, chatID, message string) error {
+	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", botToken)
+	
+	payload := map[string]interface{}{
+		"chat_id": chatID,
+		"text":    message,
+	}
+
+	return spp.makeTelegramRequest(url, payload)
+}
+
+// sendTelegramSingleMedia sends a single photo/video with caption
+func (spp *ScheduledPostProcessor) sendTelegramSingleMedia(botToken, chatID, caption, mediaUrl string) error {
+	var url string
+	var payload map[string]interface{}
+
+	// Determine if it's a photo or video based on URL
+	if spp.isVideoUrl(mediaUrl) {
+		url = fmt.Sprintf("https://api.telegram.org/bot%s/sendVideo", botToken)
+		payload = map[string]interface{}{
+			"chat_id": chatID,
+			"video":   mediaUrl,
+			"caption": caption,
+		}
+	} else {
+		url = fmt.Sprintf("https://api.telegram.org/bot%s/sendPhoto", botToken)
+		payload = map[string]interface{}{
+			"chat_id": chatID,
+			"photo":   mediaUrl,
+			"caption": caption,
+		}
+	}
+
+	return spp.makeTelegramRequest(url, payload)
+}
+
+// sendTelegramMediaGroup sends multiple media items as a group
+func (spp *ScheduledPostProcessor) sendTelegramMediaGroup(botToken, chatID, caption string, mediaUrls []string) error {
+	url := fmt.Sprintf("https://api.telegram.org/bot%s/sendMediaGroup", botToken)
+	
+	// Build media array (max 10 items for Telegram)
+	media := make([]map[string]interface{}, 0, len(mediaUrls))
+	for i, mediaUrl := range mediaUrls {
+		if i >= 10 { // Telegram limit
+			break
+		}
+		
+		mediaType := "photo"
+		if spp.isVideoUrl(mediaUrl) {
+			mediaType = "video"
+		}
+
+		mediaItem := map[string]interface{}{
+			"type":  mediaType,
+			"media": mediaUrl,
+		}
+
+		// Add caption to first item only
+		if i == 0 && caption != "" {
+			mediaItem["caption"] = caption
+		}
+
+		media = append(media, mediaItem)
+	}
+
+	payload := map[string]interface{}{
+		"chat_id": chatID,
+		"media":   media,
+	}
+
+	return spp.makeTelegramRequest(url, payload)
+}
+
+// makeTelegramRequest sends a request to Telegram API
+func (spp *ScheduledPostProcessor) makeTelegramRequest(url string, payload map[string]interface{}) error {
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("failed to marshal payload: %v", err)
+	}
+
+	resp, err := http.Post(url, "application/json", strings.NewReader(string(jsonData)))
+	if err != nil {
+		return fmt.Errorf("network error: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response: %v", err)
+	}
+
+	var sendResp struct {
+		OK          bool   `json:"ok"`
+		Description string `json:"description,omitempty"`
+	}
+	
+	if err := json.Unmarshal(body, &sendResp); err != nil {
+		return fmt.Errorf("failed to parse response: %v", err)
+	}
+
+	if !sendResp.OK {
+		return fmt.Errorf("telegram API error: %s", sendResp.Description)
+	}
+
+	log.Printf("Telegram: Message sent successfully")
+	return nil
+}
+
+// isVideoUrl determines if a URL points to a video file
+func (spp *ScheduledPostProcessor) isVideoUrl(url string) bool {
+	videoExtensions := []string{".mp4", ".mov", ".avi", ".mkv", ".wmv", ".flv", ".webm", ".m4v"}
+	lowerUrl := strings.ToLower(url)
+	
+	for _, ext := range videoExtensions {
+		if strings.Contains(lowerUrl, ext) {
+			return true
+		}
+	}
+	
+	return false
 }
