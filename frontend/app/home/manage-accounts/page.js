@@ -32,13 +32,7 @@ export default function ManageAccountPage() {
   const [telegramChatId, setTelegramChatId] = useState('');
   const [telegramLoading, setTelegramLoading] = useState(false);
 
-  // Get token dynamically
-  const getToken = () => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('accessToken');
-    }
-    return null;
-  };
+  const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
 
   // Map backend platform keys to frontend display names
   // Reordered to move TikTok to the end
@@ -91,9 +85,8 @@ export default function ManageAccountPage() {
   };
 
   const fetchAccounts = async () => {
-    const token = getToken();
     if (!token) {
-      setError('You must be logged in.');
+      setError('Access token not found.');
       setLoading(false);
       return;
     }
@@ -215,7 +208,6 @@ export default function ManageAccountPage() {
     setShowConfirmModal(false); // Close the modal immediately
     if (!platformToDisconnect) return;
 
-    const token = getToken();
     try {
       await axios.delete(`${API_BASE_URL}/api/social-accounts/${platformToDisconnect.toLowerCase()}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -251,19 +243,8 @@ export default function ManageAccountPage() {
       setStatusType('error');
       return;
     }
-
-    const token = getToken();
-    if (!token) {
-      setStatusMessage('Please log in again. Your session may have expired.');
-      setStatusType('error');
-      return;
-    }
-
     setTelegramLoading(true);
     try {
-      console.log('Connecting Telegram with token:', token ? 'Token present' : 'No token');
-      console.log('API URL:', `${API_BASE_URL}/connect/telegram`);
-      
       await axios.post(
         `${API_BASE_URL}/connect/telegram`,
         { chat_id: telegramChatId },
@@ -275,8 +256,6 @@ export default function ManageAccountPage() {
       setTelegramChatId('');
       fetchAccounts();
     } catch (err) {
-      console.error('Telegram connection error:', err);
-      console.error('Response:', err?.response?.data);
       setStatusMessage(
         err?.response?.data?.error || 'Failed to connect Telegram channel.'
       );
