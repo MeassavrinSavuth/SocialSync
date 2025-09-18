@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"social-sync-backend/middleware"
 	"social-sync-backend/models"
 	"strconv"
 	"strings"
@@ -51,9 +52,15 @@ type TelegramSendResponse struct {
 func ConnectTelegramHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Get user ID from JWT context
-		userID, ok := r.Context().Value("userID").(uuid.UUID)
+		userIDStr, ok := r.Context().Value(middleware.UserIDKey).(string)
 		if !ok {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		userID, err := uuid.Parse(userIDStr)
+		if err != nil {
+			http.Error(w, "Invalid user ID", http.StatusUnauthorized)
 			return
 		}
 
@@ -145,9 +152,15 @@ func ConnectTelegramHandler(db *sql.DB) http.HandlerFunc {
 func PostToTelegramHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Get user ID from JWT context
-		userID, ok := r.Context().Value("userID").(uuid.UUID)
+		userIDStr, ok := r.Context().Value(middleware.UserIDKey).(string)
 		if !ok {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		userID, err := uuid.Parse(userIDStr)
+		if err != nil {
+			http.Error(w, "Invalid user ID", http.StatusUnauthorized)
 			return
 		}
 
@@ -165,7 +178,7 @@ func PostToTelegramHandler(db *sql.DB) http.HandlerFunc {
 
 		// Get user's connected Telegram account
 		var socialAccount models.SocialAccount
-		err := db.QueryRow(`
+		err = db.QueryRow(`
 			SELECT id, social_id, access_token, profile_name 
 			FROM social_accounts 
 			WHERE user_id = $1 AND platform = 'telegram'
