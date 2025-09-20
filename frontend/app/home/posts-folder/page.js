@@ -64,7 +64,9 @@ export default function PostsFolderPage() {
     setError(null);
 
     try {
-      const { data, error, status } = await protectedFetch(`/${platform}/posts`);
+  // Call the backend API directly (use API_BASE_URL) so requests go to the server
+  // Example: https://socialsync-j7ih.onrender.com/api/youtube/posts
+  const { data, error, status } = await protectedFetch(`${API_BASE_URL}/api/${platform}/posts`);
       if (error) throw new Error(error);
       if (!data) return;
 
