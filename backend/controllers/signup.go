@@ -40,7 +40,12 @@ type ErrorResponse struct {
 // SignupHandler handles user registration
 func SignupHandler(w http.ResponseWriter, r *http.Request) {
     // Set CORS headers
-    w.Header().Set("Access-Control-Allow-Origin", "https://social-sync-nine.vercel.app")
+    // Read allowed origin from environment so deployments can use a custom domain.
+    allowedOrigin := "https://social-sync-nine.vercel.app"
+    if v := os.Getenv("FRONTEND_URL"); v != "" {
+        allowedOrigin = v
+    }
+    w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
     w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
     w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
     w.Header().Set("Content-Type", "application/json")
