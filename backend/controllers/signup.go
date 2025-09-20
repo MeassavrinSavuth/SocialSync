@@ -4,8 +4,9 @@ import (
     "encoding/json"
     "log"
     "net/http"
+    "os"
     "time"
-	"database/sql"
+    "database/sql"
     "github.com/google/uuid" // Make sure this is imported
     "golang.org/x/crypto/bcrypt"
     "social-sync-backend/lib"
@@ -41,7 +42,8 @@ type ErrorResponse struct {
 func SignupHandler(w http.ResponseWriter, r *http.Request) {
     // Set CORS headers
     // Read allowed origin from environment so deployments can use a custom domain.
-    allowedOrigin := "https://social-sync-nine.vercel.app"
+    // Default to your new custom domain; deployments can override via FRONTEND_URL env var
+    allowedOrigin := "https://thesocialsync.life"
     if v := os.Getenv("FRONTEND_URL"); v != "" {
         allowedOrigin = v
     }
