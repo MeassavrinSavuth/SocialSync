@@ -64,18 +64,38 @@ export default function PostsFolderPage() {
     setError(null);
 
     try {
-  // Call the backend API directly (use API_BASE_URL) so requests go to the server
-  // Example: https://socialsync-j7ih.onrender.com/api/youtube/posts
-  const { data, error, status } = await protectedFetch(`${API_BASE_URL}/api/${platform}/posts`);
-      if (error) throw new Error(error);
-      if (!data) return;
+      // Call the backend API directly (use API_BASE_URL) so requests go to the server
+      // Example: https://socialsync-j7ih.onrender.com/api/youtube/posts
+      const res = await protectedFetch(`${API_BASE_URL}/api/${platform}/posts`);
+      if (!res) return;
 
-      if (data.needsReconnect) {
+      let payload = null;
+      try {
+        payload = await res.json();
+      } catch (jsonErr) {
+        console.warn('Failed to parse JSON from', platform, jsonErr);
+      }
+
+      console.debug('fetchPlatformPosts', platform, 'status', res.status, 'payload', payload);
+
+      if (!payload) {
         setConnectionStatus((prev) => ({
           ...prev,
           [platform]: {
             isConnected: false,
-            error: data,
+            error: { message: 'No data returned' },
+            needsReconnect: false,
+          },
+        }));
+        return;
+      }
+
+      if (payload.needsReconnect) {
+        setConnectionStatus((prev) => ({
+          ...prev,
+          [platform]: {
+            isConnected: false,
+            error: payload,
             needsReconnect: true,
           },
         }));
@@ -93,16 +113,16 @@ export default function PostsFolderPage() {
 
       // Handle platform-specific data structures
       if (platform === 'facebook') {
-        setFacebookPosts(data.data || []);
-        setFacebookPageInfo(data.pageInfo || null);
+        setFacebookPosts(payload.data || []);
+        setFacebookPageInfo(payload.pageInfo || null);
       } else if (platform === 'twitter') {
-        setTwitterPosts(data);
+        setTwitterPosts(payload);
       } else if (platform === 'youtube') {
-        setYouTubePosts(data.items || []);
+        setYouTubePosts(payload.items || []);
       } else if (platform === 'mastodon') {
-        setMastodonPosts(data);
+        setMastodonPosts(payload);
       } else if (platform === 'instagram') {
-        setInstagramPosts(data.data || []);
+        setInstagramPosts(payload.data || []);
       }
     } catch (err) {
       console.error(`Error fetching ${platform} posts:`, err);
@@ -148,7 +168,7 @@ export default function PostsFolderPage() {
 
   // Filter posts by search query
   const filteredMastodonPosts = mastodonPosts.filter((post) =>
-    post.content.toLowerCase().includes(searchQuery.toLowerCase())
+    post.content && post.content.toLowerCase().includes(searchQuery.toLowerCase())
   );
   const filteredTwitterPosts = (twitterPosts.data || []).filter(
     (tweet) =>
