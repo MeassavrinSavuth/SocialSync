@@ -12,6 +12,7 @@ import (
 	"social-sync-backend/lib"
 	"strings"
 	"time"
+	"strconv"
 
 	"social-sync-backend/middleware"
 
@@ -124,7 +125,7 @@ func PostToYouTubeHandler(db *sql.DB) http.HandlerFunc {
 
 		file.Seek(0, 0)
 
-		videoID, err := uploadVideoToYouTube(file, title, description, tags, privacy, categoryID, accessToken)
+	videoID, err := uploadVideoToYouTube(file, fileHeader.Size, title, description, tags, privacy, categoryID, accessToken)
 		if err != nil {
 			// Check if it's an authentication error
 			if strings.Contains(err.Error(), "401") || strings.Contains(err.Error(), "UNAUTHENTICATED") || strings.Contains(err.Error(), "Invalid Credentials") {
@@ -157,7 +158,7 @@ func PostToYouTubeHandler(db *sql.DB) http.HandlerFunc {
 
 					// Retry upload with new token
 					file.Seek(0, 0)
-					videoID, err = uploadVideoToYouTube(file, title, description, tags, privacy, categoryID, newAccessToken)
+					videoID, err = uploadVideoToYouTube(file, fileHeader.Size, title, description, tags, privacy, categoryID, newAccessToken)
 					if err != nil {
 						w.Header().Set("Content-Type", "application/json")
 						w.WriteHeader(http.StatusUnauthorized)
@@ -205,7 +206,7 @@ func PostToYouTubeHandler(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func uploadVideoToYouTube(file multipart.File, title, description, tags, privacy, categoryID, accessToken string) (string, error) {
+func uploadVideoToYouTube(file multipart.File, fileSize int64, title, description, tags, privacy, categoryID, accessToken string) (string, error) {
 	metadata := YouTubeVideoMetadata{}
 	metadata.Snippet.Title = title
 	metadata.Snippet.Description = description
@@ -236,7 +237,7 @@ func uploadVideoToYouTube(file multipart.File, title, description, tags, privacy
 	initReq.Header.Set("Authorization", "Bearer "+accessToken)
 	initReq.Header.Set("Content-Type", "application/json")
 	initReq.Header.Set("X-Upload-Content-Type", "video/*")
-	initReq.Header.Set("X-Upload-Content-Length", "0")
+	initReq.Header.Set("X-Upload-Content-Length", strconv.FormatInt(fileSize, 10))
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	initResp, err := client.Do(initReq)
@@ -268,7 +269,7 @@ func uploadVideoToYouTube(file multipart.File, title, description, tags, privacy
 	}
 
 	uploadReq.Header.Set("Content-Type", "video/*")
-	uploadReq.Header.Set("Content-Length", "0")
+	uploadReq.Header.Set("Content-Length", strconv.FormatInt(fileSize, 10))
 
 	uploadClient := &http.Client{Timeout: 300 * time.Second}
 	uploadResp, err := uploadClient.Do(uploadReq)
