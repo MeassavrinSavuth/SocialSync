@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -42,7 +43,15 @@ func YouTubeRedirectHandler() http.HandlerFunc {
 
 		config := getYouTubeOAuthConfig()
 		state := fmt.Sprintf("%s:%d", userID, time.Now().UnixNano())
-		url := config.AuthCodeURL(state, oauth2.AccessTypeOffline)
+		// Force showing the consent screen (helpful during testing and for verification demos)
+		url := config.AuthCodeURL(state, oauth2.AccessTypeOffline,
+			oauth2.SetAuthURLParam("prompt", "consent"),
+			oauth2.SetAuthURLParam("include_granted_scopes", "true"),
+		)
+
+		// Log the auth URL for debugging (can be removed later)
+		log.Printf("DEBUG: YouTube auth URL: %s", url)
+
 		http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 	}
 }
