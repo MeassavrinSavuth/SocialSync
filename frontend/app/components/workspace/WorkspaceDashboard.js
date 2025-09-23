@@ -171,76 +171,78 @@ export default function WorkspaceDashboard({
       />
 
       {/* Create Workspace Modal - Mobile optimized */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-lg p-6 md:p-8 w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl md:text-2xl font-bold mb-4 text-gray-800">Create Workspace</h2>
-            <form onSubmit={onCreateWorkspace} className="space-y-4">
-              <div>
-                <label className="block text-gray-700 font-semibold mb-1">Workspace Name</label>
-                <input
-                  type="text"
-                  className="w-full border rounded px-3 py-2 text-black"
-                  value={newWorkspaceName}
-                  onChange={e => setNewWorkspaceName(e.target.value)}
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-blue-600 font-semibold mb-1">Workspace avatar (optional)</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="w-full border rounded px-3 py-2 text-black"
-                  onChange={handleAvatarChange}
-                />
+      {/* Create Workspace Modal - Updated */}
+{showCreateModal && (
+  <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
+    <div className="bg-white rounded-xl shadow-lg p-6 md:p-8 w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <h2 className="text-xl md:text-2xl font-bold mb-4 text-gray-800">Create Workspace</h2>
+      <form onSubmit={onCreateWorkspace} className="space-y-4">
+        <div>
+          <label className="block text-gray-700 font-semibold mb-1">Workspace Name</label>
+          <input
+            type="text"
+            className="w-full border rounded px-3 py-2 text-black"
+            value={newWorkspaceName}
+            onChange={e => setNewWorkspaceName(e.target.value)} 
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-blue-600 font-semibold mb-1">Workspace avatar (optional)</label>
+          <input
+            type="file"
+            accept="image/*"
+            className="w-full border rounded px-3 py-2 text-black"
+            onChange={handleAvatarChange}
+          />
 
-                {/* Progress / preview area */}
-                <div className="mt-3">
-                  {avatarUploading ? (
-                    <div className="space-y-2">
-                      <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                        <div
-                          className="h-3 bg-blue-600 rounded-full transition-all"
-                          style={{ width: `${uploadProgress}%` }}
-                        />
-                      </div>
-                      <div className="text-sm text-gray-600">Uploading avatar… {uploadProgress}%</div>
-                    </div>
-                  ) : newWorkspaceAvatar ? (
-                    <img src={newWorkspaceAvatar} alt="Avatar Preview" className="mt-2 w-16 h-16 rounded-full object-cover border" />
-                  ) : uploadError ? (
-                    <div className="text-sm text-red-500">{uploadError}</div>
-                  ) : (
-                    <div className="text-sm text-gray-500">Optional avatar helps teammates recognize this workspace.</div>
-                  )}
+          {/* Progress / preview area */}
+          <div className="mt-3">
+            {avatarUploading ? (
+              <div className="space-y-2">
+                <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                  <div
+                    className="h-3 bg-blue-600 rounded-full transition-all"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
                 </div>
+                <div className="text-sm text-gray-600">Uploading avatar… {uploadProgress}%</div>
               </div>
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="submit"
-                  className={`flex-1 py-2 px-4 rounded font-semibold transition ${avatarUploading || (avatarFileSelected && !newWorkspaceAvatar) ? 'bg-gray-300 text-gray-700 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
-                  disabled={avatarUploading || (avatarFileSelected && !newWorkspaceAvatar)}
-                >
-                  {avatarUploading ? 'Uploading…' : 'Create Workspace'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="flex-1 py-2 px-4 bg-gray-300 text-gray-700 rounded font-semibold hover:bg-gray-400 transition"
-                >
-                  Cancel
-                </button>
-              </div>
-
-              {/* helper when avatar is still uploading */}
-              {(avatarUploading || (avatarFileSelected && !newWorkspaceAvatar)) && (
-                <div className="mt-3 text-sm text-gray-600">You can create the workspace after the avatar finishes uploading.</div>
-              )}
-            </form>
+            ) : newWorkspaceAvatar ? (
+              <img src={newWorkspaceAvatar} alt="Avatar Preview" className="mt-2 w-16 h-16 rounded-full object-cover border" />
+            ) : uploadError ? (
+              <div className="text-sm text-red-500">{uploadError}</div>
+            ) : (
+              <div className="text-sm text-gray-500">Optional avatar helps teammates recognize this workspace.</div>
+            )}
           </div>
         </div>
-      )}
+        <div className="flex gap-3 pt-4">
+          <button
+            type="submit"
+            className={`flex-1 py-2 px-4 rounded font-semibold transition ${avatarUploading || (avatarFileSelected && !newWorkspaceAvatar) ? 'bg-gray-300 text-gray-700 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+            disabled={avatarUploading || (avatarFileSelected && !newWorkspaceAvatar)}
+          >
+            {avatarUploading ? 'Uploading…' : 'Create Workspace'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowCreateModal(false)}
+            className="flex-1 py-2 px-4 bg-gray-300 text-gray-700 rounded font-semibold hover:bg-gray-400 transition"
+          >
+            Cancel
+          </button>
+        </div>
+
+        {/* helper when avatar is still uploading */}
+        {(avatarUploading || (avatarFileSelected && !newWorkspaceAvatar)) && (
+          <div className="mt-3 text-sm text-gray-600">You can create the workspace after the avatar finishes uploading.</div>
+        )}
+      </form>
+    </div>
+  </div>
+)}
+
 
       {/* Invitations Modal */}
       <InviteModal
