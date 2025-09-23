@@ -9,13 +9,27 @@ export default function InviteModal({ open, invitations, onAccept, onDecline, on
     console.log('InviteModal render - open:', open, 'invitations:', invitations);
   }, [open, invitations]);
   
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e) {
+      if (e.key === 'Escape' && onClose) onClose();
+    }
+
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
   if (!open) return null;
 
+  function handleBackdropClick() {
+    if (onClose) onClose();
+  }
+
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50">
+    <div className="fixed inset-0 flex items-center justify-center z-50" role="dialog" aria-modal="true" aria-label="Invitations dialog">
       {/* semi-transparent backdrop so underlying page shows through */}
-      <div className="absolute inset-0 bg-white/60 dark:bg-black/40 backdrop-blur-sm" />
-      <div className="relative bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
+      <div className="absolute inset-0 bg-white/60 dark:bg-black/40 backdrop-blur-sm" onClick={handleBackdropClick} />
+      <div className="relative bg-white rounded-xl shadow-lg p-8 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-2xl font-bold mb-4 text-gray-800">Invitations</h2>
         {loading ? (
           <div className="text-gray-500 text-center py-8">Loading invitations...</div>
