@@ -10,10 +10,12 @@ export default function InviteModal({ open, invitations, onAccept, onDecline, on
   }, [open, invitations]);
   
   if (!open) return null;
-  
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
+    <div className="fixed inset-0 flex items-center justify-center z-50">
+      {/* semi-transparent backdrop so underlying page shows through */}
+      <div className="absolute inset-0 bg-white/60 dark:bg-black/40 backdrop-blur-sm" />
+      <div className="relative bg-white rounded-xl shadow-lg p-8 w-full max-w-md">
         <h2 className="text-2xl font-bold mb-4 text-gray-800">Invitations</h2>
         {loading ? (
           <div className="text-gray-500 text-center py-8">Loading invitations...</div>
