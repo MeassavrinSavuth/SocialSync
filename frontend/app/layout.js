@@ -19,6 +19,13 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
+      <head>
+        {/* canonical favicon (versioned to bust cache) */}
+        <link rel="icon" type="image/png" href="/logo-ss.png?v=3" />
+        {/* legacy shortcut icon for some browsers */}
+        <link rel="shortcut icon" href="/logo-ss.png?v=3" />
+        <meta name="theme-color" content="#ffffff" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
