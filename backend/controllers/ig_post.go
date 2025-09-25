@@ -16,7 +16,7 @@ import (
 )
 
 // Define the Instagram Graph API version to use
-const instagramAPIVersion = "v20.0" // <--- IMPORTANT: Update to the latest stable version
+const instagramAPIVersion = "v18.0" // Using v18.0 for better stability and compatibility
 
 type InstagramPostRequest struct {
 	Caption   string   `json:"caption"`
@@ -94,6 +94,8 @@ func PostToInstagramHandler(db *sql.DB) http.HandlerFunc {
 			http.Error(w, "Unauthorized: User not authenticated", http.StatusUnauthorized)
 			return
 		}
+
+		log.Printf("Instagram: Post request received from user %s", userID)
 
 		var req InstagramPostRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -248,6 +250,7 @@ func PostToInstagramHandler(db *sql.DB) http.HandlerFunc {
 			}
 
 			if resp.StatusCode != http.StatusOK {
+				log.Printf("Instagram: Media container creation failed with status %d: %s", resp.StatusCode, string(body))
 				http.Error(w, fmt.Sprintf("Media container creation failed: %s", body), http.StatusInternalServerError)
 				return
 			}
@@ -291,6 +294,7 @@ func PostToInstagramHandler(db *sql.DB) http.HandlerFunc {
 			}
 
 			if publishResp.StatusCode != http.StatusOK {
+				log.Printf("Instagram: Single media publish failed with status %d: %s", publishResp.StatusCode, string(body))
 				// Check if it's a token issue
 				if publishResp.StatusCode == 401 || publishResp.StatusCode == 403 {
 					w.Header().Set("Content-Type", "application/json")
@@ -384,6 +388,7 @@ func PostToInstagramHandler(db *sql.DB) http.HandlerFunc {
 			}
 		}
 
+		log.Printf("Instagram: Post published successfully for user %s", userID)
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("Instagram post published successfully"))
 	}
