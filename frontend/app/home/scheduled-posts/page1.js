@@ -392,9 +392,21 @@ export default function ScheduledPostsPage() {
     <div className="min-h-screen bg-gray-50 py-10 px-4">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Scheduled Posts</h1>
-          <p className="text-gray-700 font-medium">View your scheduled posts on the calendar</p>
+        <div className="mb-6">
+          <div className="flex items-center justify-between space-x-4">
+            <div className="flex items-center space-x-3 min-w-0">
+              <button
+                className="p-2 bg-blue-600 text-white rounded-md sm:hidden"
+                aria-label="open-nav"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+              </button>
+              <div className="min-w-0">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1 truncate">Scheduled Posts</h1>
+                <p className="text-gray-700 text-sm sm:text-base font-medium truncate">View your scheduled posts on the calendar</p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {error && (
@@ -657,7 +669,7 @@ export default function ScheduledPostsPage() {
                           
         {/* Post Details Modal */}
         {showPostDetails && selectedPost && (
-          <div className="fixed inset-0 bg-black bg-opacity-25 z-50 p-4 flex items-end sm:items-center justify-center">
+          <div className="fixed inset-0 z-50 p-4 flex items-end sm:items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.25)' }}>
             <div className="bg-white w-full sm:max-w-2xl rounded-t-xl sm:rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
               <div className="p-4 sm:p-6">
                 {/* Modal Header */}
@@ -800,7 +812,7 @@ export default function ScheduledPostsPage() {
 
         {/* Delete Confirmation Modal */}
         {showDeleteModal && postToDelete && (
-          <div className="fixed inset-0 bg-black bg-opacity-20 z-50 p-4 flex items-end sm:items-center justify-center">
+          <div className="fixed inset-0 z-50 p-4 flex items-end sm:items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.2)' }}>
             <div className="bg-white w-full sm:max-w-md rounded-t-xl sm:rounded-xl shadow-2xl overflow-hidden">
               <div className="p-4 sm:p-6">
                 <div className="flex items-center mb-4">
@@ -852,7 +864,7 @@ export default function ScheduledPostsPage() {
 
         {/* Edit/Reschedule Modal */}
         {showEditModal && postToEdit && (
-          <div className="fixed inset-0 bg-black bg-opacity-25 z-50 p-4 flex items-end sm:items-center justify-center">
+          <div className="fixed inset-0 z-50 p-4 flex items-end sm:items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.25)' }}>
             <div className="bg-white w-full sm:max-w-2xl rounded-t-xl sm:rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
               <div className="p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-6">
