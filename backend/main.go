@@ -67,6 +67,12 @@ func main() {
 	defer scheduledPostProcessor.Stop()
 	log.Println("✅ Scheduled post processor started!")
 
+	// Initialize analytics scheduler
+	analyticsScheduler := utils.NewAnalyticsScheduler()
+	analyticsScheduler.Start()
+	defer analyticsScheduler.Stop()
+	log.Println("✅ Analytics scheduler started!")
+
 	// Setup cron job for social account sync
 	c := cron.New(cron.WithChain(
 		cron.Recover(cron.DefaultLogger),

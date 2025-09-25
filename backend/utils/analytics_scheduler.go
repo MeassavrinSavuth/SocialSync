@@ -29,7 +29,7 @@ func (as *AnalyticsScheduler) Start() {
 	go as.startMastodonTicker()
 	go as.startFacebookTicker()
 	go as.startInstagramTicker()
-	go as.startTwitterTicker()
+	// go as.startTwitterTicker() // DISABLED for testing
 	go as.startYouTubeTicker()
 
 	// Start user-specific sync job
@@ -44,9 +44,9 @@ func (as *AnalyticsScheduler) Stop() {
 	close(as.stopChan)
 }
 
-// startMastodonTicker runs Mastodon analytics sync every 1 hour
+// startMastodonTicker runs Mastodon analytics sync every 5 minutes (for testing)
 func (as *AnalyticsScheduler) startMastodonTicker() {
-	ticker := time.NewTicker(1 * time.Hour)
+	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
 	// Run immediately on start
@@ -64,9 +64,9 @@ func (as *AnalyticsScheduler) startMastodonTicker() {
 	}
 }
 
-// startFacebookTicker runs Facebook analytics sync every 1 hour
+// startFacebookTicker runs Facebook analytics sync every 5 minutes (for testing)
 func (as *AnalyticsScheduler) startFacebookTicker() {
-	ticker := time.NewTicker(1 * time.Hour)
+	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
 	// Run immediately on start
@@ -84,9 +84,9 @@ func (as *AnalyticsScheduler) startFacebookTicker() {
 	}
 }
 
-// startInstagramTicker runs Instagram analytics sync every 6 hours
+// startInstagramTicker runs Instagram analytics sync every 5 minutes (for testing)
 func (as *AnalyticsScheduler) startInstagramTicker() {
-	ticker := time.NewTicker(6 * time.Hour)
+	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
 	// Run immediately on start
@@ -104,7 +104,7 @@ func (as *AnalyticsScheduler) startInstagramTicker() {
 	}
 }
 
-// startTwitterTicker runs Twitter analytics sync every 6 hours
+// startTwitterTicker runs Twitter analytics sync every 6 hours (DISABLED for testing)
 func (as *AnalyticsScheduler) startTwitterTicker() {
 	ticker := time.NewTicker(6 * time.Hour)
 	defer ticker.Stop()
@@ -124,9 +124,9 @@ func (as *AnalyticsScheduler) startTwitterTicker() {
 	}
 }
 
-// startYouTubeTicker runs YouTube analytics sync every 12 hours
+// startYouTubeTicker runs YouTube analytics sync every 5 minutes (for testing)
 func (as *AnalyticsScheduler) startYouTubeTicker() {
-	ticker := time.NewTicker(12 * time.Hour)
+	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
 	// Run immediately on start
@@ -144,9 +144,9 @@ func (as *AnalyticsScheduler) startYouTubeTicker() {
 	}
 }
 
-// startUserSyncJob runs a general user sync job every hour
+// startUserSyncJob runs a general user sync job every 5 minutes (for testing)
 func (as *AnalyticsScheduler) startUserSyncJob() {
-	ticker := time.NewTicker(1 * time.Hour)
+	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
 
 	for {

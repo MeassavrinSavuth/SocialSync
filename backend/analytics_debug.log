@@ -1,0 +1,191 @@
+2025/09/25 21:10:03 INFO: DATABASE_URL being used: postgresql://neondb_owner:npg_4ZVSvNX1cQWU@ep-divine-cloud-a1fo6xb4-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+2025/09/25 21:10:04 ✅ Connected to PostgreSQL DB!
+2025/09/25 21:10:04 ✅ Cloudinary initialized!
+2025/09/25 21:10:04 Starting scheduled post processor with 15-second precision...
+2025/09/25 21:10:04 ✅ Scheduled post processor started!
+2025/09/25 21:10:04 Starting analytics scheduler...
+2025/09/25 21:10:04 Analytics scheduler started successfully
+2025/09/25 21:10:04 ✅ Analytics scheduler started!
+2025/09/25 21:10:04 ✅ Cron job started (every 12h).
+2025/09/25 21:10:04 Starting initial YouTube analytics sync...
+2025/09/25 21:10:04 Starting initial Facebook analytics sync...
+2025/09/25 21:10:04 🔄 [DEBUG] Starting facebook analytics sync...
+2025/09/25 21:10:04 🔄 [DEBUG] Starting youtube analytics sync...
+2025/09/25 21:10:04 🔍 [DEBUG] Querying users for platform youtube
+2025/09/25 21:10:04 🔍 [DEBUG] Querying users for platform facebook
+2025/09/25 21:10:04 Starting initial Mastodon analytics sync...
+2025/09/25 21:10:04 🔄 [DEBUG] Starting mastodon analytics sync...
+2025/09/25 21:10:04 🔍 [DEBUG] Querying users for platform mastodon
+2025/09/25 21:10:04 Starting initial Instagram analytics sync...
+2025/09/25 21:10:04 🔄 [DEBUG] Starting instagram analytics sync...
+2025/09/25 21:10:04 🔍 [DEBUG] Querying users for platform instagram
+2025/09/25 21:10:04 Starting initial Twitter analytics sync...
+2025/09/25 21:10:04 🔄 [DEBUG] Starting twitter analytics sync...
+2025/09/25 21:10:04 🔍 [DEBUG] Querying users for platform twitter
+2025/09/25 21:10:04 🚀 Server running at: http://localhost:8080
+2025/09/25 21:10:05 👥 [DEBUG] Found 0 users with instagram connected
+2025/09/25 21:10:05 ✅ [DEBUG] Completed instagram analytics sync for 0 users
+2025/09/25 21:10:05 👥 [DEBUG] Found 3 users with twitter connected
+2025/09/25 21:10:05 🔄 [DEBUG] Syncing twitter analytics for user 1/3: da76c2fd-1ad4-4f4f-85cf-8265cbf0a194
+2025/09/25 21:10:05 🔍 [DEBUG] Starting analytics sync for user da76c2fd-1ad4-4f4f-85cf-8265cbf0a194 on platform twitter
+2025/09/25 21:10:05 Skipping twitter analytics sync for user da76c2fd-1ad4-4f4f-85cf-8265cbf0a194 to avoid API rate limits
+2025/09/25 21:10:05 ✅ [DEBUG] Successfully synced twitter analytics for user da76c2fd-1ad4-4f4f-85cf-8265cbf0a194
+2025/09/25 21:10:05 🔄 [DEBUG] Syncing twitter analytics for user 2/3: 651b0db6-a19c-4c22-80b7-b8c5cb1f1ccd
+2025/09/25 21:10:05 🔍 [DEBUG] Starting analytics sync for user 651b0db6-a19c-4c22-80b7-b8c5cb1f1ccd on platform twitter
+2025/09/25 21:10:05 Skipping twitter analytics sync for user 651b0db6-a19c-4c22-80b7-b8c5cb1f1ccd to avoid API rate limits
+2025/09/25 21:10:05 ✅ [DEBUG] Successfully synced twitter analytics for user 651b0db6-a19c-4c22-80b7-b8c5cb1f1ccd
+2025/09/25 21:10:05 🔄 [DEBUG] Syncing twitter analytics for user 3/3: 1fd357ef-85dc-466c-86a3-ef2d89e1dcbf
+2025/09/25 21:10:05 🔍 [DEBUG] Starting analytics sync for user 1fd357ef-85dc-466c-86a3-ef2d89e1dcbf on platform twitter
+2025/09/25 21:10:05 Skipping twitter analytics sync for user 1fd357ef-85dc-466c-86a3-ef2d89e1dcbf to avoid API rate limits
+2025/09/25 21:10:05 ✅ [DEBUG] Successfully synced twitter analytics for user 1fd357ef-85dc-466c-86a3-ef2d89e1dcbf
+2025/09/25 21:10:05 ✅ [DEBUG] Completed twitter analytics sync for 3 users
+2025/09/25 21:10:05 👥 [DEBUG] Found 0 users with facebook connected
+2025/09/25 21:10:05 ✅ [DEBUG] Completed facebook analytics sync for 0 users
+2025/09/25 21:10:05 👥 [DEBUG] Found 2 users with youtube connected
+2025/09/25 21:10:05 🔄 [DEBUG] Syncing youtube analytics for user 1/2: 1fd357ef-85dc-466c-86a3-ef2d89e1dcbf
+2025/09/25 21:10:05 🔍 [DEBUG] Starting analytics sync for user 1fd357ef-85dc-466c-86a3-ef2d89e1dcbf on platform youtube
+2025/09/25 21:10:05 🔍 [DEBUG] Querying social_accounts for user 1fd357ef-85dc-466c-86a3-ef2d89e1dcbf, platform youtube
+2025/09/25 21:10:05 👥 [DEBUG] Found 4 users with mastodon connected
+2025/09/25 21:10:05 🔄 [DEBUG] Syncing mastodon analytics for user 1/4: 1fd357ef-85dc-466c-86a3-ef2d89e1dcbf
+2025/09/25 21:10:05 🔍 [DEBUG] Starting analytics sync for user 1fd357ef-85dc-466c-86a3-ef2d89e1dcbf on platform mastodon
+2025/09/25 21:10:05 🔍 [DEBUG] Querying social_accounts for user 1fd357ef-85dc-466c-86a3-ef2d89e1dcbf, platform mastodon
+2025/09/25 21:10:05 ✅ [DEBUG] Found social account for user 1fd357ef-85dc-466c-86a3-ef2d89e1dcbf on platform youtube: UC4QXxGW0p_5LVNYam0o5KfA
+2025/09/25 21:10:05 🔍 [DEBUG] Fetching youtube analytics data for account UC4QXxGW0p_5LVNYam0o5KfA
+2025/09/25 21:10:05 Making YouTube API request to: https://www.googleapis.com/youtube/v3/channels?part=id,snippet&mine=true
+2025/09/25 21:10:05 ✅ [DEBUG] Found social account for user 1fd357ef-85dc-466c-86a3-ef2d89e1dcbf on platform mastodon: https://mastodon.social:115207168121101516
+2025/09/25 21:10:05 🔍 [DEBUG] Fetching mastodon analytics data for account https://mastodon.social:115207168121101516
+2025/09/25 21:10:05 🔍 [DEBUG] Starting Mastodon analytics fetch for account: https://mastodon.social:115207168121101516
+2025/09/25 21:10:05 🌐 [DEBUG] Making API call to: https://mastodon.social/api/v1/accounts/115207168121101516/statuses?limit=40
+2025/09/25 21:10:05 🔑 [DEBUG] Using access token: 2VZnAoScCf...
+2025/09/25 21:10:06 YouTube API channel request successful, status: 200
+2025/09/25 21:10:06 Found YouTube channel: UC4QXxGW0p_5LVNYam0o5KfA
+2025/09/25 21:10:06 Found uploads playlist: UU4QXxGW0p_5LVNYam0o5KfA
+2025/09/25 21:10:06 Found 3 YouTube videos
+2025/09/25 21:10:06 Getting statistics for 3 videos
+2025/09/25 21:10:06 Successfully fetched statistics for 3 videos
+2025/09/25 21:10:06 📊 [DEBUG] Analytics data fetched successfully for user 1fd357ef-85dc-466c-86a3-ef2d89e1dcbf on platform youtube:
+2025/09/25 21:10:06    📝 Posts: 3
+2025/09/25 21:10:06    ❤️ Likes: 0
+2025/09/25 21:10:06    💬 Comments: 0
+2025/09/25 21:10:06    🔄 Shares: 0
+2025/09/25 21:10:06    👀 Views: 0
+2025/09/25 21:10:06    📈 Total Engagement: 0
+2025/09/25 21:10:06 💾 [DEBUG] Storing analytics data in database...
+2025/09/25 21:10:06 ✅ [DEBUG] Successfully stored analytics data for user 1fd357ef-85dc-466c-86a3-ef2d89e1dcbf on platform youtube
+2025/09/25 21:10:06 ✅ [DEBUG] Successfully synced youtube analytics for user 1fd357ef-85dc-466c-86a3-ef2d89e1dcbf
+2025/09/25 21:10:06 🔄 [DEBUG] Syncing youtube analytics for user 2/2: da76c2fd-1ad4-4f4f-85cf-8265cbf0a194
+2025/09/25 21:10:06 🔍 [DEBUG] Starting analytics sync for user da76c2fd-1ad4-4f4f-85cf-8265cbf0a194 on platform youtube
+2025/09/25 21:10:06 🔍 [DEBUG] Querying social_accounts for user da76c2fd-1ad4-4f4f-85cf-8265cbf0a194, platform youtube
+2025/09/25 21:10:06 ✅ [DEBUG] Found social account for user da76c2fd-1ad4-4f4f-85cf-8265cbf0a194 on platform youtube: UC3Z1wHl3yb8w6TN1nKUp41g
+2025/09/25 21:10:06 🔍 [DEBUG] Fetching youtube analytics data for account UC3Z1wHl3yb8w6TN1nKUp41g
+2025/09/25 21:10:06 Making YouTube API request to: https://www.googleapis.com/youtube/v3/channels?part=id,snippet&mine=true
+2025/09/25 21:10:06 YouTube token expired, attempting refresh...
+2025/09/25 21:10:06 YouTube API returned status 401 for channel info: {
+  "error": {
+    "code": 401,
+    "message": "Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication credential. See https://developers.google.com/identity/sign-in/web/devconsole-project.",
+    "errors": [
+      {
+        "message": "Invalid Credentials",
+        "domain": "global",
+        "reason": "authError",
+        "location": "Authorization",
+        "locationType": "header"
+      }
+    ],
+    "status": "UNAUTHENTICATED"
+  }
+}
+2025/09/25 21:10:07 ❌ [DEBUG] Error fetching youtube analytics for user da76c2fd-1ad4-4f4f-85cf-8265cbf0a194: failed to refresh youtube token: oauth2: token expired and refresh token is not set
+2025/09/25 21:10:07 ❌ [DEBUG] Error syncing youtube analytics for user da76c2fd-1ad4-4f4f-85cf-8265cbf0a194: failed to fetch youtube analytics: failed to refresh youtube token: oauth2: token expired and refresh token is not set
+2025/09/25 21:10:07 ✅ [DEBUG] Completed youtube analytics sync for 2 users
+2025/09/25 21:10:10 📡 [DEBUG] Mastodon API response status: 200
+2025/09/25 21:10:10 📊 [DEBUG] Received 4 posts from Mastodon API
+2025/09/25 21:10:10 📝 [DEBUG] Post 1: ID=115260334319852339, Likes=0, Comments=0, Shares=0
+2025/09/25 21:10:10 📝 [DEBUG] Post 2: ID=115260333649947223, Likes=0, Comments=0, Shares=0
+2025/09/25 21:10:10 📝 [DEBUG] Post 3: ID=115211638144949374, Likes=0, Comments=0, Shares=0
+2025/09/25 21:10:10 📈 [DEBUG] Calculated totals: Posts=4, Likes=0, Comments=0, Shares=0
+2025/09/25 21:10:10 📊 [DEBUG] Analytics data fetched successfully for user 1fd357ef-85dc-466c-86a3-ef2d89e1dcbf on platform mastodon:
+2025/09/25 21:10:10    📝 Posts: 4
+2025/09/25 21:10:10    ❤️ Likes: 0
+2025/09/25 21:10:10    💬 Comments: 0
+2025/09/25 21:10:10    🔄 Shares: 0
+2025/09/25 21:10:10    👀 Views: 0
+2025/09/25 21:10:10    📈 Total Engagement: 0
+2025/09/25 21:10:10 💾 [DEBUG] Storing analytics data in database...
+2025/09/25 21:10:10 ✅ [DEBUG] Successfully stored analytics data for user 1fd357ef-85dc-466c-86a3-ef2d89e1dcbf on platform mastodon
+2025/09/25 21:10:10 ✅ [DEBUG] Successfully synced mastodon analytics for user 1fd357ef-85dc-466c-86a3-ef2d89e1dcbf
+2025/09/25 21:10:10 🔄 [DEBUG] Syncing mastodon analytics for user 2/4: da76c2fd-1ad4-4f4f-85cf-8265cbf0a194
+2025/09/25 21:10:10 🔍 [DEBUG] Starting analytics sync for user da76c2fd-1ad4-4f4f-85cf-8265cbf0a194 on platform mastodon
+2025/09/25 21:10:10 🔍 [DEBUG] Querying social_accounts for user da76c2fd-1ad4-4f4f-85cf-8265cbf0a194, platform mastodon
+2025/09/25 21:10:10 ✅ [DEBUG] Found social account for user da76c2fd-1ad4-4f4f-85cf-8265cbf0a194 on platform mastodon: https://mastodon.social:114767558563816325
+2025/09/25 21:10:10 🔍 [DEBUG] Fetching mastodon analytics data for account https://mastodon.social:114767558563816325
+2025/09/25 21:10:10 🔍 [DEBUG] Starting Mastodon analytics fetch for account: https://mastodon.social:114767558563816325
+2025/09/25 21:10:10 🌐 [DEBUG] Making API call to: https://mastodon.social/api/v1/accounts/114767558563816325/statuses?limit=40
+2025/09/25 21:10:10 🔑 [DEBUG] Using access token: suVYN0Ec0B...
+2025/09/25 21:10:12 📡 [DEBUG] Mastodon API response status: 200
+2025/09/25 21:10:12 📊 [DEBUG] Received 33 posts from Mastodon API
+2025/09/25 21:10:12 📝 [DEBUG] Post 1: ID=115264345364617934, Likes=0, Comments=0, Shares=0
+2025/09/25 21:10:12 📝 [DEBUG] Post 2: ID=115263359439104996, Likes=0, Comments=0, Shares=0
+2025/09/25 21:10:12 📝 [DEBUG] Post 3: ID=115263112019682320, Likes=0, Comments=0, Shares=0
+2025/09/25 21:10:12 📈 [DEBUG] Calculated totals: Posts=33, Likes=2, Comments=2, Shares=2
+2025/09/25 21:10:12 📊 [DEBUG] Analytics data fetched successfully for user da76c2fd-1ad4-4f4f-85cf-8265cbf0a194 on platform mastodon:
+2025/09/25 21:10:12    📝 Posts: 33
+2025/09/25 21:10:12    ❤️ Likes: 2
+2025/09/25 21:10:12    💬 Comments: 2
+2025/09/25 21:10:12    🔄 Shares: 2
+2025/09/25 21:10:12    👀 Views: 0
+2025/09/25 21:10:12    📈 Total Engagement: 6
+2025/09/25 21:10:12 💾 [DEBUG] Storing analytics data in database...
+2025/09/25 21:10:12 ✅ [DEBUG] Successfully stored analytics data for user da76c2fd-1ad4-4f4f-85cf-8265cbf0a194 on platform mastodon
+2025/09/25 21:10:12 ✅ [DEBUG] Successfully synced mastodon analytics for user da76c2fd-1ad4-4f4f-85cf-8265cbf0a194
+2025/09/25 21:10:12 🔄 [DEBUG] Syncing mastodon analytics for user 3/4: 52f0048b-2e6d-41d7-9cba-4e9b386b59d5
+2025/09/25 21:10:12 🔍 [DEBUG] Starting analytics sync for user 52f0048b-2e6d-41d7-9cba-4e9b386b59d5 on platform mastodon
+2025/09/25 21:10:12 🔍 [DEBUG] Querying social_accounts for user 52f0048b-2e6d-41d7-9cba-4e9b386b59d5, platform mastodon
+2025/09/25 21:10:12 ✅ [DEBUG] Found social account for user 52f0048b-2e6d-41d7-9cba-4e9b386b59d5 on platform mastodon: https://mastodon.social:114750304255500152
+2025/09/25 21:10:12 🔍 [DEBUG] Fetching mastodon analytics data for account https://mastodon.social:114750304255500152
+2025/09/25 21:10:12 🔍 [DEBUG] Starting Mastodon analytics fetch for account: https://mastodon.social:114750304255500152
+2025/09/25 21:10:12 🌐 [DEBUG] Making API call to: https://mastodon.social/api/v1/accounts/114750304255500152/statuses?limit=40
+2025/09/25 21:10:12 🔑 [DEBUG] Using access token: eW5ibRTIhH...
+2025/09/25 21:10:13 📡 [DEBUG] Mastodon API response status: 200
+2025/09/25 21:10:13 📊 [DEBUG] Received 36 posts from Mastodon API
+2025/09/25 21:10:13 📝 [DEBUG] Post 1: ID=115264427734518414, Likes=0, Comments=0, Shares=0
+2025/09/25 21:10:13 📝 [DEBUG] Post 2: ID=115264410126267726, Likes=0, Comments=0, Shares=0
+2025/09/25 21:10:13 📝 [DEBUG] Post 3: ID=115264375146154175, Likes=0, Comments=0, Shares=0
+2025/09/25 21:10:13 📈 [DEBUG] Calculated totals: Posts=36, Likes=3, Comments=0, Shares=1
+2025/09/25 21:10:13 📊 [DEBUG] Analytics data fetched successfully for user 52f0048b-2e6d-41d7-9cba-4e9b386b59d5 on platform mastodon:
+2025/09/25 21:10:13    📝 Posts: 36
+2025/09/25 21:10:13    ❤️ Likes: 3
+2025/09/25 21:10:13    💬 Comments: 0
+2025/09/25 21:10:13    🔄 Shares: 1
+2025/09/25 21:10:13    👀 Views: 0
+2025/09/25 21:10:13    📈 Total Engagement: 4
+2025/09/25 21:10:13 💾 [DEBUG] Storing analytics data in database...
+2025/09/25 21:10:13 ✅ [DEBUG] Successfully stored analytics data for user 52f0048b-2e6d-41d7-9cba-4e9b386b59d5 on platform mastodon
+2025/09/25 21:10:13 ✅ [DEBUG] Successfully synced mastodon analytics for user 52f0048b-2e6d-41d7-9cba-4e9b386b59d5
+2025/09/25 21:10:13 🔄 [DEBUG] Syncing mastodon analytics for user 4/4: 9f6af13e-829d-41f8-9939-239fd6ed44c1
+2025/09/25 21:10:13 🔍 [DEBUG] Starting analytics sync for user 9f6af13e-829d-41f8-9939-239fd6ed44c1 on platform mastodon
+2025/09/25 21:10:13 🔍 [DEBUG] Querying social_accounts for user 9f6af13e-829d-41f8-9939-239fd6ed44c1, platform mastodon
+2025/09/25 21:10:13 ✅ [DEBUG] Found social account for user 9f6af13e-829d-41f8-9939-239fd6ed44c1 on platform mastodon: https://mastodon.social:114880857071638518
+2025/09/25 21:10:13 🔍 [DEBUG] Fetching mastodon analytics data for account https://mastodon.social:114880857071638518
+2025/09/25 21:10:13 🔍 [DEBUG] Starting Mastodon analytics fetch for account: https://mastodon.social:114880857071638518
+2025/09/25 21:10:13 🌐 [DEBUG] Making API call to: https://mastodon.social/api/v1/accounts/114880857071638518/statuses?limit=40
+2025/09/25 21:10:13 🔑 [DEBUG] Using access token: pGbUTYs9Cy...
+2025/09/25 21:10:14 📡 [DEBUG] Mastodon API response status: 200
+2025/09/25 21:10:14 📊 [DEBUG] Received 33 posts from Mastodon API
+2025/09/25 21:10:14 📝 [DEBUG] Post 1: ID=115214394057420478, Likes=0, Comments=0, Shares=0
+2025/09/25 21:10:14 📝 [DEBUG] Post 2: ID=115214198657504400, Likes=0, Comments=0, Shares=0
+2025/09/25 21:10:14 📝 [DEBUG] Post 3: ID=115189655261123127, Likes=0, Comments=0, Shares=0
+2025/09/25 21:10:14 📈 [DEBUG] Calculated totals: Posts=33, Likes=0, Comments=0, Shares=0
+2025/09/25 21:10:14 📊 [DEBUG] Analytics data fetched successfully for user 9f6af13e-829d-41f8-9939-239fd6ed44c1 on platform mastodon:
+2025/09/25 21:10:14    📝 Posts: 33
+2025/09/25 21:10:14    ❤️ Likes: 0
+2025/09/25 21:10:14    💬 Comments: 0
+2025/09/25 21:10:14    🔄 Shares: 0
+2025/09/25 21:10:14    👀 Views: 0
+2025/09/25 21:10:14    📈 Total Engagement: 0
+2025/09/25 21:10:14 💾 [DEBUG] Storing analytics data in database...
+2025/09/25 21:10:14 ✅ [DEBUG] Successfully stored analytics data for user 9f6af13e-829d-41f8-9939-239fd6ed44c1 on platform mastodon
+2025/09/25 21:10:14 ✅ [DEBUG] Successfully synced mastodon analytics for user 9f6af13e-829d-41f8-9939-239fd6ed44c1
+2025/09/25 21:10:14 ✅ [DEBUG] Completed mastodon analytics sync for 4 users
+[JWT ERROR] No token found
