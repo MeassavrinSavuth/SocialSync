@@ -460,8 +460,8 @@ export default function ScheduledPostsPage() {
                 </button>
                 
                 {showMiniCalendar && (
-                  <div className="absolute top-full left-4 right-4 sm:right-0 sm:left-auto mt-2 z-50">
-                    <div className="bg-white border border-gray-300 rounded-lg shadow-xl w-full sm:w-96 overflow-hidden" style={{ maxWidth: 'calc(100vw - 32px)' }}>
+                  <div className="fixed left-1/2 top-1/4 z-50 -translate-x-1/2 w-[90vw] sm:top-full sm:left-auto sm:translate-x-0 sm:relative sm:w-auto" style={{ maxWidth: '720px' }}>
+                    <div className="bg-white border border-gray-300 rounded-lg shadow-xl w-full overflow-hidden">
                       <div className="flex">
                         {/* Calendar Grid */}
                         <div className="flex-1 p-4">
