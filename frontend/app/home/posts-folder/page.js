@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { FaFacebook, FaInstagram, FaYoutube, FaTwitter } from 'react-icons/fa';
+import { FaFacebook, FaInstagram, FaYoutube, FaTwitter, FaTelegramPlane } from 'react-icons/fa';
 import { SiMastodon } from 'react-icons/si';
 import { useProtectedFetch } from '../../hooks/auth/useProtectedFetch';
 import MastodonPosts from '../../components/postfolder/MastodonPosts';
@@ -8,6 +8,7 @@ import TwitterPosts from '../../components/postfolder/TwitterPosts';
 import YouTubePosts from '../../components/postfolder/YouTubePosts';
 import FacebookPosts from '../../components/postfolder/FacebookPosts';
 import InstagramPosts from '../../components/postfolder/InstagramPosts';
+import TelegramPosts from '../../components/postfolder/TelegramPosts';
 import ConnectionStatus from '../../components/ConnectionStatus';
 
 function AppIconCard({ icon, label, color, onClick }) {
@@ -30,6 +31,8 @@ export default function PostsFolderPage() {
   const [facebookPosts, setFacebookPosts] = useState([]);
   const [facebookPageInfo, setFacebookPageInfo] = useState(null);
   const [instagramPosts, setInstagramPosts] = useState([]);
+  const [telegramPosts, setTelegramPosts] = useState([]);
+  const [telegramChannelInfo, setTelegramChannelInfo] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -55,6 +58,8 @@ export default function PostsFolderPage() {
       window.location.href = `${API_BASE_URL}/auth/instagram/login?token=${token}`;
     } else if (platform === 'mastodon') {
       window.location.href = `${API_BASE_URL}/auth/mastodon/login?token=${token}`;
+    } else if (platform === 'telegram') {
+      window.location.href = `${API_BASE_URL}/auth/telegram/login?token=${token}`;
     }
   };
 
@@ -115,6 +120,9 @@ export default function PostsFolderPage() {
         setMastodonPosts(payload);
       } else if (platform === 'instagram') {
         setInstagramPosts(payload.data || []);
+      } else if (platform === 'telegram') {
+        setTelegramPosts(payload.data || payload);
+        setTelegramChannelInfo(payload.channelInfo || null);
       }
     } catch (err) {
       console.error(`Error fetching ${platform} posts:`, err);
@@ -182,6 +190,11 @@ export default function PostsFolderPage() {
   const filteredInstagramPosts = instagramPosts.filter(
     (post) =>
       post.caption && post.caption.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  const filteredTelegramPosts = telegramPosts.filter(
+    (post) =>
+      (post.text || post.message) && 
+      (post.text || post.message).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   // Helpers for Twitter
@@ -268,6 +281,17 @@ export default function PostsFolderPage() {
             setSearchQuery={setSearchQuery}
           />
         );
+      case 'telegram':
+        return (
+          <TelegramPosts
+            posts={filteredTelegramPosts}
+            channelInfo={telegramChannelInfo}
+            loading={loading}
+            error={error}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+          />
+        );
       default:
         return null;
     }
@@ -308,6 +332,12 @@ export default function PostsFolderPage() {
           label="Twitter"
           color="text-sky-500"
           onClick={() => handlePlatformClick('twitter')}
+        />
+        <AppIconCard
+          icon={<FaTelegramPlane />}
+          label="Telegram"
+          color="text-blue-500"
+          onClick={() => handlePlatformClick('telegram')}
         />
       </div>
       {selectedPlatform && (

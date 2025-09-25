@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useProtectedFetch } from '../../hooks/auth/useProtectedFetch';
-import { FaCalendarAlt, FaClock, FaFacebook, FaInstagram, FaYoutube, FaTwitter, FaEdit, FaTrash, FaExclamationTriangle } from 'react-icons/fa';
+import { FaCalendarAlt, FaClock, FaFacebook, FaInstagram, FaYoutube, FaTwitter, FaEdit, FaTrash, FaExclamationTriangle, FaTelegramPlane } from 'react-icons/fa';
 import { SiMastodon } from 'react-icons/si';
 
 // Platform icons mapping
@@ -11,6 +11,7 @@ const platformIcons = {
   youtube: FaYoutube,
   twitter: FaTwitter,
   mastodon: SiMastodon,
+  telegram: FaTelegramPlane,
 };
 
 const platformColors = {
@@ -19,6 +20,7 @@ const platformColors = {
   youtube: 'text-red-600',
   twitter: 'text-sky-500',
   mastodon: 'text-purple-600',
+  telegram: 'text-blue-500',
 };
 
 export default function ScheduledPostsPage() {
@@ -708,20 +710,47 @@ export default function ScheduledPostsPage() {
                   <div className="mb-6">
                     <h4 className="text-lg font-semibold text-gray-800 mb-3">Media ({selectedPost.media_urls.length})</h4>
                     <div className="grid grid-cols-2 gap-4">
-                      {selectedPost.media_urls.map((url, index) => (
-                        <div key={index} className="relative">
-                          <img
-                            src={url}
-                            alt={`Media ${index + 1}`}
-                            className="w-full h-32 object-cover rounded-lg border"
-                              onError={(e) => {
-                                e.target.style.display = 'none';
-                              }}
-                            />
+                      {selectedPost.media_urls.map((url, index) => {
+                        // Check if the media is a video
+                        const isVideo = url.includes('video') || 
+                                      url.includes('.mp4') || 
+                                      url.includes('.mov') || 
+                                      url.includes('.avi') || 
+                                      url.includes('.webm') ||
+                                      url.includes('cloudinary') && url.includes('video');
+                        
+                        return (
+                          <div key={index} className="relative">
+                            {isVideo ? (
+                              <div className="relative w-full h-32 bg-black rounded-lg border overflow-hidden">
+                                <video
+                                  src={url}
+                                  className="w-full h-full object-cover"
+                                  controls
+                                  preload="metadata"
+                                >
+                                  Your browser does not support the video tag.
+                                </video>
+                                <div className="absolute top-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded flex items-center space-x-1">
+                                  <span>🎥</span>
+                                  <span>Video</span>
+                                </div>
+                              </div>
+                            ) : (
+                              <img
+                                src={url}
+                                alt={`Media ${index + 1}`}
+                                className="w-full h-32 object-cover rounded-lg border"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                }}
+                              />
+                            )}
                           </div>
-                      ))}
-                        </div>
-                      </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
 
                 {/* Actions */}
@@ -902,18 +931,49 @@ export default function ScheduledPostsPage() {
                         Media Files ({postToEdit.media_urls.length})
                       </label>
                       <div className="grid grid-cols-3 gap-4">
-                        {postToEdit.media_urls.map((url, index) => (
-                          <div key={index} className="relative">
-                            <img
-                              src={url}
-                              alt={`Media ${index + 1}`}
-                              className="w-full h-24 object-cover rounded-lg border"
-                            />
-                            <button className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600">
-                              ×
-                            </button>
-                          </div>
-                        ))}
+                        {postToEdit.media_urls.map((url, index) => {
+                          // Check if the media is a video
+                          const isVideo = url.includes('video') || 
+                                        url.includes('.mp4') || 
+                                        url.includes('.mov') || 
+                                        url.includes('.avi') || 
+                                        url.includes('.webm') ||
+                                        url.includes('cloudinary') && url.includes('video');
+                          
+                          return (
+                            <div key={index} className="relative">
+                              {isVideo ? (
+                                <div className="relative w-full h-24 bg-black rounded-lg border overflow-hidden">
+                                  <video
+                                    src={url}
+                                    className="w-full h-full object-cover"
+                                    controls
+                                    preload="metadata"
+                                  >
+                                    Your browser does not support the video tag.
+                                  </video>
+                                  <div className="absolute top-1 right-1 bg-black bg-opacity-60 text-white text-xs px-1 py-0.5 rounded flex items-center space-x-1">
+                                    <span>🎥</span>
+                                  </div>
+                                  <button className="absolute top-1 left-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600">
+                                    ×
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="relative">
+                                  <img
+                                    src={url}
+                                    alt={`Media ${index + 1}`}
+                                    className="w-full h-24 object-cover rounded-lg border"
+                                  />
+                                  <button className="absolute top-1 right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600">
+                                    ×
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
