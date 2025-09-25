@@ -151,9 +151,9 @@ export default function DashboardLayout({ children }) {
           <nav className="space-y-1">
             <NavItem icon={<FaHome />} label="Home" open={sidebarOpen} active={activeTab === 'Home'} onClick={() => handleNavClick('Home', '/home/dashboard')} />
             <NavItem icon={<FaPlus />} label="Create Post" open={sidebarOpen} active={activeTab === 'Create Post'} onClick={() => handleNavClick('Create Post', '/home/create-post')} />
-            <NavItem icon={<FaCalendarAlt />} label="Scheduled Posts" open={sidebarOpen} active={activeTab === 'Calendar'} onClick={() => handleNavClick('Scheduled Posts', '/home/scheduled-posts')} />
+            <NavItem icon={<FaCalendarAlt />} label="Calendar" open={sidebarOpen} active={activeTab === 'Calendar'} onClick={() => handleNavClick('Scheduled Posts', '/home/scheduled-posts')} />
             <NavItem icon={<FaChartBar />} label="Analytics" open={sidebarOpen} active={activeTab === 'Analytics'} onClick={() => handleNavClick('Analytics', '/home/analytics')} />
-            <NavItem icon={<FaFolder />} label="Posts Folder" open={sidebarOpen} active={activeTab === 'Posts'} onClick={() => handleNavClick('Posts Folder', '/home/posts-folder')} />
+            <NavItem icon={<FaFolder />} label="Post" open={sidebarOpen} active={activeTab === 'Post'} onClick={() => handleNavClick('Post', '/home/posts-folder')} />
             <NavItem icon={<FaUser />} label="Manage Account" open={sidebarOpen} active={activeTab === 'Manage Account'} onClick={() => handleNavClick('Manage Account', '/home/manage-accounts')} />
             
             {/* Horizontal Rule for Separation */}
