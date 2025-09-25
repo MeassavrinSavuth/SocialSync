@@ -6,7 +6,7 @@ export function useScheduledPosts() {
 
   const createScheduledPost = async ({ content, mediaFiles, platforms, scheduledTime }) => {
     try {
-      const response = await protectedFetch(`${API_BASE_URL}/api/scheduled-posts`, {
+      const res = await protectedFetch(`${API_BASE_URL}/api/scheduled-posts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -19,13 +19,27 @@ export function useScheduledPosts() {
         }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(errorData || 'Failed to schedule post');
+      if (!res) {
+        return { success: false, error: 'No response from server' };
       }
 
-      const data = await response.json();
-      return { success: true, data };
+      // If the helper returned a raw Response (e.g., 204), handle it
+      if (res instanceof Response) {
+        if (!res.ok) {
+          const text = await res.text();
+          return { success: false, error: text || 'Failed to schedule post' };
+        }
+
+        try {
+          const json = await res.json();
+          return { success: true, data: json };
+        } catch (e) {
+          return { success: true, data: null };
+        }
+      }
+
+      // parsed JSON
+      return { success: true, data: res };
     } catch (error) {
       return { success: false, error: error.message };
     }
@@ -33,14 +47,22 @@ export function useScheduledPosts() {
 
   const getScheduledPosts = async () => {
     try {
-      const response = await protectedFetch(`${API_BASE_URL}/api/scheduled-posts`);
-      console.log('Fetch scheduled posts response:', response);
-      if (!response.ok) {
-        throw new Error('Failed to fetch scheduled posts');
+      const res = await protectedFetch(`${API_BASE_URL}/api/scheduled-posts`);
+      if (!res) {
+        return { success: false, error: 'No response from server' };
       }
 
-      const data = await response.json();
-      return { success: true, data };
+      if (res instanceof Response) {
+        if (!res.ok) {
+          const text = await res.text();
+          return { success: false, error: text || 'Failed to fetch scheduled posts' };
+        }
+
+        const json = await res.json();
+        return { success: true, data: json };
+      }
+
+      return { success: true, data: res };
     } catch (error) {
       console.log('Error fetching scheduled posts:', error);
       return { success: false, error: error.message };
@@ -49,7 +71,7 @@ export function useScheduledPosts() {
 
   const updateScheduledPost = async (postId, updateData) => {
     try {
-      const response = await protectedFetch(`${API_BASE_URL}/api/scheduled-posts/${postId}`, {
+      const res = await protectedFetch(`${API_BASE_URL}/api/scheduled-posts/${postId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -57,13 +79,21 @@ export function useScheduledPosts() {
         body: JSON.stringify(updateData),
       });
 
-      if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(errorData || 'Failed to update scheduled post');
+      if (!res) {
+        return { success: false, error: 'No response from server' };
       }
 
-      const data = await response.json();
-      return { success: true, data };
+      if (res instanceof Response) {
+        if (!res.ok) {
+          const text = await res.text();
+          return { success: false, error: text || 'Failed to update scheduled post' };
+        }
+
+        const json = await res.json();
+        return { success: true, data: json };
+      }
+
+      return { success: true, data: res };
     } catch (error) {
       return { success: false, error: error.message };
     }
@@ -71,16 +101,29 @@ export function useScheduledPosts() {
 
   const deleteScheduledPost = async (postId) => {
     try {
-      const response = await protectedFetch(`${API_BASE_URL}/api/scheduled-posts/${postId}`, {
+      const res = await protectedFetch(`${API_BASE_URL}/api/scheduled-posts/${postId}`, {
         method: 'DELETE',
       });
 
-      if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(errorData || 'Failed to delete scheduled post');
+      if (!res) {
+        return { success: false, error: 'No response from server' };
       }
 
-      return { success: true };
+      if (res instanceof Response) {
+        if (!res.ok) {
+          const text = await res.text();
+          return { success: false, error: text || 'Failed to delete scheduled post' };
+        }
+
+        return { success: true };
+      }
+
+      // If backend returned parsed JSON, assume success if no error field
+      if (res && !res.error) {
+        return { success: true };
+      }
+
+      return { success: false, error: res.error || 'Failed to delete scheduled post' };
     } catch (error) {
       return { success: false, error: error.message };
     }

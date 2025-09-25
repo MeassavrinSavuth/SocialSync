@@ -28,25 +28,31 @@ export function useAnalytics() {
       }
 
       const queryString = params.toString();
-      const endpoint = queryString ? `/analytics/overview?${queryString}` : '/analytics/overview';
-      
+      const endpoint = queryString ? `/api/analytics/overview?${queryString}` : '/api/analytics/overview';
+
+      // useProtectedFetch returns parsed JSON on success (or raw Response for no-content).
+      // The backend returns the analytics object directly, so assign the parsed response to state.
       const res = await protectedFetch(endpoint);
-      
+
       if (!res) {
         setError('Failed to fetch analytics data - please check your connection');
         return;
       }
 
-      if (res.error) {
-        if (res.status === 401) {
-          setError('Please log in to view analytics data');
-        } else {
-          setError(res.error);
+      // If protectedFetch returned a raw Response for some reason, try to extract JSON
+      if (res instanceof Response) {
+        try {
+          const json = await res.json();
+          setAnalytics(json);
+          return;
+        } catch (e) {
+          setError('Failed to parse analytics response');
+          return;
         }
-        return;
       }
 
-      setAnalytics(res.data);
+      // Otherwise res is already parsed JSON (the analytics object)
+      setAnalytics(res);
     } catch (err) {
       console.error('Analytics fetch error:', err);
       setError('Network error - please check your connection');
@@ -57,17 +63,18 @@ export function useAnalytics() {
 
   const fetchPlatformComparison = async () => {
     try {
-      const res = await protectedFetch('/analytics/platforms');
-      
+      const res = await protectedFetch('/api/analytics/platforms');
+
       if (!res) {
         throw new Error('Failed to fetch platform comparison data');
       }
 
-      if (res.error) {
-        throw new Error(res.error);
+      if (res instanceof Response) {
+        const json = await res.json();
+        return json;
       }
 
-      return res.data;
+      return res;
     } catch (err) {
       console.error('Error fetching platform comparison:', err);
       throw err;
