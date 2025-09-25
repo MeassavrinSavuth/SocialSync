@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAnalytics } from '../../hooks/api/useAnalytics';
 import MetricCard from './MetricCard';
 import EngagementChart from './EngagementChart';
@@ -15,7 +15,7 @@ export default function AnalyticsOverview() {
     startDate: '',
     endDate: ''
   });
-  const [selectedPlatforms, setSelectedPlatforms] = useState([]);
+  const [selectedPlatforms, setSelectedPlatforms] = useState(['youtube']); // Default to YouTube
 
   const handleDateRangeChange = (startDate, endDate) => {
     setDateRange({ startDate, endDate });
@@ -34,6 +34,13 @@ export default function AnalyticsOverview() {
       platforms
     });
   };
+
+  // Fetch analytics with default YouTube platform on initial load
+  useEffect(() => {
+    fetchAnalytics({
+      platforms: selectedPlatforms
+    });
+  }, []); // Only run on mount
 
   if (loading) {
     return (
@@ -66,7 +73,12 @@ export default function AnalyticsOverview() {
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Analytics Overview</h1>
-          <p className="text-gray-600">Track your social media performance across platforms</p>
+          <p className="text-gray-600">
+            {selectedPlatforms.length === 0 
+              ? 'Track your social media performance across platforms'
+              : `Showing data for: ${selectedPlatforms.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(', ')}`
+            }
+          </p>
         </div>
         
         <div className="flex flex-col sm:flex-row gap-4">
@@ -79,6 +91,36 @@ export default function AnalyticsOverview() {
             onPlatformChange={handlePlatformFilter}
             selectedPlatforms={selectedPlatforms}
           />
+        </div>
+      </div>
+
+      {/* Quick Platform Selector */}
+      <div className="bg-white rounded-lg border border-gray-200 p-4">
+        <h3 className="text-sm font-medium text-gray-700 mb-3">Quick Platform Selection</h3>
+        <div className="flex flex-wrap gap-2">
+          {['facebook', 'instagram', 'twitter', 'youtube', 'mastodon', 'telegram'].map((platform) => (
+            <button
+              key={platform}
+              onClick={() => handlePlatformFilter([platform])}
+              className={`px-3 py-1 rounded-full text-sm transition-all ${
+                selectedPlatforms.length === 1 && selectedPlatforms.includes(platform)
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {platform.charAt(0).toUpperCase() + platform.slice(1)}
+            </button>
+          ))}
+          <button
+            onClick={() => handlePlatformFilter(['facebook', 'instagram', 'twitter', 'youtube', 'mastodon', 'telegram'])}
+            className={`px-3 py-1 rounded-full text-sm transition-all ${
+              selectedPlatforms.length > 1
+                ? 'bg-green-600 text-white shadow-md'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            All Platforms
+          </button>
         </div>
       </div>
 

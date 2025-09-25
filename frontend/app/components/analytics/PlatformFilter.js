@@ -31,7 +31,9 @@ export default function PlatformFilter({ onPlatformChange, selectedPlatforms = [
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
-        <label className="text-sm font-medium text-gray-700">Platforms:</label>
+        <label className="text-sm font-medium text-gray-700">
+          Platforms {selectedPlatforms.length > 0 && `(${selectedPlatforms.length} selected)`}:
+        </label>
         <button
           onClick={handleSelectAll}
           className="px-2 py-1 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded transition-colors"

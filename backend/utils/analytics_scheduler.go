@@ -44,9 +44,9 @@ func (as *AnalyticsScheduler) Stop() {
 	close(as.stopChan)
 }
 
-// startMastodonTicker runs Mastodon analytics sync every 5 minutes (for testing)
+// startMastodonTicker runs Mastodon analytics sync every 2 hours
 func (as *AnalyticsScheduler) startMastodonTicker() {
-	ticker := time.NewTicker(5 * time.Minute)
+	ticker := time.NewTicker(2 * time.Hour)
 	defer ticker.Stop()
 
 	// Run immediately on start
@@ -124,9 +124,9 @@ func (as *AnalyticsScheduler) startTwitterTicker() {
 	}
 }
 
-// startYouTubeTicker runs YouTube analytics sync every 5 minutes (for testing)
+// startYouTubeTicker runs YouTube analytics sync every 2 hours
 func (as *AnalyticsScheduler) startYouTubeTicker() {
-	ticker := time.NewTicker(5 * time.Minute)
+	ticker := time.NewTicker(2 * time.Hour)
 	defer ticker.Stop()
 
 	// Run immediately on start

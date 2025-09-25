@@ -203,13 +203,14 @@ func (as *AnalyticsSyncer) fetchMastodonAnalytics(accountID, accessToken string)
 func (as *AnalyticsSyncer) fetchFacebookAnalytics(accountID, accessToken string) (*models.PostAnalytics, error) {
 	// Use proper HTTP client like your working social account syncer
 	client := &http.Client{Timeout: 10 * time.Second}
-	url := fmt.Sprintf("https://graph.facebook.com/v18.0/%s/posts?fields=id,message,created_time,likes.summary(true),comments.summary(true),shares&limit=40", accountID)
+	// Updated to v20.0 and access_token as URL parameter (matching working posts handler)
+	url := fmt.Sprintf("https://graph.facebook.com/v20.0/%s/posts?fields=id,message,created_time,likes.summary(true),comments.summary(true),shares&limit=40&access_token=%s", accountID, accessToken)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error creating facebook request: %v", err)
 	}
-	req.Header.Add("Authorization", "Bearer "+accessToken)
+	// Removed Authorization header - using access_token in URL instead
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -217,6 +218,11 @@ func (as *AnalyticsSyncer) fetchFacebookAnalytics(accountID, accessToken string)
 	}
 	defer resp.Body.Close()
 
+	// Added more robust error handling for 401/403
+	if resp.StatusCode == 401 || resp.StatusCode == 403 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("facebook token expired or invalid permissions: %s", string(body))
+	}
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("facebook API returned status %d: %s", resp.StatusCode, string(body))
