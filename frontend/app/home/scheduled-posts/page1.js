@@ -403,8 +403,8 @@ export default function ScheduledPostsPage() {
           </div>
         )}
 
-        {/* Full-width Week View Calendar */}
-        <div className="bg-white rounded-xl shadow-lg p-8 w-full">
+  {/* Full-width Week View Calendar */}
+  <div className="bg-white rounded-xl shadow-lg p-6 sm:p-8 w-full">
             {/* Calendar Header */}
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center space-x-4">
@@ -596,23 +596,70 @@ export default function ScheduledPostsPage() {
           </div>
 
           {/* Week View with Time Slots - Full Width */}
-          <div className="grid grid-cols-8 gap-0 w-full">
-            {/* Time column */}
-            <div className="w-24 border-r-2 border-gray-300">
-              <div className="h-16 border-b-2 border-gray-300"></div>
-              {renderTimeSlots()}
+          {/* On small screens show a stacked list for easier scrolling and touch targets. On sm+ show full grid. */}
+          <div className="w-full">
+            {/* Mobile stacked view */}
+            <div className="sm:hidden">
+              <div className="space-y-4">
+                {getWeekDays().map((day, di) => (
+                  <div key={`mobile-day-${di}`} className="bg-gray-50 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <div className="text-sm text-gray-500">{day.toLocaleDateString('en-US', { weekday: 'short' })}</div>
+                        <div className="text-lg font-semibold">{day.getDate()}</div>
+                      </div>
+                      <div className="text-sm text-gray-600">{getWeekRangeForDate(day)}</div>
+                    </div>
+                    <div className="space-y-2">
+                      {getPostsForDate(day).length === 0 && (
+                        <div className="text-sm text-gray-500">No posts scheduled</div>
+                      )}
+                      {getPostsForDate(day).map((post) => (
+                        <button
+                          key={post.id}
+                          onClick={() => handlePostClick(post)}
+                          className="w-full text-left bg-white border border-gray-200 rounded-lg p-3 shadow-sm flex items-center justify-between space-x-3 hover:shadow-md"
+                        >
+                          <div className="flex-1">
+                            <div className="font-medium truncate">{post.content?.substring(0, 80)}</div>
+                            <div className="text-xs text-gray-500 mt-1">{formatTime(new Date(post.scheduled_time))}</div>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            {post.platforms?.slice(0,2).map((p) => {
+                              const Icon = platformIcons[p];
+                              const colorClass = platformColors[p];
+                              return Icon ? <Icon key={p} className={`text-lg ${colorClass}`} /> : null;
+                            })}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            {/* Days of the week */}
-            {renderWeekDays()}
+            {/* Desktop / Tablet full grid - horizontally scrollable on narrow screens */}
+            <div className="hidden sm:block overflow-x-auto">
+              <div className="min-w-[900px] grid grid-cols-8 gap-0">
+                {/* Time column */}
+                <div className="w-24 border-r-2 border-gray-300">
+                  <div className="h-16 border-b-2 border-gray-300"></div>
+                  {renderTimeSlots()}
+                </div>
+
+                {/* Days of the week */}
+                {renderWeekDays()}
+              </div>
+            </div>
           </div>
                           </div>
                           
         {/* Post Details Modal */}
         {showPostDetails && selectedPost && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
+          <div className="fixed inset-0 bg-black bg-opacity-25 z-50 p-4 flex items-end sm:items-center justify-center">
+            <div className="bg-white w-full sm:max-w-2xl rounded-t-xl sm:rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
+              <div className="p-4 sm:p-6">
                 {/* Modal Header */}
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-2xl font-bold text-gray-900">Post Details</h3>
@@ -753,9 +800,9 @@ export default function ScheduledPostsPage() {
 
         {/* Delete Confirmation Modal */}
         {showDeleteModal && postToDelete && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
-              <div className="p-6">
+          <div className="fixed inset-0 bg-black bg-opacity-20 z-50 p-4 flex items-end sm:items-center justify-center">
+            <div className="bg-white w-full sm:max-w-md rounded-t-xl sm:rounded-xl shadow-2xl overflow-hidden">
+              <div className="p-4 sm:p-6">
                 <div className="flex items-center mb-4">
                   <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mr-4">
                     <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -805,9 +852,9 @@ export default function ScheduledPostsPage() {
 
         {/* Edit/Reschedule Modal */}
         {showEditModal && postToEdit && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
+          <div className="fixed inset-0 bg-black bg-opacity-25 z-50 p-4 flex items-end sm:items-center justify-center">
+            <div className="bg-white w-full sm:max-w-2xl rounded-t-xl sm:rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
+              <div className="p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="text-2xl font-bold text-gray-900">Edit Scheduled Post</h3>
                   <button
