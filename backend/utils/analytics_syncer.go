@@ -254,8 +254,11 @@ func (as *AnalyticsSyncer) fetchFacebookAnalytics(accountID, accessToken string)
 		} `json:"shares"`
 	}
 
-	// Start with initial request
-	nextURL := fmt.Sprintf("https://graph.facebook.com/v20.0/%s/posts?fields=message,created_time,full_picture,permalink_url,likes.summary(true),comments.summary(true),shares&limit=100&access_token=%s", accountID, accessToken)
+	// Start with initial request - try v18.0 for better compatibility
+	// Also try fetching comments with a different approach
+	nextURL := fmt.Sprintf("https://graph.facebook.com/v18.0/%s/posts?fields=message,created_time,full_picture,permalink_url,likes.summary(true),comments.summary(true),shares&limit=100&access_token=%s", accountID, accessToken)
+
+	log.Printf("Facebook analytics: Making request to %s", nextURL)
 
 	// Fetch all pages of posts
 	for nextURL != "" {
@@ -313,6 +316,15 @@ func (as *AnalyticsSyncer) fetchFacebookAnalytics(accountID, accessToken string)
 		}
 		resp.Body.Close()
 
+		// Debug: Log raw response for first page to see what Facebook is returning
+		if len(allPosts) == 0 && len(fbResponse.Data) > 0 {
+			log.Printf("Facebook API response sample - First post: ID=%s, Likes=%d, Comments=%d, Shares=%d",
+				fbResponse.Data[0].ID,
+				fbResponse.Data[0].Likes.Summary.TotalCount,
+				fbResponse.Data[0].Comments.Summary.TotalCount,
+				fbResponse.Data[0].Shares.Count)
+		}
+
 		// Add posts from this page
 		allPosts = append(allPosts, fbResponse.Data...)
 
@@ -331,6 +343,15 @@ func (as *AnalyticsSyncer) fetchFacebookAnalytics(accountID, accessToken string)
 	// Calculate totals from all posts
 	var totalPosts, totalLikes, totalComments, totalShares int
 	var topPosts []map[string]interface{}
+
+	// Debug: Log first few posts to see comment data
+	log.Printf("Facebook analytics: Analyzing %d posts for user %s", len(allPosts), as.UserID)
+	for i, post := range allPosts {
+		if i < 3 { // Log first 3 posts for debugging
+			log.Printf("Facebook post %d: ID=%s, Likes=%d, Comments=%d, Shares=%d",
+				i+1, post.ID, post.Likes.Summary.TotalCount, post.Comments.Summary.TotalCount, post.Shares.Count)
+		}
+	}
 
 	for _, post := range allPosts {
 		totalPosts++
@@ -351,6 +372,52 @@ func (as *AnalyticsSyncer) fetchFacebookAnalytics(accountID, accessToken string)
 				"created_at":   post.CreatedTime,
 				"platform_url": post.PermalinkURL,
 			})
+		}
+	}
+
+	log.Printf("Facebook analytics totals: %d posts, %d likes, %d comments, %d shares",
+		totalPosts, totalLikes, totalComments, totalShares)
+
+	// If comments are still 0, try a different approach - fetch comments separately for a few posts
+	if totalComments == 0 && totalPosts > 0 {
+		log.Printf("Facebook analytics: No comments found with summary approach, trying individual post comments...")
+
+		// Try to fetch comments for the first 3 posts individually
+		for i, post := range allPosts {
+			if i >= 3 { // Only check first 3 posts to avoid rate limits
+				break
+			}
+
+			commentsURL := fmt.Sprintf("https://graph.facebook.com/v18.0/%s/comments?summary=true&access_token=%s", post.ID, accessToken)
+			log.Printf("Facebook analytics: Checking comments for post %s: %s", post.ID, commentsURL)
+
+			req, err := http.NewRequest("GET", commentsURL, nil)
+			if err != nil {
+				log.Printf("Facebook analytics: Error creating comments request for post %s: %v", post.ID, err)
+				continue
+			}
+
+			resp, err := client.Do(req)
+			if err != nil {
+				log.Printf("Facebook analytics: Error fetching comments for post %s: %v", post.ID, err)
+				continue
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode == 200 {
+				var commentsResponse struct {
+					Summary struct {
+						TotalCount int `json:"total_count"`
+					} `json:"summary"`
+				}
+
+				if err := json.NewDecoder(resp.Body).Decode(&commentsResponse); err == nil {
+					log.Printf("Facebook analytics: Post %s has %d comments (individual fetch)", post.ID, commentsResponse.Summary.TotalCount)
+				}
+			} else {
+				body, _ := io.ReadAll(resp.Body)
+				log.Printf("Facebook analytics: Comments API returned status %d for post %s: %s", resp.StatusCode, post.ID, string(body))
+			}
 		}
 	}
 
@@ -392,6 +459,10 @@ func (as *AnalyticsSyncer) fetchInstagramAnalytics(accountID, accessToken string
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == 401 || resp.StatusCode == 403 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("instagram token expired or invalid permissions: %s", string(body))
+	}
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("instagram API returned status %d: %s", resp.StatusCode, string(body))

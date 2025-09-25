@@ -41,6 +41,9 @@ func GetAnalyticsOverview(w http.ResponseWriter, r *http.Request) {
 	endDateStr := r.URL.Query().Get("end_date")
 	limitStr := r.URL.Query().Get("limit")
 
+	log.Printf("Analytics request for user %s: platforms=%v, startDate=%s, endDate=%s",
+		userID, platforms, startDateStr, endDateStr)
+
 	// Set default date range (last 30 days)
 	startDate := time.Now().AddDate(0, 0, -30)
 	endDate := time.Now()
@@ -151,6 +154,9 @@ func GetAnalyticsOverview(w http.ResponseWriter, r *http.Request) {
 			EndDate:   endDate,
 		},
 	}
+
+	log.Printf("Analytics response for user %s: %d total posts, %d total engagement, %d platforms",
+		userID, overview.TotalPosts, overview.TotalEngagement, len(overview.PlatformStats))
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(overview)

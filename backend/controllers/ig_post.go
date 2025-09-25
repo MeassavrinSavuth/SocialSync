@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -124,6 +126,88 @@ func PostToInstagramHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		// Check if the token is valid by making a test request
+		testURL := fmt.Sprintf("https://graph.facebook.com/v18.0/%s?fields=id&access_token=%s", instagramUserID, accessToken)
+		testResp, err := http.Get(testURL)
+		if err != nil {
+			http.Error(w, "Failed to validate Instagram token", http.StatusInternalServerError)
+			return
+		}
+		defer testResp.Body.Close()
+
+		// If token is invalid, try to refresh it from Facebook
+		if testResp.StatusCode == 401 || testResp.StatusCode == 403 {
+			log.Printf("Instagram token expired for user %s, attempting to refresh from Facebook", userID)
+
+			// Get Facebook access token
+			var fbAccessToken string
+			err = db.QueryRow(`
+				SELECT access_token FROM social_accounts
+				WHERE user_id = $1 AND platform = 'facebook'`, userID).Scan(&fbAccessToken)
+			if err != nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"error":          "Instagram token expired",
+					"needsReconnect": true,
+					"message":        "Your Instagram connection has expired. Please reconnect your Facebook account.",
+				})
+				return
+			}
+
+			// Try to get a new long-lived token from Facebook
+			refreshURL := fmt.Sprintf("https://graph.facebook.com/v18.0/oauth/access_token?grant_type=fb_exchange_token&client_id=%s&client_secret=%s&fb_exchange_token=%s",
+				os.Getenv("FACEBOOK_APP_ID"), os.Getenv("FACEBOOK_APP_SECRET"), fbAccessToken)
+
+			refreshResp, err := http.Get(refreshURL)
+			if err != nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"error":          "Failed to refresh token",
+					"needsReconnect": true,
+					"message":        "Your Instagram connection has expired. Please reconnect your Facebook account.",
+				})
+				return
+			}
+			defer refreshResp.Body.Close()
+
+			if refreshResp.StatusCode == 200 {
+				var refreshData struct {
+					AccessToken string `json:"access_token"`
+					TokenType   string `json:"token_type"`
+					ExpiresIn   int    `json:"expires_in"`
+				}
+				if err := json.NewDecoder(refreshResp.Body).Decode(&refreshData); err == nil && refreshData.AccessToken != "" {
+					// Update both Facebook and Instagram tokens
+					_, err = db.Exec(`
+						UPDATE social_accounts SET access_token = $1 WHERE user_id = $2 AND platform = 'facebook'
+					`, refreshData.AccessToken, userID)
+					if err == nil {
+						_, err = db.Exec(`
+							UPDATE social_accounts SET access_token = $1 WHERE user_id = $2 AND platform = 'instagram'
+						`, refreshData.AccessToken, userID)
+						if err == nil {
+							accessToken = refreshData.AccessToken
+							log.Printf("Successfully refreshed Instagram token for user %s", userID)
+						}
+					}
+				}
+			}
+
+			// If refresh failed, return error
+			if accessToken == "" {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnauthorized)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"error":          "Token refresh failed",
+					"needsReconnect": true,
+					"message":        "Your Instagram connection has expired. Please reconnect your Facebook account.",
+				})
+				return
+			}
+		}
+
 		mediaContainerIDs := make([]string, 0, mediaCount)
 
 		// Declare 'body' here once for the entire function scope
@@ -207,6 +291,17 @@ func PostToInstagramHandler(db *sql.DB) http.HandlerFunc {
 			}
 
 			if publishResp.StatusCode != http.StatusOK {
+				// Check if it's a token issue
+				if publishResp.StatusCode == 401 || publishResp.StatusCode == 403 {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusUnauthorized)
+					json.NewEncoder(w).Encode(map[string]interface{}{
+						"error":          "Instagram token expired",
+						"needsReconnect": true,
+						"message":        "Your Instagram connection has expired. Please reconnect your Facebook account.",
+					})
+					return
+				}
 				http.Error(w, fmt.Sprintf("Publish failed: %s", body), http.StatusInternalServerError)
 				return
 			}
@@ -273,6 +368,17 @@ func PostToInstagramHandler(db *sql.DB) http.HandlerFunc {
 			}
 
 			if publishResp.StatusCode != http.StatusOK {
+				// Check if it's a token issue
+				if publishResp.StatusCode == 401 || publishResp.StatusCode == 403 {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusUnauthorized)
+					json.NewEncoder(w).Encode(map[string]interface{}{
+						"error":          "Instagram token expired",
+						"needsReconnect": true,
+						"message":        "Your Instagram connection has expired. Please reconnect your Facebook account.",
+					})
+					return
+				}
 				http.Error(w, fmt.Sprintf("Carousel publish failed: %s", body), http.StatusInternalServerError)
 				return
 			}

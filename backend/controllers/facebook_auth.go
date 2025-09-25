@@ -11,10 +11,11 @@ import (
 	"strings"
 	"time"
 
+	"social-sync-backend/middleware"
+
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/facebook"
-	"social-sync-backend/middleware"
 )
 
 func getFacebookOAuthConfig() *oauth2.Config {
@@ -34,6 +35,8 @@ func getFacebookOAuthConfig() *oauth2.Config {
 			"pages_manage_posts", "instagram_basic",
 			"instagram_content_publish", "pages_read_engagement",
 			"read_insights", "instagram_manage_insights",
+			"pages_read_user_content", "pages_manage_metadata",
+			"pages_manage_engagement", "pages_read_engagement",
 		},
 		Endpoint: facebook.Endpoint,
 	}

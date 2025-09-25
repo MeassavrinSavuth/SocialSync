@@ -280,8 +280,30 @@ func (spp *ScheduledPostProcessor) postToFacebookWithVideo(content string, video
 	return spp.makeHTTPRequest("POST", url, payload)
 }
 
-// postToInstagram posts directly to Instagram using access token
+// postToInstagram posts directly to Instagram using access token with token refresh
 func (spp *ScheduledPostProcessor) postToInstagram(content string, mediaURLs []string, accessToken string) error {
+	// First, check if the token is valid by making a test request
+	_, err := spp.getInstagramUserID(accessToken)
+	if err != nil {
+		log.Printf("Instagram: Failed to get user ID, token may be expired: %v", err)
+
+		// Try to refresh the token using Facebook's token exchange
+		newAccessToken, refreshErr := spp.refreshFacebookToken(accessToken)
+		if refreshErr != nil {
+			log.Printf("Instagram: Token refresh failed: %v", refreshErr)
+			return fmt.Errorf("Instagram token expired and refresh failed: %v - please reconnect Facebook account", refreshErr)
+		}
+
+		log.Printf("Instagram: Token refreshed successfully, retrying...")
+		accessToken = newAccessToken
+
+		// Update the token in database
+		updateErr := spp.updateFacebookAccessToken(accessToken, newAccessToken)
+		if updateErr != nil {
+			log.Printf("WARNING: Failed to update Facebook access token in database: %v", updateErr)
+		}
+	}
+
 	// Instagram Basic Display API endpoint
 	url := "https://graph.instagram.com/v18.0/me/media"
 
@@ -295,7 +317,44 @@ func (spp *ScheduledPostProcessor) postToInstagram(content string, mediaURLs []s
 		payload["image_url"] = mediaURLs[0]
 	}
 
-	return spp.makeHTTPRequest("POST", url, payload)
+	// Try to post to Instagram
+	err = spp.makeHTTPRequest("POST", url, payload)
+	if err != nil {
+		// Check if it's a token issue
+		if strings.Contains(err.Error(), "401") || strings.Contains(err.Error(), "403") {
+			log.Printf("Instagram: Post failed with token error, attempting refresh...")
+
+			// Try to refresh the token
+			newAccessToken, refreshErr := spp.refreshFacebookToken(accessToken)
+			if refreshErr != nil {
+				log.Printf("Instagram: Token refresh failed: %v", refreshErr)
+				return fmt.Errorf("Instagram token expired and refresh failed: %v - please reconnect Facebook account", refreshErr)
+			}
+
+			log.Printf("Instagram: Token refreshed successfully, retrying post...")
+
+			// Update the token in database
+			updateErr := spp.updateFacebookAccessToken(accessToken, newAccessToken)
+			if updateErr != nil {
+				log.Printf("WARNING: Failed to update Facebook access token in database: %v", updateErr)
+			}
+
+			// Retry with new token
+			payload["access_token"] = newAccessToken
+			err = spp.makeHTTPRequest("POST", url, payload)
+			if err != nil {
+				log.Printf("Instagram: Post failed even after token refresh: %v", err)
+				return fmt.Errorf("Instagram post failed after token refresh: %v", err)
+			}
+
+			log.Printf("Instagram: Post successful after token refresh")
+			return nil
+		}
+		return err
+	}
+
+	log.Printf("Instagram: Post successful")
+	return nil
 }
 
 // postToYouTube posts directly to YouTube using access token with automatic token refresh
@@ -496,7 +555,7 @@ func (spp *ScheduledPostProcessor) uploadVideoToYouTube(content, videoURL, acces
 	initReq.Header.Set("Authorization", "Bearer "+accessToken)
 	initReq.Header.Set("Content-Type", "application/json")
 	initReq.Header.Set("X-Upload-Content-Type", "video/*")
-	initReq.Header.Set("X-Upload-Content-Length", fmt.Sprintf("%d", len(videoContent)))
+	initReq.Header.Set("X-Upload-content-length", fmt.Sprintf("%d", len(videoContent)))
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	initResp, err := client.Do(initReq)
@@ -676,7 +735,7 @@ func (spp *ScheduledPostProcessor) uploadMediaToMastodon(instanceURL, accessToke
 	}
 	defer resp.Body.Close()
 
-	log.Printf("DEBUG: Downloaded image, status: %d, content-length: %s", resp.StatusCode, resp.Header.Get("Content-Length"))
+	log.Printf("debug: downloaded image, status: %d, content-length: %s", resp.StatusCode, resp.Header.Get("content-length"))
 
 	// Create a buffer to store the image data
 	var buf bytes.Buffer
@@ -1098,4 +1157,119 @@ func (spp *ScheduledPostProcessor) isVideoUrl(url string) bool {
 	}
 
 	return false
+}
+
+// getInstagramUserID gets the Instagram user ID to test token validity
+func (spp *ScheduledPostProcessor) getInstagramUserID(accessToken string) (string, error) {
+	url := "https://graph.instagram.com/v18.0/me?fields=id"
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("error creating instagram request: %v", err)
+	}
+	req.Header.Add("Authorization", "Bearer "+accessToken)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("error fetching instagram user info: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 401 || resp.StatusCode == 403 {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("instagram token expired or invalid permissions: %s", string(body))
+	}
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("instagram API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var userResponse struct {
+		ID string `json:"id"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&userResponse); err != nil {
+		return "", fmt.Errorf("error decoding instagram response: %v", err)
+	}
+
+	return userResponse.ID, nil
+}
+
+// refreshFacebookToken refreshes an expired Facebook access token
+func (spp *ScheduledPostProcessor) refreshFacebookToken(accessToken string) (string, error) {
+	// Facebook token exchange endpoint
+	url := "https://graph.facebook.com/v18.0/oauth/access_token"
+
+	payload := map[string]string{
+		"grant_type":        "fb_exchange_token",
+		"client_id":         os.Getenv("FACEBOOK_APP_ID"),
+		"client_secret":     os.Getenv("FACEBOOK_APP_SECRET"),
+		"fb_exchange_token": accessToken,
+	}
+
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal payload: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", url, strings.NewReader(string(jsonData)))
+	if err != nil {
+		return "", fmt.Errorf("error creating facebook token refresh request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("error refreshing facebook token: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("facebook token refresh failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var tokenResponse struct {
+		AccessToken string `json:"access_token"`
+		TokenType   string `json:"token_type"`
+		ExpiresIn   int    `json:"expires_in"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&tokenResponse); err != nil {
+		return "", fmt.Errorf("error decoding facebook token response: %v", err)
+	}
+
+	if tokenResponse.AccessToken == "" {
+		return "", fmt.Errorf("received empty access token from facebook")
+	}
+
+	log.Printf("Facebook: Successfully refreshed access token (expires in: %d seconds)", tokenResponse.ExpiresIn)
+	return tokenResponse.AccessToken, nil
+}
+
+// updateFacebookAccessToken updates the Facebook access token in the database
+func (spp *ScheduledPostProcessor) updateFacebookAccessToken(oldToken, newToken string) error {
+	query := `
+		UPDATE social_accounts 
+		SET access_token = $1, last_synced_at = NOW()
+		WHERE access_token = $2 AND platform IN ('facebook', 'instagram')
+	`
+
+	result, err := spp.db.Exec(query, newToken, oldToken)
+	if err != nil {
+		return fmt.Errorf("database update failed: %v", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		log.Printf("WARNING: Could not check rows affected: %v", err)
+	} else if rowsAffected == 0 {
+		log.Printf("WARNING: No rows updated when setting new Facebook access token")
+	} else {
+		log.Printf("Facebook: Successfully updated access token in database for %d accounts", rowsAffected)
+	}
+
+	return nil
 }
