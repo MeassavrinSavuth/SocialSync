@@ -1,11 +1,32 @@
-import Link from 'next/link';
-import Image from 'next/image';
-import { FaFacebookF, FaYoutube, FaTwitter, FaInstagram, FaTelegramPlane, FaMastodon } from 'react-icons/fa';
-import { MdOutlinePostAdd, MdSchedule, MdAnalytics, MdPeople } from 'react-icons/md';
+// pages/index.js
+import Head from "next/head";
+import Link from "next/link";
+import Image from "next/image";
+import {
+  FaFacebookF,
+  FaYoutube,
+  FaTwitter,
+  FaInstagram,
+  FaTelegramPlane,
+  FaMastodon,
+} from "react-icons/fa";
+import {
+  MdOutlinePostAdd,
+  MdSchedule,
+  MdAnalytics,
+  MdPeople,
+} from "react-icons/md";
 
-// Logo component
-const Logo = ({ size = 40 }) => (
-  <Image src="/logo-ss.png" alt="SocialSync" width={size} height={size} />
+// Logo component — with className support
+const Logo = ({ size = 40, className = "" }) => (
+  <Image
+    src="/logo-ss.png"
+    alt="SocialSync"
+    width={size}
+    height={size}
+    className={className}
+    priority
+  />
 );
 
 export default function Home() {
@@ -37,16 +58,27 @@ export default function Home() {
   ];
 
   const platforms = [
-    { icon: FaFacebookF, color:'#1877F2', name:'Facebook' },
-    { icon: FaYoutube, color:'#FF0000', name:'YouTube' },
-    { icon: FaTwitter, color:'#1DA1F2', name:'Twitter' },
-    { icon: FaInstagram, color:'bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600', name:'Instagram' },
-    { icon: FaTelegramPlane, color:'#0088cc', name:'Telegram' },
-    { icon: FaMastodon, color:'#6364FF', name:'Mastodon' },
+    { icon: FaFacebookF, solid: "#1877F2", name: "Facebook" },
+    { icon: FaYoutube, solid: "#FF0000", name: "YouTube" },
+    { icon: FaTwitter, solid: "#1DA1F2", name: "Twitter" },
+    {
+      icon: FaInstagram,
+      gradient: "bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600",
+      name: "Instagram",
+    },
+    { icon: FaTelegramPlane, solid: "#0088cc", name: "Telegram" },
+    { icon: FaMastodon, solid: "#6364FF", name: "Mastodon" },
   ];
 
   return (
     <div className="min-h-screen font-poppins bg-gradient-to-br from-blue-50 to-indigo-100">
+      <Head>
+        <title>SocialSync</title>
+        {/* Use your logo-ss.png as favicon */}
+        <link rel="icon" href="/logo-ss.png" type="image/png" />
+        <meta name="theme-color" content="#2563EB" />
+      </Head>
+
       {/* Header */}
       <header className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -100,10 +132,14 @@ export default function Home() {
               key={i}
               className="bg-white p-10 rounded-2xl shadow-xl hover:shadow-2xl transition relative overflow-hidden group"
             >
-              <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-6 ${feature.bg} group-hover:scale-110 transition-transform duration-300`}>
+              <div
+                className={`w-16 h-16 rounded-full flex items-center justify-center mb-6 ${feature.bg} group-hover:scale-110 transition-transform duration-300`}
+              >
                 {feature.icon}
               </div>
-              <h3 className="text-2xl font-semibold text-gray-900 mb-3">{feature.title}</h3>
+              <h3 className="text-2xl font-semibold text-gray-900 mb-3">
+                {feature.title}
+              </h3>
               <p className="text-gray-600 text-lg">{feature.desc}</p>
               <svg
                 className="absolute top-0 right-0 w-20 h-20 opacity-20 transform rotate-45"
@@ -120,16 +156,30 @@ export default function Home() {
 
         {/* Platforms Section */}
         <div className="mt-20">
-          <h2 className="text-3xl font-bold text-gray-900 mb-12">Connect All Your Favorite Platforms</h2>
+          <h2 className="text-3xl font-bold text-gray-900 mb-12">
+            Connect All Your Favorite Platforms
+          </h2>
           <div className="flex flex-wrap justify-center gap-6">
-            {platforms.map((platform, i) => (
-              <div key={i} className="text-center">
-                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 flex-shrink-0" style={{ background: platform.color }}>
-                  <platform.icon className="text-white text-2xl" />
+            {platforms.map((platform, i) => {
+              const Icon = platform.icon;
+              const isGradient = Boolean(platform.gradient);
+              return (
+                <div key={i} className="text-center">
+                  <div
+                    className={[
+                      "w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 flex-shrink-0",
+                      isGradient ? platform.gradient : "",
+                    ].join(" ")}
+                    style={
+                      isGradient ? undefined : { background: platform.solid }
+                    }
+                  >
+                    <Icon className="text-white text-2xl" />
+                  </div>
+                  <p className="font-semibold text-gray-900">{platform.name}</p>
                 </div>
-                <p className="font-semibold text-gray-900">{platform.name}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </main>
@@ -150,9 +200,21 @@ export default function Home() {
             <div>
               <h4 className="font-semibold mb-4">Support</h4>
               <ul className="space-y-2 text-gray-400">
-                <li><Link href="/privacy" className="hover:text-white transition">Privacy Policy</Link></li>
-                <li><Link href="/terms" className="hover:text-white transition">Terms of Service</Link></li>
-                <li><a href="#" className="hover:text-white transition">Help Center</a></li>
+                <li>
+                  <Link href="/privacy" className="hover:text-white transition">
+                    Privacy Policy
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/terms" className="hover:text-white transition">
+                    Terms of Service
+                  </Link>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-white transition">
+                    Help Center
+                  </a>
+                </li>
               </ul>
             </div>
             <div>

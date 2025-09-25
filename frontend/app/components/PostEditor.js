@@ -56,8 +56,8 @@ const platformConfigs = {
   twitter: {
     characterLimit: 280,
     name: 'Twitter',
-    features: ['text', 'images', 'videos', 'threads'],
-    tips: 'Tweets with images get 150% more retweets'
+  features: ['text', 'images', 'videos'],
+  tips: 'Tweets with images get 150% more retweets'
   },
   mastodon: {
     characterLimit: 500,

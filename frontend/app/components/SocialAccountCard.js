@@ -19,14 +19,11 @@ export default function SocialAccountCard({
         return 'bg-gradient-to-r from-pink-500 to-purple-600';
       case 'YouTube':
         return 'bg-red-600';
-      case 'TikTok':
-        return 'bg-black';
       case 'Twitter (X)':
         return 'bg-black';
       case 'Mastodon':
         return 'bg-[#6364FF]'
-      case 'Threads': // Changed to black background
-        return 'bg-black';
+  // TikTok and Threads removed
       case 'Telegram':
         return 'bg-[#0088CC]';
       default:

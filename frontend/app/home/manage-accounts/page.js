@@ -7,15 +7,7 @@ import { SiMastodon } from 'react-icons/si';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
 
-import {
-  FaFacebook,
-  FaInstagram,
-  FaYoutube,
-  FaTiktok,
-  FaTwitter,
-  FaTelegram, // Added FaTelegram
-} from 'react-icons/fa';
-import { FaSquareThreads } from 'react-icons/fa6'; // Added FaSquareThreads
+import { FaFacebook, FaInstagram, FaYoutube, FaTwitter, FaTelegram } from 'react-icons/fa';
 import axios from 'axios';
 
 export default function ManageAccountPage() {
@@ -42,9 +34,8 @@ export default function ManageAccountPage() {
     youtube: 'YouTube',
     twitter: 'Twitter (X)',
     mastodon: 'Mastodon',
-    threads: 'Threads',
     telegram: 'Telegram',
-    tiktok: 'TikTok', // Moved to the end
+  // threads and tiktok removed
   };
 
   // List of platforms to display, reordered for TikTok
@@ -53,10 +44,8 @@ export default function ManageAccountPage() {
     'instagram',
     'youtube',
     'twitter',
-    'mastodon',
-    'threads',
-    'telegram',
-    'tiktok', // Moved to the end
+  'mastodon',
+  'telegram',
   ];
 
 
@@ -69,14 +58,12 @@ export default function ManageAccountPage() {
         return FaInstagram;
       case 'YouTube':
         return FaYoutube;
-      case 'TikTok':
-        return FaTiktok;
+  // TikTok removed
       case 'Twitter (X)':
         return FaTwitter;
       case 'Mastodon':
         return SiMastodon;
-      case 'Threads': // Added Threads
-        return FaSquareThreads;
+  // Threads removed
       case 'Telegram': // Added Telegram
         return FaTelegram;
       default:
@@ -174,8 +161,7 @@ export default function ManageAccountPage() {
           fetchAccounts();
         } else if (platformName === 'YouTube') {
           window.location.href = `${API_BASE_URL}/auth/youtube/login?token=${token}`;
-        } else if (platformName === 'TikTok') {
-          window.location.href = `${API_BASE_URL}/auth/tiktok/login?token=${token}`;
+  // TikTok handler removed
         } else if (platformName === 'Twitter (X)') {
           window.location.href = `${API_BASE_URL}/auth/twitter/login?token=${token}`;
         } else if (platformName === 'Mastodon') {
@@ -183,8 +169,7 @@ export default function ManageAccountPage() {
           window.location.href = `${API_BASE_URL}/auth/mastodon/login?instance=${encodeURIComponent(
             instance
           )}&token=${token}`;
-        } else if (platformName === 'Threads') {
-          window.location.href = `${API_BASE_URL}/auth/threads/login?token=${token}`;
+  // Threads handler removed
         } else if (platformName === 'Telegram') {
           setShowTelegramModal(true);
           return;

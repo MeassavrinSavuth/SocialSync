@@ -99,8 +99,8 @@ export default function DashboardPage() {
       <div className="max-w-7xl mx-auto">
         {/* Header - Mobile Responsive */}
         <div className="mb-4 md:mb-6">
-          <h2 className="text-lg md:text-xl font-semibold mb-2 text-gray-800">Good afternoon</h2>
-          <h1 className="text-xl md:text-2xl font-bold mb-4 md:mb-6 text-gray-900">✨ Dashboard Overview</h1>
+          
+          <h1 className="text-xl md:text-2xl font-bold mb-4 md:mb-6 text-gray-900">Dashboard Overview</h1>
         </div>
 
         {/* Calendar Week View - Mobile Responsive */}

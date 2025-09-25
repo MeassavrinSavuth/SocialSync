@@ -87,13 +87,11 @@ export default function DashboardLayout({ children }) {
     } else if (pathname.startsWith('/home/create-post')) {
       setActiveTab('Create Post');
     } else if (pathname.startsWith('/home/scheduled-posts')) {
-      setActiveTab('Scheduled Posts');
+      setActiveTab('Calendar');
     } else if (pathname.startsWith('/home/analytics')) {
       setActiveTab('Analytics');
-    } else if (pathname.startsWith('/home/manage-comments')) {
-      setActiveTab('Manage Comments');
     } else if (pathname.startsWith('/home/posts-folder')) {
-      setActiveTab('Posts Folder');
+      setActiveTab('Posts');
     } else if (pathname.startsWith('/home/manage-accounts')) {
       setActiveTab('Manage Account');
     } else if (pathname.startsWith('/home/workspace')) {
@@ -153,10 +151,9 @@ export default function DashboardLayout({ children }) {
           <nav className="space-y-1">
             <NavItem icon={<FaHome />} label="Home" open={sidebarOpen} active={activeTab === 'Home'} onClick={() => handleNavClick('Home', '/home/dashboard')} />
             <NavItem icon={<FaPlus />} label="Create Post" open={sidebarOpen} active={activeTab === 'Create Post'} onClick={() => handleNavClick('Create Post', '/home/create-post')} />
-            <NavItem icon={<FaCalendarAlt />} label="Scheduled Posts" open={sidebarOpen} active={activeTab === 'Scheduled Posts'} onClick={() => handleNavClick('Scheduled Posts', '/home/scheduled-posts')} />
+            <NavItem icon={<FaCalendarAlt />} label="Scheduled Posts" open={sidebarOpen} active={activeTab === 'Calendar'} onClick={() => handleNavClick('Scheduled Posts', '/home/scheduled-posts')} />
             <NavItem icon={<FaChartBar />} label="Analytics" open={sidebarOpen} active={activeTab === 'Analytics'} onClick={() => handleNavClick('Analytics', '/home/analytics')} />
-            <NavItem icon={<FaCommentDots />} label="Manage Comments" open={sidebarOpen} active={activeTab === 'Manage Comments'} onClick={() => handleNavClick('Manage Comments', '/home/manage-comments')} />
-            <NavItem icon={<FaFolder />} label="Posts Folder" open={sidebarOpen} active={activeTab === 'Posts Folder'} onClick={() => handleNavClick('Posts Folder', '/home/posts-folder')} />
+            <NavItem icon={<FaFolder />} label="Posts Folder" open={sidebarOpen} active={activeTab === 'Posts'} onClick={() => handleNavClick('Posts Folder', '/home/posts-folder')} />
             <NavItem icon={<FaUser />} label="Manage Account" open={sidebarOpen} active={activeTab === 'Manage Account'} onClick={() => handleNavClick('Manage Account', '/home/manage-accounts')} />
             
             {/* Horizontal Rule for Separation */}
