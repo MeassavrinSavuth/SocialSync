@@ -1,26 +1,13 @@
 // components/PostQueue.js
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 
 export default function PostQueue({ postQueue = [] }) {
-  const [currentTime, setCurrentTime] = useState(Date.now());
-
-  // Update time every 500ms for smooth progress animation
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTime(Date.now());
-    }, 500);
-
-    return () => clearInterval(interval);
-  }, []);
-
   const getStatusColor = (status) => {
     switch (status) {
       case 'pending':
         return 'text-yellow-600 bg-yellow-100';
-      case 'publishing':
-        return 'text-blue-600 bg-blue-100';
       case 'completed':
         return 'text-green-600 bg-green-100';
       case 'failed':
@@ -30,33 +17,33 @@ export default function PostQueue({ postQueue = [] }) {
     }
   };
 
-  const getProgressBarColor = (status) => {
+  const getProgressBar = (status) => {
     switch (status) {
-      case 'publishing':
-        return 'bg-blue-500';
       case 'pending':
-        return 'bg-yellow-500';
+        return (
+          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+            <div className="bg-yellow-500 h-2 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+          </div>
+        );
+      case 'completed':
+        return (
+          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+            <div className="bg-green-500 h-2 rounded-full transition-all duration-500 ease-out" style={{ width: '100%' }}></div>
+          </div>
+        );
+      case 'failed':
+        return (
+          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+            <div className="bg-red-500 h-2 rounded-full transition-all duration-500 ease-out" style={{ width: '100%' }}></div>
+          </div>
+        );
       default:
-        return 'bg-gray-300';
+        return (
+          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+            <div className="bg-gray-400 h-2 rounded-full" style={{ width: '0%' }}></div>
+          </div>
+        );
     }
-  };
-
-  const getProgressValue = (item) => {
-    if (item.status === 'completed') return 100;
-    if (item.status === 'failed') return 0;
-    if (item.status === 'publishing') {
-      // If no progress specified, simulate gradual progress
-      if (!item.progress) {
-        // Simulate progress based on time elapsed
-        const startTime = item.startTime || currentTime;
-        const elapsed = currentTime - startTime;
-        const maxTime = 8000; // 8 seconds max
-        return Math.min(85, Math.floor((elapsed / maxTime) * 85)); // Cap at 85% until actually complete
-      }
-      return item.progress;
-    }
-    if (item.status === 'pending') return 0;
-    return 0;
   };
 
   return (
@@ -65,47 +52,24 @@ export default function PostQueue({ postQueue = [] }) {
         <p className="text-gray-500 italic">No posts in the queue yet.</p>
       ) : (
         <ul className="space-y-3">
-          {postQueue.map((item) => {
-            const progressValue = getProgressValue(item);
-            const showProgress = item.status === 'publishing' || item.status === 'pending';
-            
-            return (
-              <li key={item.id} className="bg-gray-50 p-3 rounded-lg shadow-sm border border-gray-200">
-                <div className="flex justify-between items-start mb-1">
-                  <span className="font-medium text-gray-800 capitalize">{item.platform}</span>
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getStatusColor(item.status)} capitalize`}>
-                    {item.status}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-700 truncate mb-1">{item.messageSnippet}</p>
-                {item.mediaCount > 0 && (
-                  <p className="text-xs text-gray-500">{item.mediaCount} media file(s)</p>
-                )}
-                
-                {/* Progress Bar */}
-                {showProgress && (
-                  <div className="mt-2">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-xs text-gray-600">
-                        {item.status === 'publishing' ? 'Publishing...' : 'Queued'}
-                      </span>
-                      <span className="text-xs text-gray-500">{progressValue}%</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
-                        className={`h-2 rounded-full transition-all duration-300 ease-out ${getProgressBarColor(item.status)}`}
-                        style={{ width: `${progressValue}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                )}
-                
-                {item.status === 'failed' && item.error && (
-                  <p className="text-xs text-red-500 mt-1">Error: {item.error}</p>
-                )}
-              </li>
-            );
-          })}
+          {postQueue.map((item) => (
+            <li key={item.id} className="bg-gray-50 p-3 rounded-lg shadow-sm border border-gray-200">
+              <div className="flex justify-between items-start mb-1">
+                <span className="font-medium text-gray-800 capitalize">{item.platform}</span>
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${getStatusColor(item.status)} capitalize`}>
+                  {item.status}
+                </span>
+              </div>
+              <p className="text-sm text-gray-700 truncate mb-1">{item.messageSnippet}</p>
+              {item.mediaCount > 0 && (
+                <p className="text-xs text-gray-500">{item.mediaCount} media file(s)</p>
+              )}
+              {getProgressBar(item.status)}
+              {item.status === 'failed' && item.error && (
+                <p className="text-xs text-red-500 mt-1">Error: {item.error}</p>
+              )}
+            </li>
+          ))}
         </ul>
       )}
     </div>
