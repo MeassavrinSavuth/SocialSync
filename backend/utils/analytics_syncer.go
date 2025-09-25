@@ -232,14 +232,14 @@ func (as *AnalyticsSyncer) fetchMastodonAnalytics(accountID, accessToken string)
 func (as *AnalyticsSyncer) fetchFacebookAnalytics(accountID, accessToken string) (*models.PostAnalytics, error) {
 	// Use proper HTTP client like your working social account syncer
 	client := &http.Client{Timeout: 10 * time.Second}
-	// Updated to v20.0 and access_token as URL parameter (matching working posts handler)
-	url := fmt.Sprintf("https://graph.facebook.com/v20.0/%s/posts?fields=id,message,created_time,likes.summary(true),comments.summary(true),shares&limit=40&access_token=%s", accountID, accessToken)
+
+	// Use the same API endpoint as the working Facebook posts handler
+	url := fmt.Sprintf("https://graph.facebook.com/v20.0/%s/posts?fields=message,created_time,full_picture,permalink_url,likes.summary(true),comments.summary(true),shares&access_token=%s", accountID, accessToken)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error creating facebook request: %v", err)
 	}
-	// Removed Authorization header - using access_token in URL instead
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -247,7 +247,7 @@ func (as *AnalyticsSyncer) fetchFacebookAnalytics(accountID, accessToken string)
 	}
 	defer resp.Body.Close()
 
-	// Added more robust error handling for 401/403
+	// Handle authentication errors
 	if resp.StatusCode == 401 || resp.StatusCode == 403 {
 		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("facebook token expired or invalid permissions: %s", string(body))
@@ -259,10 +259,12 @@ func (as *AnalyticsSyncer) fetchFacebookAnalytics(accountID, accessToken string)
 
 	var fbResponse struct {
 		Data []struct {
-			ID          string `json:"id"`
-			Message     string `json:"message"`
-			CreatedTime string `json:"created_time"`
-			Likes       struct {
+			ID           string `json:"id"`
+			Message      string `json:"message"`
+			CreatedTime  string `json:"created_time"`
+			FullPicture  string `json:"full_picture"`
+			PermalinkURL string `json:"permalink_url"`
+			Likes        struct {
 				Summary struct {
 					TotalCount int `json:"total_count"`
 				} `json:"summary"`
@@ -296,13 +298,14 @@ func (as *AnalyticsSyncer) fetchFacebookAnalytics(accountID, accessToken string)
 		if len(topPosts) < 5 {
 			engagement := post.Likes.Summary.TotalCount + post.Comments.Summary.TotalCount + post.Shares.Count
 			topPosts = append(topPosts, map[string]interface{}{
-				"id":         post.ID,
-				"content":    post.Message,
-				"likes":      post.Likes.Summary.TotalCount,
-				"comments":   post.Comments.Summary.TotalCount,
-				"shares":     post.Shares.Count,
-				"engagement": engagement,
-				"created_at": post.CreatedTime,
+				"id":           post.ID,
+				"content":      post.Message,
+				"likes":        post.Likes.Summary.TotalCount,
+				"comments":     post.Comments.Summary.TotalCount,
+				"shares":       post.Shares.Count,
+				"engagement":   engagement,
+				"created_at":   post.CreatedTime,
+				"platform_url": post.PermalinkURL,
 			})
 		}
 	}
