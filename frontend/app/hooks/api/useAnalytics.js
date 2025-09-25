@@ -12,7 +12,7 @@ export function useAnalytics() {
     setError(null);
 
     try {
-      // Build query parameters
+      // Build query parameters with cache-busting
       const params = new URLSearchParams();
       if (filters.platforms && filters.platforms.length > 0) {
         filters.platforms.forEach(platform => params.append('platform', platform));
@@ -26,9 +26,14 @@ export function useAnalytics() {
       if (filters.limit) {
         params.append('limit', filters.limit);
       }
+      
+      // Add cache-busting parameter to prevent caching issues
+      params.append('_t', Date.now().toString());
 
       const queryString = params.toString();
-      const endpoint = queryString ? `/analytics/overview?${queryString}` : '/analytics/overview';
+      const endpoint = queryString ? `/analytics/overview?${queryString}` : `/analytics/overview?_t=${Date.now()}`;
+
+      console.log('Fetching analytics from:', endpoint);
 
       // useProtectedFetch returns parsed JSON on success (or raw Response for no-content).
       // The backend returns the analytics object directly, so assign the parsed response to state.
@@ -52,6 +57,7 @@ export function useAnalytics() {
       }
 
       // Otherwise res is already parsed JSON (the analytics object)
+      console.log('Analytics data received:', res);
       setAnalytics(res);
     } catch (err) {
       console.error('Analytics fetch error:', err);

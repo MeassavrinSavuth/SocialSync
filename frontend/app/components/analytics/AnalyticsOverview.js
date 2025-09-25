@@ -27,6 +27,7 @@ export default function AnalyticsOverview() {
   };
 
   const handlePlatformFilter = (platforms) => {
+    console.log('Platform filter changed:', platforms);
     setSelectedPlatforms(platforms);
     fetchAnalytics({
       startDate: dateRange.startDate,
@@ -37,6 +38,7 @@ export default function AnalyticsOverview() {
 
   // Fetch analytics with default YouTube platform on initial load
   useEffect(() => {
+    console.log('Initial analytics fetch with platforms:', selectedPlatforms);
     fetchAnalytics({
       platforms: selectedPlatforms
     });
