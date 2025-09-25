@@ -418,28 +418,30 @@ export default function ScheduledPostsPage() {
   {/* Full-width Week View Calendar */}
   <div className="bg-white rounded-xl shadow-lg p-6 sm:p-8 w-full">
             {/* Calendar Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center space-x-4">
+          <div className="flex items-center justify-between flex-wrap mb-6">
+            <div className="flex items-center space-x-3 min-w-0">
               <button
                 onClick={goToPreviousWeek}
-                className="p-3 text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-lg transition-all duration-200 font-bold text-xl hover:shadow-md"
+                className="hidden sm:inline-flex p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-md transition-all duration-150"
+                aria-label="previous-week"
               >
                 ←
               </button>
-              <h2 className="text-3xl font-bold text-gray-900">
-                {getWeekRange()}
-              </h2>
+              <div className="min-w-0">
+                <h2 className="text-lg sm:text-3xl font-bold text-gray-900 truncate">{getWeekRange()}</h2>
+              </div>
               <button
                 onClick={goToNextWeek}
-                className="p-3 text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-lg transition-all duration-200 font-bold text-xl hover:shadow-md"
+                className="hidden sm:inline-flex p-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-md transition-all duration-150"
+                aria-label="next-week"
               >
                 →
               </button>
             </div>
 
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3 mt-3 sm:mt-0">
               {/* Post Counters - Only Scheduled */}
-              <div className="flex items-center space-x-4 text-sm">
+              <div className="flex items-center space-x-3 text-sm">
                 <div className="flex items-center space-x-2">
                   <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
                   <span className="text-gray-600">Scheduled: <span className="font-semibold text-blue-600">{getTotalScheduledPosts()}</span></span>
@@ -450,11 +452,11 @@ export default function ScheduledPostsPage() {
               <div className="relative">
                 <button
                   onClick={() => setShowMiniCalendar(!showMiniCalendar)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent flex items-center space-x-2"
+                  className="px-2 py-1 sm:px-4 sm:py-2 border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent flex items-center space-x-2"
                 >
                   <span>📅</span>
-                  <span>Select Week</span>
-                  <span>▼</span>
+                  <span className="hidden sm:inline">Select Week</span>
+                  <span className="ml-1">▼</span>
                 </button>
                 
                 {showMiniCalendar && (
@@ -596,7 +598,7 @@ export default function ScheduledPostsPage() {
               {/* Today button */}
               <button
                 onClick={() => setCurrentWeek(new Date())}
-                className={`px-4 py-2 rounded-lg transition-colors font-medium ${
+                className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-sm sm:text-base transition-colors font-medium ${
                   formatDate(getWeekStart(currentWeek)) === formatDate(getWeekStart(new Date()))
                     ? 'bg-blue-600 text-white hover:bg-blue-700'
                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
