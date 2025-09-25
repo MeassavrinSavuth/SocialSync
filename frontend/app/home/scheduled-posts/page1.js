@@ -460,138 +460,98 @@ export default function ScheduledPostsPage() {
                 </button>
                 
                 {showMiniCalendar && (
-                  <div className="absolute top-full right-0 mt-2 bg-white border border-gray-300 rounded-lg shadow-xl z-50 w-96">
-                    <div className="flex">
-            {/* Calendar Grid */}
-                      <div className="flex-1 p-4">
-                        {/* Month/Year Header */}
-                        <div className="flex items-center justify-between mb-4">
-                          <button
-                            onClick={() => {
-                              const newMonth = new Date(miniCalendarMonth);
-                              newMonth.setMonth(newMonth.getMonth() - 1);
-                              setMiniCalendarMonth(newMonth);
-                            }}
-                            className="p-1 hover:bg-gray-100 rounded"
-                          >
-                            ←
-                          </button>
-                          <h3 className="font-semibold text-gray-900">
-                            {miniCalendarMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-                          </h3>
-                          <button
-                            onClick={() => {
-                              const newMonth = new Date(miniCalendarMonth);
-                              newMonth.setMonth(newMonth.getMonth() + 1);
-                              setMiniCalendarMonth(newMonth);
-                            }}
-                            className="p-1 hover:bg-gray-100 rounded"
-                          >
-                            →
-                          </button>
-                        </div>
-
-                        {/* Days of week */}
-                        <div className="grid grid-cols-7 gap-1 mb-2">
-                          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
-                            <div key={`day-${index}`} className="h-8 flex items-center justify-center text-xs font-medium text-gray-500">
-                  {day}
-                </div>
-              ))}
-            </div>
-
-                        {/* Calendar days */}
-            <div className="grid grid-cols-7 gap-1">
-                          {getMiniCalendarDays().map((date, index) => {
-                            const isCurrentMonth = date.getMonth() === miniCalendarMonth.getMonth();
-                            const isToday = formatDate(date) === formatDate(new Date());
-                            const postsCount = getPostsCountForDate(date);
-                            const isSelectedWeek = getWeekStart(date).getTime() === getWeekStart(currentWeek).getTime();
-                            
-                            return (
-                              <button
-                                key={index}
-                                onClick={() => {
-                                  setCurrentWeek(getWeekStart(date));
-                                  setShowMiniCalendar(false);
-                                }}
-                                className={`h-8 w-8 flex items-center justify-center text-xs rounded relative ${
-                                  isSelectedWeek 
-                                    ? 'bg-blue-600 text-white' 
-                                    : isToday 
-                                    ? 'bg-blue-100 text-blue-600 font-semibold' 
-                                    : isCurrentMonth 
-                                    ? 'text-gray-900 hover:bg-gray-100' 
-                                    : 'text-gray-400'
-                                }`}
-                              >
-                                {date.getDate()}
-                                {postsCount > 0 && (
-                                  <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></div>
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Month/Year Selector */}
-                      <div className="w-32 p-4 bg-gray-50 border-l border-gray-200">
-                        {/* Year */}
-                        <div className="mb-4">
-                          <div className="flex items-center justify-between mb-2">
+                  <div className="absolute top-full left-4 right-4 sm:right-0 sm:left-auto mt-2 z-50">
+                    <div className="bg-white border border-gray-300 rounded-lg shadow-xl w-full sm:w-96 overflow-hidden" style={{ maxWidth: 'calc(100vw - 32px)' }}>
+                      <div className="flex">
+                        {/* Calendar Grid */}
+                        <div className="flex-1 p-4">
+                          {/* Month/Year Header */}
+                          <div className="flex items-center justify-between mb-4">
                             <button
-                              onClick={() => setMiniCalendarYear(miniCalendarYear - 1)}
-                              className="p-1 hover:bg-gray-200 rounded text-xs"
+                              onClick={() => {
+                                const newMonth = new Date(miniCalendarMonth);
+                                newMonth.setMonth(newMonth.getMonth() - 1);
+                                setMiniCalendarMonth(newMonth);
+                              }}
+                              className="p-1 hover:bg-gray-100 rounded"
                             >
-                              ↑
+                              ←
                             </button>
-                            <span className="font-semibold text-gray-900">{miniCalendarYear}</span>
+                            <h3 className="font-semibold text-gray-900">
+                              {miniCalendarMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                            </h3>
                             <button
-                              onClick={() => setMiniCalendarYear(miniCalendarYear + 1)}
-                              className="p-1 hover:bg-gray-200 rounded text-xs"
+                              onClick={() => {
+                                const newMonth = new Date(miniCalendarMonth);
+                                newMonth.setMonth(newMonth.getMonth() + 1);
+                                setMiniCalendarMonth(newMonth);
+                              }}
+                              className="p-1 hover:bg-gray-100 rounded"
                             >
-                              ↓
+                              →
                             </button>
+                          </div>
+
+                          {/* Days of week */}
+                          <div className="grid grid-cols-7 gap-1 mb-2">
+                            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+                              <div key={`day-${index}`} className="h-8 flex items-center justify-center text-xs font-medium text-gray-500">{day}</div>
+                            ))}
+                          </div>
+
+                          {/* Calendar days */}
+                          <div className="grid grid-cols-7 gap-1">
+                            {getMiniCalendarDays().map((date, index) => {
+                              const isCurrentMonth = date.getMonth() === miniCalendarMonth.getMonth();
+                              const isToday = formatDate(date) === formatDate(new Date());
+                              const postsCount = getPostsCountForDate(date);
+                              const isSelectedWeek = getWeekStart(date).getTime() === getWeekStart(currentWeek).getTime();
+
+                              return (
+                                <button
+                                  key={index}
+                                  onClick={() => {
+                                    setCurrentWeek(getWeekStart(date));
+                                    setShowMiniCalendar(false);
+                                  }}
+                                  className={`h-8 w-8 flex items-center justify-center text-xs rounded relative ${
+                                    isSelectedWeek ? 'bg-blue-600 text-white' : isToday ? 'bg-blue-100 text-blue-600 font-semibold' : isCurrentMonth ? 'text-gray-900 hover:bg-gray-100' : 'text-gray-400'
+                                  }`}
+                                >
+                                  {date.getDate()}
+                                  {postsCount > 0 && <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></div>}
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
 
-                        {/* Months */}
-                        <div className="grid grid-cols-2 gap-1">
-                          {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((month, index) => (
-                            <button
-                              key={month}
-                              onClick={() => {
-                                const newMonth = new Date(miniCalendarYear, index);
-                                setMiniCalendarMonth(newMonth);
-                              }}
-                              className={`p-2 text-xs rounded hover:bg-gray-200 ${
-                                index === miniCalendarMonth.getMonth() 
-                                  ? 'bg-blue-600 text-white' 
-                                  : 'text-gray-700'
-                              }`}
-                            >
-                              {month}
-                            </button>
-                          ))}
-            </div>
+                        {/* Month/Year Selector */}
+                        <div className="w-32 p-4 bg-gray-50 border-l border-gray-200">
+                          {/* Year */}
+                          <div className="mb-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <button onClick={() => setMiniCalendarYear(miniCalendarYear - 1)} className="p-1 hover:bg-gray-200 rounded text-xs">↑</button>
+                              <span className="font-semibold text-gray-900">{miniCalendarYear}</span>
+                              <button onClick={() => setMiniCalendarYear(miniCalendarYear + 1)} className="p-1 hover:bg-gray-200 rounded text-xs">↓</button>
+                            </div>
+                          </div>
 
-                        {/* Today button */}
-                        <button
-                          onClick={() => {
-                            const today = new Date();
-                            setCurrentWeek(today);
-                            setMiniCalendarMonth(today);
-                            setMiniCalendarYear(today.getFullYear());
-                            setShowMiniCalendar(false);
-                          }}
-                          className="w-full mt-4 px-3 py-2 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
-                        >
-                          Today
-                        </button>
+                          {/* Months */}
+                          <div className="grid grid-cols-2 gap-1">
+                            {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((month, index) => (
+                              <button key={month} onClick={() => { const newMonth = new Date(miniCalendarYear, index); setMiniCalendarMonth(newMonth); }} className={`p-2 text-xs rounded hover:bg-gray-200 ${index === miniCalendarMonth.getMonth() ? 'bg-blue-600 text-white' : 'text-gray-700'}`}>
+                                {month}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Today button */}
+                          <button onClick={() => { const today = new Date(); setCurrentWeek(today); setMiniCalendarMonth(today); setMiniCalendarYear(today.getFullYear()); setShowMiniCalendar(false); }} className="w-full mt-4 px-3 py-2 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors">Today</button>
+                        </div>
                       </div>
-              </div>
-              </div>
+                    </div>
+                  </div>
                 )}
               </div>
               
