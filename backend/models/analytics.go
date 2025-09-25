@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -47,6 +48,52 @@ type TopPost struct {
 	Engagement  int       `json:"engagement"`
 	CreatedAt   time.Time `json:"created_at"`
 	PlatformURL string    `json:"platform_url,omitempty"`
+}
+
+// UnmarshalJSON implements custom JSON unmarshaling for TopPost to handle time parsing
+func (tp *TopPost) UnmarshalJSON(data []byte) error {
+	// Create a temporary struct with string for CreatedAt
+	type Alias TopPost
+	aux := &struct {
+		CreatedAt string `json:"created_at"`
+		*Alias
+	}{
+		Alias: (*Alias)(tp),
+	}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	// Parse the CreatedAt string with multiple time formats
+	if aux.CreatedAt != "" {
+		// Try RFC3339 format first (e.g., "2025-09-11T13:28:13Z")
+		if t, err := time.Parse(time.RFC3339, aux.CreatedAt); err == nil {
+			tp.CreatedAt = t
+		} else if t, err := time.Parse("2006-01-02T15:04:05+0000", aux.CreatedAt); err == nil {
+			// Try the format with +0000 timezone
+			tp.CreatedAt = t
+		} else if t, err := time.Parse("2006-01-02T15:04:05Z", aux.CreatedAt); err == nil {
+			// Try UTC format
+			tp.CreatedAt = t
+		} else {
+			// If all else fails, try parsing as RFC3339 with different timezone formats
+			formats := []string{
+				"2006-01-02T15:04:05Z07:00",
+				"2006-01-02T15:04:05-07:00",
+				"2006-01-02T15:04:05.000Z",
+				"2006-01-02T15:04:05",
+			}
+			for _, format := range formats {
+				if t, err := time.Parse(format, aux.CreatedAt); err == nil {
+					tp.CreatedAt = t
+					break
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 // AnalyticsOverview represents aggregated analytics data for frontend display

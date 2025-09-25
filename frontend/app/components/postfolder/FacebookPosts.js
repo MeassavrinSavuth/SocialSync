@@ -1,22 +1,22 @@
 'use client';
-
+ 
 import React from 'react';
-import { 
-  FaFacebook, 
-  FaThumbsUp, 
-  FaComment, 
-  FaShare, 
+import {
+  FaFacebook,
+  FaThumbsUp,
+  FaComment,
+  FaShare,
   FaGlobeAmericas,
   FaEllipsisH,
   FaHeart,
   FaLaugh
 } from 'react-icons/fa';
-
+ 
 export default function FacebookPosts({ posts, pageInfo, loading, error, searchQuery, setSearchQuery }) {
   // Use real page data if available, otherwise fallback
   const pageName = pageInfo?.name || 'Facebook Page';
   const pageAvatar = pageInfo?.avatar || '/default-avatar.png';
-
+ 
   const timeAgo = (dateString) => {
     const now = new Date();
     const postDate = new Date(dateString);
@@ -28,7 +28,7 @@ export default function FacebookPosts({ posts, pageInfo, loading, error, searchQ
     if (diffInMinutes < 10080) return `${Math.floor(diffInMinutes / 1440)}d`;
     return postDate.toLocaleDateString();
   };
-
+ 
   if (loading) {
     return (
       <div className="mt-8 max-w-2xl mx-auto">
@@ -70,7 +70,7 @@ export default function FacebookPosts({ posts, pageInfo, loading, error, searchQ
       </div>
     );
   }
-
+ 
   if (error) {
     return (
       <div className="mt-8 max-w-2xl mx-auto">
@@ -92,7 +92,7 @@ export default function FacebookPosts({ posts, pageInfo, loading, error, searchQ
       </div>
     );
   }
-
+ 
   if (!posts || posts.length === 0) {
     return (
       <div className="mt-8 max-w-2xl mx-auto">
@@ -172,7 +172,7 @@ export default function FacebookPosts({ posts, pageInfo, loading, error, searchQ
                   <FaEllipsisH className="text-gray-500 text-sm" />
                 </button>
               </div>
-
+ 
               {/* Content */}
               {message && (
                 <div className="px-4 pb-3">
@@ -181,99 +181,53 @@ export default function FacebookPosts({ posts, pageInfo, loading, error, searchQ
                   </p>
                 </div>
               )}
-
+ 
               {/* Media */}
               {attachments.length > 0 ? (
                 <div className="mb-3">
-                  <div className={`grid ${attachments.length === 1 ? 'grid-cols-1' : attachments.length === 2 ? 'grid-cols-2' : 'grid-cols-2'} gap-1`}>
-                    {attachments.slice(0, 4).map((attachment, idx) => {
-                      // Check if attachment is a video
-                      const isVideo = attachment.type === 'video' || 
-                                    attachment.media?.video || 
-                                    attachment.target?.url?.includes('video') ||
-                                    attachment.subattachments?.data?.some(sub => sub.type === 'video');
-                      
-                      return (
-                        <div key={idx} className="relative aspect-square overflow-hidden bg-black">
-                          {isVideo ? (
-                            <div 
-                              className="relative w-full h-full cursor-pointer"
-                              onClick={() => {
-                                // Open video in new tab or handle video playback
-                                const videoUrl = attachment.media?.video?.source || attachment.target?.url;
-                                if (videoUrl) {
-                                  window.open(videoUrl, '_blank');
-                                }
-                              }}
-                            >
-                              <img 
-                                src={attachment.media?.image?.src || attachment.target?.url || attachment.picture} 
-                                alt="Facebook video thumbnail" 
-                                className="w-full h-full object-cover" 
-                              />
-                              {/* Video overlay with play button */}
-                              <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center hover:bg-opacity-40 transition-all">
-                                <div className="w-12 h-12 bg-white bg-opacity-90 rounded-full flex items-center justify-center hover:bg-opacity-100 transition-all hover:scale-110 transform">
-                                  <div className="w-0 h-0 border-l-[8px] border-l-blue-600 border-y-[6px] border-y-transparent ml-1"></div>
-                                </div>
-                              </div>
-                              {/* Video indicator */}
-                              <div className="absolute top-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded flex items-center space-x-1">
-                                <span>🎥</span>
-                                <span>Video</span>
-                              </div>
-                            </div>
-                          ) : (
-                            <img 
-                              src={attachment.media?.image?.src || attachment.target?.url} 
-                              alt="Facebook attachment" 
-                              className="w-full h-full object-cover hover:opacity-95 transition-opacity cursor-pointer" 
-                            />
-                          )}
-                          {idx === 3 && attachments.length > 4 && (
-                            <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center text-white text-xl font-bold cursor-pointer hover:bg-opacity-50 transition-all">
-                              +{attachments.length - 4}
-                            </div>
-                          )}
+                  <div className={`grid ${attachments.length === 1 ? 'grid-cols-1' : attachments.length === 2 ? 'grid-cols-2' : 'grid-cols-2'} gap-3`}>
+                    {attachments.slice(0, 4).map((attachment, idx) => (
+                      <div key={idx} className="relative overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                        <img
+                          src={attachment.media?.image?.src || attachment.target?.url}
+                          alt="Facebook attachment"
+                          className="w-full h-80 object-contain bg-gray-100 hover:opacity-95 transition-opacity cursor-pointer"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'flex';
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-gray-100 flex items-center justify-center text-gray-500 hidden">
+                          <span>📷 Image</span>
                         </div>
-                      );
-                    })}
+                        {idx === 3 && attachments.length > 4 && (
+                          <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center text-white text-xl font-bold cursor-pointer hover:bg-opacity-50 transition-all">
+                            +{attachments.length - 4}
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
               ) : image && (
-                <div className="mb-3 relative">
-                  <img 
-                    src={image} 
-                    alt="Facebook post" 
-                    className="w-full object-cover max-h-96 cursor-pointer hover:opacity-95 transition-opacity" 
-                  />
-                  {/* Check if the main image is actually a video thumbnail */}
-                  {(post.type === 'video' || post.video) && (
-                    <div 
-                      className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center cursor-pointer hover:bg-opacity-40 transition-all"
-                      onClick={() => {
-                        // Open video in new tab
-                        const videoUrl = post.video?.source || post.permalink_url;
-                        if (videoUrl) {
-                          window.open(videoUrl, '_blank');
-                        }
+                <div className="mb-3">
+                  <div className="relative overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
+                    <img
+                      src={image}
+                      alt="Facebook post"
+                      className="w-full h-80 object-contain bg-gray-100 cursor-pointer hover:opacity-95 transition-opacity"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'flex';
                       }}
-                    >
-                      <div className="w-16 h-16 bg-white bg-opacity-90 rounded-full flex items-center justify-center hover:bg-opacity-100 transition-all hover:scale-110 transform">
-                        <div className="w-0 h-0 border-l-[12px] border-l-blue-600 border-y-[8px] border-y-transparent ml-1"></div>
-                      </div>
+                    />
+                    <div className="absolute inset-0 bg-gray-100 flex items-center justify-center text-gray-500 hidden">
+                      <span>📷 Image</span>
                     </div>
-                  )}
-                  {/* Video indicator for main image */}
-                  {(post.type === 'video' || post.video) && (
-                    <div className="absolute top-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded flex items-center space-x-1">
-                      <span>🎥</span>
-                      <span>Video</span>
-                    </div>
-                  )}
+                  </div>
                 </div>
               )}
-
+ 
               {/* Action Buttons */}
               <div className="px-4 pt-2 pb-3 border-t border-gray-100">
                 <div className="grid grid-cols-3 gap-1">
@@ -297,14 +251,14 @@ export default function FacebookPosts({ posts, pageInfo, loading, error, searchQ
                   </button>
                 </div>
               </div>
-
+ 
               {/* View on Facebook Link */}
               {post.permalink_url && (
                 <div className="px-4 pb-3 border-t border-gray-50 pt-3">
-                  <a 
-                    href={post.permalink_url} 
-                    target="_blank" 
-                    rel="noopener noreferrer" 
+                  <a
+                    href={post.permalink_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="text-blue-600 text-xs hover:underline flex items-center space-x-1"
                   >
                     <FaFacebook className="text-xs" />
@@ -318,4 +272,5 @@ export default function FacebookPosts({ posts, pageInfo, loading, error, searchQ
       </div>
     </div>
   );
-} 
+}
+ 
