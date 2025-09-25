@@ -36,13 +36,12 @@ export default function DashboardPage() {
     try {
       const response = await protectedFetch('/scheduled-posts');
       
-      if (!response || !response.ok) {
+      if (!response) {
         console.error('Failed to fetch scheduled posts');
         return;
       }
       
-      const data = await response.json();
-      setScheduledPosts(data || []);
+      setScheduledPosts(response || []);
     } catch (err) {
       console.error('Error fetching scheduled posts:', err);
     } finally {

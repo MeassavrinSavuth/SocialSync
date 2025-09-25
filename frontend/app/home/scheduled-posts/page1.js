@@ -41,7 +41,6 @@ export default function ScheduledPostsPage() {
   const [editDate, setEditDate] = useState('');
   const [editTime, setEditTime] = useState('');
   const protectedFetch = useProtectedFetch();
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
 
   useEffect(() => {
     fetchScheduledPosts();
@@ -49,15 +48,12 @@ export default function ScheduledPostsPage() {
 
   const fetchScheduledPosts = async () => {
     try {
-      const res = await protectedFetch(`${API_BASE_URL}/api/scheduled-posts`);
+      const data = await protectedFetch('/scheduled-posts');
 
-      if (!res) throw new Error('No response from server');
-      if (!res.ok) {
-        const text = await res.text().catch(() => null);
-        throw new Error(text || `HTTP error ${res.status}`);
+      if (!data) {
+        throw new Error('No response from server');
       }
 
-      const data = await res.json();
       setScheduledPosts(data || []);
     } catch (err) {
       setError(err.message || 'Failed to fetch scheduled posts');
@@ -76,14 +72,12 @@ export default function ScheduledPostsPage() {
 
     setDeleteLoading(true);
     try {
-      const res = await protectedFetch(`${API_BASE_URL}/api/scheduled-posts/${postToDelete.id}`, {
+      const result = await protectedFetch(`/scheduled-posts/${postToDelete.id}`, {
         method: 'DELETE',
       });
 
-      if (!res) throw new Error('No response from server');
-      if (!res.ok) {
-        const text = await res.text().catch(() => null);
-        throw new Error(text || `HTTP error ${res.status}`);
+      if (!result) {
+        throw new Error('No response from server');
       }
 
       // Remove the deleted post from local state
@@ -121,7 +115,7 @@ export default function ScheduledPostsPage() {
     const newScheduledTime = new Date(`${editDate}T${editTime}`).toISOString();
 
     try {
-      const res = await protectedFetch(`${API_BASE_URL}/api/scheduled-posts/${postToEdit.id}`, {
+      const res = await protectedFetch(`/scheduled-posts/${postToEdit.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -132,10 +126,8 @@ export default function ScheduledPostsPage() {
         }),
       });
 
-      if (!res) throw new Error('No response from server');
-      if (!res.ok) {
-        const text = await res.text().catch(() => null);
-        throw new Error(text || `HTTP error ${res.status}`);
+      if (!res) {
+        throw new Error('No response from server');
       }
 
       // Update the post in local state
