@@ -20,6 +20,33 @@ import (
 	"golang.org/x/oauth2/google"
 )
 
+// stripHtmlTags removes HTML tags from a string
+func stripHtmlTags(html string) string {
+	if html == "" {
+		return ""
+	}
+
+	// Simple regex-like approach to remove HTML tags
+	result := html
+	for {
+		start := strings.Index(result, "<")
+		if start == -1 {
+			break
+		}
+		end := strings.Index(result[start:], ">")
+		if end == -1 {
+			break
+		}
+		result = result[:start] + result[start+end+1:]
+	}
+
+	// Clean up extra whitespace
+	result = strings.TrimSpace(result)
+	result = strings.ReplaceAll(result, "  ", " ")
+
+	return result
+}
+
 // AnalyticsSyncer handles fetching and storing analytics data from social platforms
 type AnalyticsSyncer struct {
 	UserID   uuid.UUID
@@ -167,9 +194,11 @@ func (as *AnalyticsSyncer) fetchMastodonAnalytics(accountID, accessToken string)
 		// Store top posts (limit to 5)
 		if len(topPosts) < 5 {
 			engagement := post.FavouritesCount + post.RepliesCount + post.ReblogsCount
+			// Strip HTML from Mastodon content
+			cleanContent := stripHtmlTags(post.Content)
 			topPosts = append(topPosts, map[string]interface{}{
 				"id":         post.ID,
-				"content":    post.Content,
+				"content":    cleanContent,
 				"likes":      post.FavouritesCount,
 				"comments":   post.RepliesCount,
 				"shares":     post.ReblogsCount,

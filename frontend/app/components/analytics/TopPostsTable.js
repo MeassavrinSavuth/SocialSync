@@ -23,9 +23,20 @@ export default function TopPostsTable({ posts = [] }) {
     return num?.toString() || '0';
   };
 
+  const stripHtml = (html) => {
+    if (!html) return '';
+    // Remove HTML tags and decode entities
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+    return temp.textContent || temp.innerText || '';
+  };
+
   const truncateText = (text, maxLength = 100) => {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + '...';
+    if (!text) return 'No content';
+    const cleanText = stripHtml(text).trim();
+    if (!cleanText || cleanText.length === 0) return 'No content';
+    if (cleanText.length <= maxLength) return cleanText;
+    return cleanText.substring(0, maxLength) + '...';
   };
 
   return (
@@ -57,16 +68,23 @@ export default function TopPostsTable({ posts = [] }) {
           <tbody className="bg-white divide-y divide-gray-200">
             {posts.map((post, index) => (
               <tr key={post.id || index} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
+                <td className="px-6 py-4">
                   <div className="text-sm text-gray-900 max-w-xs">
-                    {truncateText(post.content)}
+                    <div className="font-medium text-gray-900 mb-1">
+                      {truncateText(post.content, 80)}
+                    </div>
+                    {post.created_at && (
+                      <div className="text-xs text-gray-500">
+                        {new Date(post.created_at).toLocaleDateString()}
+                      </div>
+                    )}
                   </div>
                   {post.platform_url && (
                     <a 
                       href={post.platform_url} 
                       target="_blank" 
                       rel="noopener noreferrer"
-                      className="text-xs text-blue-600 hover:text-blue-800"
+                      className="text-xs text-blue-600 hover:text-blue-800 mt-1 inline-block"
                     >
                       View on platform →
                     </a>
