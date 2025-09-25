@@ -1,9 +1,20 @@
 // components/PostQueue.js
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 export default function PostQueue({ postQueue = [] }) {
+  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  // Update time every 500ms for smooth progress animation
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, []);
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'pending':
@@ -33,7 +44,17 @@ export default function PostQueue({ postQueue = [] }) {
   const getProgressValue = (item) => {
     if (item.status === 'completed') return 100;
     if (item.status === 'failed') return 0;
-    if (item.status === 'publishing') return item.progress || 50; // Default to 50% if no progress specified
+    if (item.status === 'publishing') {
+      // If no progress specified, simulate gradual progress
+      if (!item.progress) {
+        // Simulate progress based on time elapsed
+        const startTime = item.startTime || currentTime;
+        const elapsed = currentTime - startTime;
+        const maxTime = 8000; // 8 seconds max
+        return Math.min(85, Math.floor((elapsed / maxTime) * 85)); // Cap at 85% until actually complete
+      }
+      return item.progress;
+    }
     if (item.status === 'pending') return 0;
     return 0;
   };

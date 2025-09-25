@@ -142,7 +142,7 @@ export default function MastodonPosts({ posts, loading, error, searchQuery, setS
           };
 
           return (
-            <div key={post.id} className="bg-white rounded-lg md:rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 overflow-hidden">
+            <div key={post.id} className="bg-white rounded-lg md:rounded-xl shadow-sm border border-gray-200 hover:shadow-lg transition-all duration-300 overflow-hidden group">
               {/* Header - Mobile optimized */}
               <div className="flex items-start justify-between p-3 md:p-4 pb-2 md:pb-3">
                 <div className="flex items-start space-x-2 md:space-x-3 flex-1">
@@ -150,10 +150,10 @@ export default function MastodonPosts({ posts, loading, error, searchQuery, setS
                     <img
                       src={account.avatar || '/default-avatar.png'}
                       alt={account.display_name || account.username || 'User'}
-                      className="w-10 h-10 md:w-12 md:h-12 rounded-full border-2 border-gray-100"
+                      className="w-10 h-10 md:w-12 md:h-12 rounded-full border-2 border-gray-100 hover:border-purple-300 transition-colors duration-200"
                     />
                     {account.bot && (
-                      <div className="absolute -bottom-1 -right-1 w-4 h-4 md:w-5 md:h-5 bg-purple-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                      <div className="absolute -bottom-1 -right-1 w-4 h-4 md:w-5 md:h-5 bg-purple-600 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-sm">
                         🤖
                       </div>
                     )}
@@ -187,36 +187,74 @@ export default function MastodonPosts({ posts, loading, error, searchQuery, setS
                 />
               </div>
 
-              {/* Media - Mobile optimized */}
+              {/* Media - Enhanced with better fitting and video support */}
               {post.media_attachments && post.media_attachments.length > 0 && (
                 <div className="px-3 md:px-4 pb-2 md:pb-3">
-                  <div className={`grid gap-1 md:gap-2 ${
+                  <div className={`grid gap-2 md:gap-3 ${
                     post.media_attachments.length === 1 ? 'grid-cols-1' : 
                     post.media_attachments.length === 2 ? 'grid-cols-2' :
+                    post.media_attachments.length === 3 ? 'grid-cols-2' :
                     'grid-cols-2'
                   }`}>
                     {post.media_attachments.slice(0, 4).map((media, idx) => (
-                      <div key={media.id || idx} className="relative overflow-hidden rounded-lg border border-gray-200">
+                      <div key={media.id || idx} className="relative overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
                         {media.type === 'image' ? (
-                          <img 
-                            src={media.url || media.preview_url} 
-                            alt={media.description || 'Media attachment'} 
-                            className="w-full h-32 md:h-48 lg:h-64 object-cover hover:opacity-95 transition-opacity cursor-pointer" 
-                          />
+                          <div className="relative w-full h-48 md:h-64 lg:h-80">
+                            <img 
+                              src={media.url || media.preview_url} 
+                              alt={media.description || 'Media attachment'} 
+                              className="absolute inset-0 w-full h-full object-cover hover:scale-105 transition-transform duration-300 cursor-pointer" 
+                            />
+                            {media.description && (
+                              <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white text-xs p-2">
+                                {media.description}
+                              </div>
+                            )}
+                          </div>
                         ) : media.type === 'video' ? (
-                          <video 
-                            src={media.url} 
-                            className="w-full h-32 md:h-48 lg:h-64 object-cover" 
-                            controls
-                            poster={media.preview_url}
-                          />
+                          <div className="relative w-full h-48 md:h-64 lg:h-80 bg-black">
+                            <video 
+                              src={media.url} 
+                              className="w-full h-full object-cover" 
+                              controls
+                              poster={media.preview_url}
+                              preload="metadata"
+                            >
+                              Your browser does not support the video tag.
+                            </video>
+                            <div className="absolute top-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+                              🎥 Video
+                            </div>
+                          </div>
+                        ) : media.type === 'gifv' ? (
+                          <div className="relative w-full h-48 md:h-64 lg:h-80 bg-black">
+                            <video 
+                              src={media.url} 
+                              className="w-full h-full object-cover" 
+                              autoPlay
+                              loop
+                              muted
+                              playsInline
+                            >
+                              Your browser does not support the video tag.
+                            </video>
+                            <div className="absolute top-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+                              🎬 GIF
+                            </div>
+                          </div>
                         ) : (
-                          <div className="w-full h-20 md:h-32 bg-gray-100 flex items-center justify-center text-gray-500 text-xs md:text-sm">
-                            📎 {media.type} attachment
+                          <div className="w-full h-32 md:h-48 bg-gray-100 flex items-center justify-center text-gray-500 text-xs md:text-sm rounded-lg">
+                            <div className="text-center">
+                              <div className="text-2xl mb-2">📎</div>
+                              <div className="font-medium">{media.type} attachment</div>
+                              {media.description && (
+                                <div className="text-xs mt-1 text-gray-400">{media.description}</div>
+                              )}
+                            </div>
                           </div>
                         )}
                         {idx === 3 && post.media_attachments.length > 4 && (
-                          <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center text-white text-lg md:text-xl font-bold cursor-pointer hover:bg-opacity-50 transition-all">
+                          <div className="absolute inset-0 bg-black bg-opacity-60 flex items-center justify-center text-white text-lg md:text-xl font-bold cursor-pointer hover:bg-opacity-50 transition-all rounded-lg">
                             +{post.media_attachments.length - 4}
                           </div>
                         )}
