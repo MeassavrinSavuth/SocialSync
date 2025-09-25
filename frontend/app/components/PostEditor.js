@@ -641,27 +641,46 @@ export default function PostEditor({
         </label>
       </div>
 
-      {/* Upload Progress and Cancel - Mobile Optimized */}
-      {uploading && showProgressBarSection && (
-        <div className="my-2 space-y-2">
-          {uploadProgress.map((percent, i) => (
-            <div key={i} className="flex items-center gap-2 w-full">
-              <div className="relative w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-indigo-500 h-full rounded-full transition-all duration-300 ease-out"
-                  style={{ width: `${percent}%` }}
-                  aria-label={`Upload progress for file ${i + 1}`}
-                />
+      {/* Enhanced Upload Progress and Cancel - Mobile Optimized */}
+      {uploading && (
+        <div className="my-3 md:my-4 p-3 md:p-4 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-sm font-medium text-blue-900">Uploading Media Files</h4>
+            <span className="text-xs text-blue-700">
+              {uploadProgress.filter(p => p === 100).length} of {uploadProgress.length} completed
+            </span>
+          </div>
+          
+          <div className="space-y-3">
+            {uploadProgress.map((percent, i) => (
+              <div key={i} className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-700 font-medium">File {i + 1}</span>
+                  <span className="text-xs text-gray-600 font-medium">{percent}%</span>
+                </div>
+                <div className="relative w-full bg-gray-200 rounded-full h-3">
+                  <div
+                    className="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full transition-all duration-300 ease-out shadow-sm"
+                    style={{ width: `${percent}%` }}
+                    aria-label={`Upload progress for file ${i + 1}`}
+                  />
+                  {percent === 100 && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-white text-xs font-bold">✓</span>
+                    </div>
+                  )}
+                </div>
               </div>
-              <span className="text-xs text-gray-700 font-medium w-10 text-right">{percent}%</span>
-            </div>
-          ))}
+            ))}
+          </div>
+          
           <button
             type="button"
             onClick={cancelUploads}
-            className="mt-2 px-3 py-2 rounded-lg bg-red-500 text-white font-medium hover:bg-red-600 transition text-sm w-full sm:w-auto min-h-[44px]"
+            className="mt-3 w-full px-4 py-2 rounded-lg bg-red-500 text-white font-medium hover:bg-red-600 transition-colors text-sm min-h-[44px] flex items-center justify-center space-x-2"
           >
-            Cancel Uploads
+            <span>Cancel All Uploads</span>
+            <span className="text-xs">({uploadProgress.length} files)</span>
           </button>
         </div>
       )}
@@ -893,14 +912,33 @@ export default function PostEditor({
           </button>
         )}
 
-        {/* Clean Status Message */}
+        {/* Enhanced Status Message with Progress */}
         {status && (
           <div className={`p-4 rounded-lg border ${
             status.success 
               ? 'bg-green-50 border-green-200 text-green-800' 
               : 'bg-red-50 border-red-200 text-red-800'
           }`}>
-            <p className="text-sm font-medium">{status.message}</p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">{status.message}</p>
+              {status.success && (
+                <span className="text-green-600 text-lg">✓</span>
+              )}
+            </div>
+            {status.progress && (
+              <div className="mt-2">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-xs text-gray-600">Publishing Progress</span>
+                  <span className="text-xs text-gray-600">{status.progress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-green-500 h-full rounded-full transition-all duration-300 ease-out"
+                    style={{ width: `${status.progress}%` }}
+                  ></div>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -28,7 +28,6 @@ export default function PostsFolderPage() {
   const [twitterPosts, setTwitterPosts] = useState([]);
   const [youtubePosts, setYouTubePosts] = useState([]);
   const [facebookPosts, setFacebookPosts] = useState([]);
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
   const [facebookPageInfo, setFacebookPageInfo] = useState(null);
   const [instagramPosts, setInstagramPosts] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -45,6 +44,7 @@ export default function PostsFolderPage() {
       return;
     }
 
+    const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
     if (platform === 'facebook') {
       window.location.href = `${API_BASE_URL}/auth/facebook/login?token=${token}`;
     } else if (platform === 'twitter') {
@@ -64,19 +64,11 @@ export default function PostsFolderPage() {
     setError(null);
 
     try {
-      // Call the backend API directly (use API_BASE_URL) so requests go to the server
-      // Example: https://socialsync-j7ih.onrender.com/api/youtube/posts
-      const res = await protectedFetch(`${API_BASE_URL}/api/${platform}/posts`);
-      if (!res) return;
+      // Call the backend API using relative path
+      const payload = await protectedFetch(`/${platform}/posts`);
+      if (!payload) return;
 
-      let payload = null;
-      try {
-        payload = await res.json();
-      } catch (jsonErr) {
-        console.warn('Failed to parse JSON from', platform, jsonErr);
-      }
-
-      console.debug('fetchPlatformPosts', platform, 'status', res.status, 'payload', payload);
+      console.debug('fetchPlatformPosts', platform, 'payload', payload);
 
       if (!payload) {
         setConnectionStatus((prev) => ({
