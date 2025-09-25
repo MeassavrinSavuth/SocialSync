@@ -13,6 +13,7 @@ func InitRoutes() *mux.Router {
 	RegisterDraftPostRoutes(r)
 	RegisterMediaRoutes(r)
 	ScheduledPostRoutes(r)
+	RegisterAnalyticsRoutes(r)
 	// Add more like RegisterPostRoutes(r), etc.
 
 	return r
