@@ -16,6 +16,11 @@ import {
   MdAnalytics,
   MdPeople,
 } from "react-icons/md";
+// SVG imports as static assets
+const PostingSVG = "/posting.svg";
+const SchedulingSVG = "/scheduling.svg";
+const AnalyticsSVG = "/analytics.svg";
+const CollaborationSVG = "/collaboration.svg";
 
 // Logo component — with className support
 const Logo = ({ size = 40, className = "" }) => (
@@ -33,27 +38,36 @@ export default function Home() {
   const features = [
     {
       title: "Posting",
-      desc: "Publish content across multiple platforms easily and efficiently.",
+      desc: "Create and publish engaging content across all your social media platforms with our intuitive posting tools. Craft compelling posts, add media attachments, and reach your audience instantly with our streamlined publishing workflow.",
       icon: <MdOutlinePostAdd className="w-10 h-10 text-white" />,
       bg: "bg-gradient-to-tr from-blue-500 to-indigo-600",
+      svg: PostingSVG,
+      layout: "left-text-right-svg"
     },
     {
       title: "Scheduling",
-      desc: "Plan and schedule posts for the best times to reach your audience.",
+      desc: "Plan and schedule your social media content strategically with our advanced scheduling system. Set up posts for optimal times, create content calendars, and maintain consistent engagement with your audience even when you're away.",
       icon: <MdSchedule className="w-10 h-10 text-white" />,
       bg: "bg-gradient-to-tr from-green-400 to-green-600",
+      svg: SchedulingSVG,
+      layout: "left-svg-right-text"
     },
     {
       title: "Analytics",
-      desc: "Track engagement and performance across all connected accounts.",
+      desc: "Gain deep insights into your social media performance with comprehensive analytics and reporting tools. Track engagement metrics, monitor follower growth, and make data-driven decisions to optimize your social media strategy.",
       icon: <MdAnalytics className="w-10 h-10 text-white" />,
-      bg: "bg-gradient-to-tr from-purple-400 to-purple-600",
+      bg: "bg-gradient-to-tr",
+      style: { background: 'linear-gradient(to top right, #6d63fe, #4f46e5)' },
+      svg: AnalyticsSVG,
+      layout: "left-text-right-svg"
     },
     {
       title: "Collaboration",
-      desc: "Work seamlessly with your team in shared workspaces.",
+      desc: "Foster teamwork and streamline your social media management with powerful collaboration features. Share workspaces with team members, assign roles and permissions, and maintain brand consistency across all platforms.",
       icon: <MdPeople className="w-10 h-10 text-white" />,
       bg: "bg-gradient-to-tr from-pink-400 to-pink-600",
+      svg: CollaborationSVG,
+      layout: "left-svg-right-text"
     },
   ];
 
@@ -85,7 +99,7 @@ export default function Home() {
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center">
               <Logo size={40} className="mr-3" />
-              <h1 className="text-2xl font-bold text-gray-900">SocialSync</h1>
+              <h1 className="text-2xl font-bold" style={{ color: '#6d63fe' }}>SocialSync</h1>
             </div>
             <div className="flex space-x-4">
               <Link
@@ -103,7 +117,7 @@ export default function Home() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
         <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
           Manage All Your Social Media
-          <span className="text-blue-600 block">in One Place</span>
+          <span className="block" style={{ color: '#6d63fe' }}>in One Place</span>
         </h1>
         <p className="text-xl text-gray-600 mb-12 max-w-3xl mx-auto">
           Streamline your workflow with our main features: Posting, Scheduling, Analytics, and Team Collaboration.
@@ -113,43 +127,51 @@ export default function Home() {
         <div className="flex flex-col sm:flex-row gap-4 justify-center mb-20">
           <Link
             href="/login"
-            className="bg-white text-blue-600 hover:bg-gray-100 px-8 py-3 rounded-xl text-lg font-semibold transition-transform duration-200 hover:scale-105"
+            className="bg-white hover:bg-gray-100 px-8 py-3 rounded-xl text-lg font-semibold transition-transform duration-200 hover:scale-105"
+            style={{ color: '#6d63fe' }}
           >
             Login
           </Link>
           <Link
             href="/register"
-            className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-indigo-500 hover:to-blue-600 text-white px-8 py-3 rounded-xl text-lg font-semibold transition-transform duration-200 hover:scale-105"
+            className="text-white px-8 py-3 rounded-xl text-lg font-semibold transition-transform duration-200 hover:scale-105"
+            style={{ background: 'linear-gradient(to right, #6d63fe, #4f46e5)' }}
           >
             Sign Up
           </Link>
         </div>
 
         {/* Features Section */}
-        <div className="grid md:grid-cols-2 gap-12">
+        <div className="space-y-16">
           {features.map((feature, i) => (
             <div
               key={i}
-              className="bg-white p-10 rounded-2xl shadow-xl hover:shadow-2xl transition relative overflow-hidden group"
+              className={`flex items-center gap-12 ${
+                feature.layout === "left-svg-right-text" ? "flex-row" : "flex-row-reverse"
+              }`}
             >
-              <div
-                className={`w-16 h-16 rounded-full flex items-center justify-center mb-6 ${feature.bg} group-hover:scale-110 transition-transform duration-300`}
-              >
-                {feature.icon}
+              {/* SVG Section */}
+              <div className="flex-1 flex justify-center">
+                <div className="w-80 h-80 flex items-center justify-center">
+                  <Image
+                    src={feature.svg}
+                    alt={feature.title}
+                    width={320}
+                    height={320}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
               </div>
-              <h3 className="text-2xl font-semibold text-gray-900 mb-3">
-                {feature.title}
-              </h3>
-              <p className="text-gray-600 text-lg">{feature.desc}</p>
-              <svg
-                className="absolute top-0 right-0 w-20 h-20 opacity-20 transform rotate-45"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={1.5}
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l6 6L21 6" />
-              </svg>
+              
+              {/* Text Section */}
+              <div className="flex-1">
+                <div className="py-8">
+                  <h3 className="text-4xl font-bold text-gray-900 mb-6">
+                    {feature.title}
+                  </h3>
+                  <p className="text-gray-600 text-xl leading-relaxed">{feature.desc}</p>
+                </div>
+              </div>
             </div>
           ))}
         </div>
@@ -191,7 +213,7 @@ export default function Home() {
             <div>
               <div className="flex items-center mb-4">
                 <Logo size={32} className="mr-2" />
-                <h3 className="text-xl font-bold">SocialSync</h3>
+                <h3 className="text-xl font-bold" style={{ color: '#6d63fe' }}>SocialSync</h3>
               </div>
               <p className="text-gray-400">
                 The ultimate social media management platform for creators and businesses.
