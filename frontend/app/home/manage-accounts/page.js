@@ -149,16 +149,26 @@ export default function ManageAccountPage() {
         if (platformName === 'Facebook') {
           window.location.href = `${API_BASE_URL}/auth/facebook/login?token=${token}`;
         } else if (platformName === 'Instagram') {
-          await axios.post(
-            `${API_BASE_URL}/connect/instagram`,
-            {},
-            {
-              headers: { Authorization: `Bearer ${token}` },
+          try {
+            await axios.post(
+              `${API_BASE_URL}/connect/instagram`,
+              {},
+              {
+                headers: { Authorization: `Bearer ${token}` },
+              }
+            );
+            setStatusMessage('Instagram account connected successfully!');
+            setStatusType('success');
+            fetchAccounts();
+          } catch (instagramError) {
+            if (instagramError.response?.status === 400 && 
+                instagramError.response?.data?.includes('Facebook Page not connected')) {
+              setStatusMessage('Please connect your Facebook account first. Instagram requires a connected Facebook Business Page.');
+              setStatusType('error');
+            } else {
+              throw instagramError; // Re-throw to be caught by outer try-catch
             }
-          );
-          setStatusMessage('Instagram account connected successfully!');
-          setStatusType('success');
-          fetchAccounts();
+          }
         } else if (platformName === 'YouTube') {
           window.location.href = `${API_BASE_URL}/auth/youtube/login?token=${token}`;
   // TikTok handler removed

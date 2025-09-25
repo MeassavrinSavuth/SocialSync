@@ -70,9 +70,8 @@ const AuthErrorModal = ({ isOpen, onClose, errors, onReconnect }) => {
         oauthUrl = `${API_BASE_URL}/auth/mastodon/login?instance=${encodeURIComponent(instance)}&token=${token}`;
         break;
       case 'instagram':
-        // Instagram uses a different approach with axios POST request
-        // For now, redirect to manage accounts page where user can reconnect
-        oauthUrl = `${baseUrl}/home/manage-accounts`;
+        // Instagram requires Facebook connection first
+        oauthUrl = `${API_BASE_URL}/auth/facebook/login?token=${token}`;
         break;
       case 'telegram':
         // Telegram also uses a different flow, redirect to manage accounts

@@ -55,7 +55,8 @@ export default function PostsFolderPage() {
     } else if (platform === 'youtube') {
       window.location.href = `${API_BASE_URL}/auth/youtube/login?token=${token}`;
     } else if (platform === 'instagram') {
-      window.location.href = `${API_BASE_URL}/auth/instagram/login?token=${token}`;
+      // Instagram requires Facebook connection first, redirect to manage accounts
+      window.location.href = `/home/manage-accounts`;
     } else if (platform === 'mastodon') {
       window.location.href = `${API_BASE_URL}/auth/mastodon/login?token=${token}`;
     } else if (platform === 'telegram') {
