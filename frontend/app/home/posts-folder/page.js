@@ -167,14 +167,14 @@ export default function PostsFolderPage() {
   };
 
   // Filter posts by search query
-  const filteredMastodonPosts = mastodonPosts.filter((post) =>
+  const filteredMastodonPosts = (mastodonPosts || []).filter((post) =>
     post.content && post.content.toLowerCase().includes(searchQuery.toLowerCase())
   );
-  const filteredTwitterPosts = (twitterPosts.data || []).filter(
+  const filteredTwitterPosts = (twitterPosts?.data || []).filter(
     (tweet) =>
       tweet.text && tweet.text.toLowerCase().includes(searchQuery.toLowerCase())
   );
-  const filteredYouTubePosts = youtubePosts.filter((video) => {
+  const filteredYouTubePosts = (youtubePosts || []).filter((video) => {
     const snippet = video.snippet || {};
     return (
       (snippet.title &&
@@ -183,15 +183,15 @@ export default function PostsFolderPage() {
         snippet.description.toLowerCase().includes(searchQuery.toLowerCase()))
     );
   });
-  const filteredFacebookPosts = facebookPosts.filter(
+  const filteredFacebookPosts = (facebookPosts || []).filter(
     (post) =>
       post.message && post.message.toLowerCase().includes(searchQuery.toLowerCase())
   );
-  const filteredInstagramPosts = instagramPosts.filter(
+  const filteredInstagramPosts = (instagramPosts || []).filter(
     (post) =>
       post.caption && post.caption.toLowerCase().includes(searchQuery.toLowerCase())
   );
-  const filteredTelegramPosts = telegramPosts.filter(
+  const filteredTelegramPosts = (telegramPosts || []).filter(
     (post) =>
       (post.text || post.message) && 
       (post.text || post.message).toLowerCase().includes(searchQuery.toLowerCase())
