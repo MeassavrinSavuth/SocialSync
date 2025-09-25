@@ -28,7 +28,7 @@ export function useAnalytics() {
       }
 
       const queryString = params.toString();
-      const endpoint = queryString ? `/api/analytics/overview?${queryString}` : '/api/analytics/overview';
+      const endpoint = queryString ? `/analytics/overview?${queryString}` : '/analytics/overview';
 
       // useProtectedFetch returns parsed JSON on success (or raw Response for no-content).
       // The backend returns the analytics object directly, so assign the parsed response to state.
@@ -63,7 +63,7 @@ export function useAnalytics() {
 
   const fetchPlatformComparison = async () => {
     try {
-      const res = await protectedFetch('/api/analytics/platforms');
+      const res = await protectedFetch('/analytics/platforms');
 
       if (!res) {
         throw new Error('Failed to fetch platform comparison data');

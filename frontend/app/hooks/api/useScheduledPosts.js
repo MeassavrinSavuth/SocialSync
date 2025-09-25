@@ -1,12 +1,11 @@
 import { useProtectedFetch } from '../auth/useProtectedFetch';
 
 export function useScheduledPosts() {
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
   const protectedFetch = useProtectedFetch();
 
   const createScheduledPost = async ({ content, mediaFiles, platforms, scheduledTime }) => {
     try {
-      const res = await protectedFetch(`${API_BASE_URL}/api/scheduled-posts`, {
+      const res = await protectedFetch('/scheduled-posts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -47,7 +46,7 @@ export function useScheduledPosts() {
 
   const getScheduledPosts = async () => {
     try {
-      const res = await protectedFetch(`${API_BASE_URL}/api/scheduled-posts`);
+      const res = await protectedFetch('/scheduled-posts');
       if (!res) {
         return { success: false, error: 'No response from server' };
       }
@@ -71,7 +70,7 @@ export function useScheduledPosts() {
 
   const updateScheduledPost = async (postId, updateData) => {
     try {
-      const res = await protectedFetch(`${API_BASE_URL}/api/scheduled-posts/${postId}`, {
+      const res = await protectedFetch(`/scheduled-posts/${postId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -101,7 +100,7 @@ export function useScheduledPosts() {
 
   const deleteScheduledPost = async (postId) => {
     try {
-      const res = await protectedFetch(`${API_BASE_URL}/api/scheduled-posts/${postId}`, {
+      const res = await protectedFetch(`/scheduled-posts/${postId}`, {
         method: 'DELETE',
       });
 

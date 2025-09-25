@@ -27,7 +27,6 @@ export default function DashboardPage() {
   const protectedFetch = useProtectedFetch();
   const [scheduledPosts, setScheduledPosts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
 
   useEffect(() => {
     fetchScheduledPosts();
@@ -35,7 +34,7 @@ export default function DashboardPage() {
 
   const fetchScheduledPosts = async () => {
     try {
-      const response = await protectedFetch(`${API_BASE_URL}/api/scheduled-posts`);
+      const response = await protectedFetch('/scheduled-posts');
       
       if (!response || !response.ok) {
         console.error('Failed to fetch scheduled posts');
