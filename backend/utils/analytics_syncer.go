@@ -952,17 +952,21 @@ func (as *AnalyticsSyncer) fetchTelegramAnalytics(accountID, accessToken string)
 
 // storeAnalytics stores analytics data in the database
 func (as *AnalyticsSyncer) storeAnalytics(analytics *models.PostAnalytics) error {
-	// Check if we already have recent data for this user/platform
+	// Check if we already have recent data for this user/platform (within 2 hours to be more conservative)
 	var existingID int
+	var existingPosts int
 	query := `
-		SELECT id FROM post_analytics 
+		SELECT id, total_posts FROM post_analytics 
 		WHERE user_id = $1 AND platform = $2 
-		AND snapshot_at > NOW() - INTERVAL '1 hour'
+		AND snapshot_at > NOW() - INTERVAL '2 hours'
 		ORDER BY snapshot_at DESC LIMIT 1
 	`
-	err := lib.DB.QueryRow(query, analytics.UserID, analytics.Platform).Scan(&existingID)
+	err := lib.DB.QueryRow(query, analytics.UserID, analytics.Platform).Scan(&existingID, &existingPosts)
 	if err == nil {
 		// Update existing record
+		log.Printf("Updating existing analytics record (ID: %d) for user %s on platform %s: %d -> %d posts",
+			existingID, analytics.UserID, analytics.Platform, existingPosts, analytics.TotalPosts)
+
 		updateQuery := `
 			UPDATE post_analytics 
 			SET total_posts = $2, total_likes = $3, total_comments = $4, 
@@ -977,6 +981,9 @@ func (as *AnalyticsSyncer) storeAnalytics(analytics *models.PostAnalytics) error
 	}
 
 	// Insert new record
+	log.Printf("Creating new analytics record for user %s on platform %s: %d posts",
+		analytics.UserID, analytics.Platform, analytics.TotalPosts)
+
 	insertQuery := `
 		INSERT INTO post_analytics (user_id, platform, total_posts, total_likes, 
 			total_comments, total_shares, total_views, engagement, top_posts, snapshot_at)
