@@ -65,10 +65,9 @@ func NewAnalyticsSyncer(userID uuid.UUID, platform string) *AnalyticsSyncer {
 func (as *AnalyticsSyncer) SyncAnalytics() error {
 	log.Printf("Starting analytics sync for user %s on platform %s", as.UserID, as.Platform)
 
-	// Temporarily skip Twitter analytics to avoid hitting rate limits.
-	// TODO: Re-enable Twitter sync with a proper rate-limit/backoff strategy or queued worker.
+	// Skip Twitter analytics completely - disabled for now
 	if as.Platform == "twitter" {
-		log.Printf("Skipping twitter analytics sync for user %s to avoid API rate limits", as.UserID)
+		log.Printf("Skipping twitter analytics sync for user %s - Twitter analytics disabled", as.UserID)
 		return nil
 	}
 
@@ -233,62 +232,107 @@ func (as *AnalyticsSyncer) fetchFacebookAnalytics(accountID, accessToken string)
 	// Use proper HTTP client like your working social account syncer
 	client := &http.Client{Timeout: 10 * time.Second}
 
-	// Use the same API endpoint as the working Facebook posts handler
-	url := fmt.Sprintf("https://graph.facebook.com/v20.0/%s/posts?fields=message,created_time,full_picture,permalink_url,likes.summary(true),comments.summary(true),shares&access_token=%s", accountID, accessToken)
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("error creating facebook request: %v", err)
+	// Fetch Facebook posts with pagination to get ALL posts
+	var allPosts []struct {
+		ID           string `json:"id"`
+		Message      string `json:"message"`
+		CreatedTime  string `json:"created_time"`
+		FullPicture  string `json:"full_picture"`
+		PermalinkURL string `json:"permalink_url"`
+		Likes        struct {
+			Summary struct {
+				TotalCount int `json:"total_count"`
+			} `json:"summary"`
+		} `json:"likes"`
+		Comments struct {
+			Summary struct {
+				TotalCount int `json:"total_count"`
+			} `json:"summary"`
+		} `json:"comments"`
+		Shares struct {
+			Count int `json:"count"`
+		} `json:"shares"`
 	}
 
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("error fetching facebook data: %v", err)
-	}
-	defer resp.Body.Close()
+	// Start with initial request
+	nextURL := fmt.Sprintf("https://graph.facebook.com/v20.0/%s/posts?fields=message,created_time,full_picture,permalink_url,likes.summary(true),comments.summary(true),shares&limit=100&access_token=%s", accountID, accessToken)
 
-	// Handle authentication errors
-	if resp.StatusCode == 401 || resp.StatusCode == 403 {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("facebook token expired or invalid permissions: %s", string(body))
-	}
-	if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("facebook API returned status %d: %s", resp.StatusCode, string(body))
+	// Fetch all pages of posts
+	for nextURL != "" {
+		req, err := http.NewRequest("GET", nextURL, nil)
+		if err != nil {
+			return nil, fmt.Errorf("error creating facebook request: %v", err)
+		}
+
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("error fetching facebook data: %v", err)
+		}
+
+		// Handle authentication errors
+		if resp.StatusCode == 401 || resp.StatusCode == 403 {
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			return nil, fmt.Errorf("facebook token expired or invalid permissions: %s", string(body))
+		}
+		if resp.StatusCode != 200 {
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			return nil, fmt.Errorf("facebook API returned status %d: %s", resp.StatusCode, string(body))
+		}
+
+		var fbResponse struct {
+			Data []struct {
+				ID           string `json:"id"`
+				Message      string `json:"message"`
+				CreatedTime  string `json:"created_time"`
+				FullPicture  string `json:"full_picture"`
+				PermalinkURL string `json:"permalink_url"`
+				Likes        struct {
+					Summary struct {
+						TotalCount int `json:"total_count"`
+					} `json:"summary"`
+				} `json:"likes"`
+				Comments struct {
+					Summary struct {
+						TotalCount int `json:"total_count"`
+					} `json:"summary"`
+				} `json:"comments"`
+				Shares struct {
+					Count int `json:"count"`
+				} `json:"shares"`
+			} `json:"data"`
+			Paging struct {
+				Next string `json:"next"`
+			} `json:"paging"`
+		}
+
+		if err := json.NewDecoder(resp.Body).Decode(&fbResponse); err != nil {
+			resp.Body.Close()
+			return nil, fmt.Errorf("error decoding facebook response: %v", err)
+		}
+		resp.Body.Close()
+
+		// Add posts from this page
+		allPosts = append(allPosts, fbResponse.Data...)
+
+		// Check if there's a next page
+		nextURL = fbResponse.Paging.Next
+
+		// Safety limit to prevent infinite loops
+		if len(allPosts) > 1000 {
+			log.Printf("Facebook analytics: Reached safety limit of 1000 posts for user %s", as.UserID)
+			break
+		}
 	}
 
-	var fbResponse struct {
-		Data []struct {
-			ID           string `json:"id"`
-			Message      string `json:"message"`
-			CreatedTime  string `json:"created_time"`
-			FullPicture  string `json:"full_picture"`
-			PermalinkURL string `json:"permalink_url"`
-			Likes        struct {
-				Summary struct {
-					TotalCount int `json:"total_count"`
-				} `json:"summary"`
-			} `json:"likes"`
-			Comments struct {
-				Summary struct {
-					TotalCount int `json:"total_count"`
-				} `json:"summary"`
-			} `json:"comments"`
-			Shares struct {
-				Count int `json:"count"`
-			} `json:"shares"`
-		} `json:"data"`
-	}
+	log.Printf("Facebook analytics: Fetched %d total posts for user %s", len(allPosts), as.UserID)
 
-	if err := json.NewDecoder(resp.Body).Decode(&fbResponse); err != nil {
-		return nil, fmt.Errorf("error decoding facebook response: %v", err)
-	}
-
-	// Calculate totals from real data
+	// Calculate totals from all posts
 	var totalPosts, totalLikes, totalComments, totalShares int
 	var topPosts []map[string]interface{}
 
-	for _, post := range fbResponse.Data {
+	for _, post := range allPosts {
 		totalPosts++
 		totalLikes += post.Likes.Summary.TotalCount
 		totalComments += post.Comments.Summary.TotalCount
