@@ -476,8 +476,15 @@ func GetTelegramPostsHandler(db *sql.DB) http.HandlerFunc {
 
 // getTelegramChannelMessages fetches messages from a Telegram channel
 func getTelegramChannelMessages(botToken, chatID string) ([]map[string]interface{}, error) {
-	// Get recent updates from the bot
-	url := fmt.Sprintf("https://api.telegram.org/bot%s/getUpdates?limit=100&offset=-100", botToken)
+	// First, try to get the chat information to verify the channel exists
+	chatInfo, err := getTelegramChat(botToken, chatID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chat info: %v", err)
+	}
+
+	// Try multiple approaches to get messages from the channel
+	// Approach 1: Get recent updates from the bot
+	url := fmt.Sprintf("https://api.telegram.org/bot%s/getUpdates?limit=100", botToken)
 
 	resp, err := http.Get(url)
 	if err != nil {
@@ -563,9 +570,18 @@ func getTelegramChannelMessages(botToken, chatID string) ([]map[string]interface
 			continue
 		}
 
-		// Only include messages from the specified chat
-		if fmt.Sprintf("%d", update.Message.Chat.ID) != chatID && update.Message.Chat.Username != chatID {
-			continue
+		// Convert chatID to int64 for comparison
+		chatIDInt, err := strconv.ParseInt(chatID, 10, 64)
+		if err != nil {
+			// If chatID is not a number, compare as string
+			if update.Message.Chat.Username != chatID {
+				continue
+			}
+		} else {
+			// Compare as int64
+			if update.Message.Chat.ID != chatIDInt {
+				continue
+			}
 		}
 
 		message := map[string]interface{}{
@@ -637,14 +653,77 @@ func getTelegramChannelMessages(botToken, chatID string) ([]map[string]interface
 		messages = append(messages, message)
 	}
 
-	// If no messages found, return a sample message
+	// If no messages found, try alternative approaches to get real messages
 	if len(messages) == 0 {
+		// Try to get messages using different approaches
+		realMessages, err := tryAlternativeMessageFetching(botToken, chatID, chatInfo)
+		if err == nil && len(realMessages) > 0 {
+			return realMessages, nil
+		}
+
+		// If still no messages, check bot permissions and provide helpful feedback
+		adminURL := fmt.Sprintf("https://api.telegram.org/bot%s/getChatAdministrators?chat_id=%s", botToken, chatID)
+		adminResp, err := http.Get(adminURL)
+		if err == nil {
+			defer adminResp.Body.Close()
+			adminBody, _ := io.ReadAll(adminResp.Body)
+			var adminResult struct {
+				OK     bool `json:"ok"`
+				Result []struct {
+					User struct {
+						ID       int64  `json:"id"`
+						IsBot    bool   `json:"is_bot"`
+						Username string `json:"username"`
+					} `json:"user"`
+					Status string `json:"status"`
+				} `json:"result"`
+			}
+			json.Unmarshal(adminBody, &adminResult)
+
+			// Check if bot is admin
+			botIsAdmin := false
+			for _, admin := range adminResult.Result {
+				if admin.User.IsBot && (admin.Status == "administrator" || admin.Status == "creator") {
+					botIsAdmin = true
+					break
+				}
+			}
+
+			if !botIsAdmin {
+				return []map[string]interface{}{
+					{
+						"id":         1,
+						"message_id": 1,
+						"text":       fmt.Sprintf("Bot is not an admin of channel '%s'. To see messages, add the bot as an administrator to the channel.", chatInfo.Result.Title),
+						"message":    fmt.Sprintf("Bot is not an admin of channel '%s'. To see messages, add the bot as an administrator to the channel.", chatInfo.Result.Title),
+						"date":       time.Now().Format(time.RFC3339),
+						"created_at": time.Now().Format(time.RFC3339),
+						"from": map[string]interface{}{
+							"id":         123456789,
+							"first_name": "System",
+							"username":   "system",
+							"is_bot":     true,
+						},
+						"chat": map[string]interface{}{
+							"id":       chatID,
+							"type":     chatInfo.Result.Type,
+							"title":    chatInfo.Result.Title,
+							"username": chatInfo.Result.Username,
+						},
+						"views":    0,
+						"forwards": 0,
+					},
+				}, nil
+			}
+		}
+
+		// If bot is admin but no messages found, return a helpful message
 		return []map[string]interface{}{
 			{
 				"id":         1,
 				"message_id": 1,
-				"text":       "No messages found in this channel. Start by sending a message to your connected Telegram channel.",
-				"message":    "No messages found in this channel. Start by sending a message to your connected Telegram channel.",
+				"text":       fmt.Sprintf("No recent messages found in channel '%s'. Send a message to the channel to see it here.", chatInfo.Result.Title),
+				"message":    fmt.Sprintf("No recent messages found in channel '%s'. Send a message to the channel to see it here.", chatInfo.Result.Title),
 				"date":       time.Now().Format(time.RFC3339),
 				"created_at": time.Now().Format(time.RFC3339),
 				"from": map[string]interface{}{
@@ -655,9 +734,9 @@ func getTelegramChannelMessages(botToken, chatID string) ([]map[string]interface
 				},
 				"chat": map[string]interface{}{
 					"id":       chatID,
-					"type":     "channel",
-					"title":    "Your Channel",
-					"username": "your_channel",
+					"type":     chatInfo.Result.Type,
+					"title":    chatInfo.Result.Title,
+					"username": chatInfo.Result.Username,
 				},
 				"views":    0,
 				"forwards": 0,
@@ -671,6 +750,196 @@ func getTelegramChannelMessages(botToken, chatID string) ([]map[string]interface
 		dateJ, _ := time.Parse(time.RFC3339, messages[j]["date"].(string))
 		return dateI.After(dateJ)
 	})
+
+	return messages, nil
+}
+
+// tryAlternativeMessageFetching tries different approaches to get real messages from the channel
+func tryAlternativeMessageFetching(botToken, chatID string, chatInfo *TelegramChatResponse) ([]map[string]interface{}, error) {
+	var messages []map[string]interface{}
+
+	// Approach 1: Try to get messages with different offset values
+	for offset := 0; offset < 5; offset++ {
+		url := fmt.Sprintf("https://api.telegram.org/bot%s/getUpdates?limit=100&offset=%d", botToken, offset)
+		resp, err := http.Get(url)
+		if err != nil {
+			continue
+		}
+		defer resp.Body.Close()
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			continue
+		}
+
+		var updatesResp struct {
+			OK     bool `json:"ok"`
+			Result []struct {
+				UpdateID int `json:"update_id"`
+				Message  struct {
+					MessageID int `json:"message_id"`
+					From      struct {
+						ID        int64  `json:"id"`
+						IsBot     bool   `json:"is_bot"`
+						FirstName string `json:"first_name"`
+						Username  string `json:"username"`
+					} `json:"from"`
+					Chat struct {
+						ID       int64  `json:"id"`
+						Type     string `json:"type"`
+						Title    string `json:"title"`
+						Username string `json:"username"`
+					} `json:"chat"`
+					Date  int64  `json:"date"`
+					Text  string `json:"text"`
+					Photo []struct {
+						FileID       string `json:"file_id"`
+						FileUniqueID string `json:"file_unique_id"`
+						Width        int    `json:"width"`
+						Height       int    `json:"height"`
+						FileSize     int    `json:"file_size"`
+					} `json:"photo"`
+					Video struct {
+						FileID       string `json:"file_id"`
+						FileUniqueID string `json:"file_unique_id"`
+						Width        int    `json:"width"`
+						Height       int    `json:"height"`
+						Duration     int    `json:"duration"`
+						Thumbnail    struct {
+							FileID       string `json:"file_id"`
+							FileUniqueID string `json:"file_unique_id"`
+							Width        int    `json:"width"`
+							Height       int    `json:"height"`
+							FileSize     int    `json:"file_size"`
+						} `json:"thumbnail"`
+						FileName string `json:"file_name"`
+						MimeType string `json:"mime_type"`
+						FileSize int    `json:"file_size"`
+					} `json:"video"`
+					Document struct {
+						FileID       string `json:"file_id"`
+						FileUniqueID string `json:"file_unique_id"`
+						FileName     string `json:"file_name"`
+						MimeType     string `json:"mime_type"`
+						FileSize     int    `json:"file_size"`
+					} `json:"document"`
+					Caption  string `json:"caption"`
+					Views    int    `json:"views"`
+					Forwards int    `json:"forwards"`
+				} `json:"message"`
+			} `json:"result"`
+		}
+
+		if err := json.Unmarshal(body, &updatesResp); err != nil {
+			continue
+		}
+
+		if !updatesResp.OK {
+			continue
+		}
+
+		// Process messages from this batch
+		for _, update := range updatesResp.Result {
+			if update.Message.MessageID == 0 {
+				continue
+			}
+
+			// Convert chatID to int64 for comparison
+			chatIDInt, err := strconv.ParseInt(chatID, 10, 64)
+			if err != nil {
+				// If chatID is not a number, compare as string
+				if update.Message.Chat.Username != chatID {
+					continue
+				}
+			} else {
+				// Compare as int64
+				if update.Message.Chat.ID != chatIDInt {
+					continue
+				}
+			}
+
+			message := map[string]interface{}{
+				"id":         update.Message.MessageID,
+				"message_id": update.Message.MessageID,
+				"text":       update.Message.Text,
+				"message":    update.Message.Text,
+				"date":       time.Unix(update.Message.Date, 0).Format(time.RFC3339),
+				"created_at": time.Unix(update.Message.Date, 0).Format(time.RFC3339),
+				"from": map[string]interface{}{
+					"id":         update.Message.From.ID,
+					"first_name": update.Message.From.FirstName,
+					"username":   update.Message.From.Username,
+					"is_bot":     update.Message.From.IsBot,
+				},
+				"chat": map[string]interface{}{
+					"id":       update.Message.Chat.ID,
+					"type":     update.Message.Chat.Type,
+					"title":    update.Message.Chat.Title,
+					"username": update.Message.Chat.Username,
+				},
+				"views":    update.Message.Views,
+				"forwards": update.Message.Forwards,
+			}
+
+			// Handle media attachments
+			if len(update.Message.Photo) > 0 {
+				largestPhoto := update.Message.Photo[len(update.Message.Photo)-1]
+				message["photo"] = map[string]interface{}{
+					"url":       fmt.Sprintf("https://api.telegram.org/bot%s/getFile?file_id=%s", botToken, largestPhoto.FileID),
+					"type":      "image",
+					"width":     largestPhoto.Width,
+					"height":    largestPhoto.Height,
+					"file_size": largestPhoto.FileSize,
+				}
+			}
+
+			if update.Message.Video.FileID != "" {
+				message["video"] = map[string]interface{}{
+					"url":       fmt.Sprintf("https://api.telegram.org/bot%s/getFile?file_id=%s", botToken, update.Message.Video.FileID),
+					"type":      "video",
+					"width":     update.Message.Video.Width,
+					"height":    update.Message.Video.Height,
+					"duration":  update.Message.Video.Duration,
+					"file_name": update.Message.Video.FileName,
+					"mime_type": update.Message.Video.MimeType,
+					"file_size": update.Message.Video.FileSize,
+					"thumb": map[string]interface{}{
+						"url": fmt.Sprintf("https://api.telegram.org/bot%s/getFile?file_id=%s", botToken, update.Message.Video.Thumbnail.FileID),
+					},
+				}
+			}
+
+			if update.Message.Document.FileID != "" {
+				message["document"] = map[string]interface{}{
+					"url":       fmt.Sprintf("https://api.telegram.org/bot%s/getFile?file_id=%s", botToken, update.Message.Document.FileID),
+					"type":      "document",
+					"file_name": update.Message.Document.FileName,
+					"mime_type": update.Message.Document.MimeType,
+					"file_size": update.Message.Document.FileSize,
+				}
+			}
+
+			if update.Message.Caption != "" {
+				message["caption"] = update.Message.Caption
+			}
+
+			messages = append(messages, message)
+		}
+
+		// If we found messages, break
+		if len(messages) > 0 {
+			break
+		}
+	}
+
+	// Sort by date (newest first)
+	if len(messages) > 0 {
+		sort.Slice(messages, func(i, j int) bool {
+			dateI, _ := time.Parse(time.RFC3339, messages[i]["date"].(string))
+			dateJ, _ := time.Parse(time.RFC3339, messages[j]["date"].(string))
+			return dateI.After(dateJ)
+		})
+	}
 
 	return messages, nil
 }
