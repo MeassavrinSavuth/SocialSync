@@ -21,7 +21,7 @@ const PostingSVG = "/posting.svg";
 const SchedulingSVG = "/scheduling.svg";
 const AnalyticsSVG = "/analytics.svg";
 const CollaborationSVG = "/collaboration.svg";
- 
+
 // Logo component — with className support
 const Logo = ({ size = 40, className = "" }) => (
   <Image
@@ -256,4 +256,3 @@ export default function Home() {
     </div>
   );
 }
- 
