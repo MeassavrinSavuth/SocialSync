@@ -76,12 +76,16 @@ func (as *AnalyticsSyncer) SyncAnalytics() error {
 		analytics, err = as.fetchTwitterAnalytics(accountID, accessToken)
 	case "youtube":
 		analytics, err = as.fetchYouTubeAnalytics(accountID, accessToken)
+	case "telegram":
+		analytics, err = as.fetchTelegramAnalytics(accountID, accessToken)
 	default:
 		return fmt.Errorf("unsupported platform: %s", as.Platform)
 	}
 
 	if err != nil {
-		return fmt.Errorf("error fetching %s analytics: %v", as.Platform, err)
+		log.Printf("Error fetching %s analytics for user %s: %v", as.Platform, as.UserID, err)
+		// Return the error instead of falling back to mock data
+		return fmt.Errorf("failed to fetch %s analytics: %v", as.Platform, err)
 	}
 
 	// Store analytics data
@@ -91,7 +95,7 @@ func (as *AnalyticsSyncer) SyncAnalytics() error {
 	err = as.storeAnalytics(analytics)
 	if err != nil {
 		log.Printf("Error storing analytics: %v", err)
-		return err
+		return fmt.Errorf("failed to store analytics data: %v", err)
 	}
 
 	log.Printf("Successfully stored analytics data for user %s on platform %s", as.UserID, as.Platform)
@@ -108,16 +112,12 @@ func (as *AnalyticsSyncer) fetchMastodonAnalytics(accountID, accessToken string)
 	// We need to extract the numeric ID from the account ID
 	parts := strings.Split(accountID, "://")
 	if len(parts) < 2 {
-		log.Printf("Invalid account ID format: %s", accountID)
-		log.Printf("Falling back to mock data for Mastodon")
-		return as.getMastodonMockData(), nil
+		return nil, fmt.Errorf("invalid account ID format: %s", accountID)
 	}
 
 	domainAndID := strings.Split(parts[1], ":")
 	if len(domainAndID) < 2 {
-		log.Printf("Invalid account ID format: %s", accountID)
-		log.Printf("Falling back to mock data for Mastodon")
-		return as.getMastodonMockData(), nil
+		return nil, fmt.Errorf("invalid account ID format: %s", accountID)
 	}
 
 	domain := domainAndID[0]
@@ -126,25 +126,19 @@ func (as *AnalyticsSyncer) fetchMastodonAnalytics(accountID, accessToken string)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		log.Printf("Error creating Mastodon request: %v", err)
-		log.Printf("Falling back to mock data for Mastodon")
-		return as.getMastodonMockData(), nil
+		return nil, fmt.Errorf("error creating mastodon request: %v", err)
 	}
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("Error fetching Mastodon data: %v", err)
-		log.Printf("Falling back to mock data for Mastodon")
-		return as.getMastodonMockData(), nil
+		return nil, fmt.Errorf("error fetching mastodon data: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
-		log.Printf("Mastodon API returned status %d: %s", resp.StatusCode, string(body))
-		log.Printf("Falling back to mock data for Mastodon")
-		return as.getMastodonMockData(), nil
+		return nil, fmt.Errorf("mastodon API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var mastodonResponse []struct {
@@ -157,9 +151,7 @@ func (as *AnalyticsSyncer) fetchMastodonAnalytics(accountID, accessToken string)
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&mastodonResponse); err != nil {
-		log.Printf("Error decoding Mastodon response: %v", err)
-		log.Printf("Falling back to mock data for Mastodon")
-		return as.getMastodonMockData(), nil
+		return nil, fmt.Errorf("error decoding mastodon response: %v", err)
 	}
 
 	// Calculate totals from real data
@@ -207,22 +199,6 @@ func (as *AnalyticsSyncer) fetchMastodonAnalytics(accountID, accessToken string)
 	}, nil
 }
 
-// getMastodonMockData returns mock data for Mastodon when API calls fail
-func (as *AnalyticsSyncer) getMastodonMockData() *models.PostAnalytics {
-	return &models.PostAnalytics{
-		UserID:        as.UserID,
-		Platform:      as.Platform,
-		SnapshotAt:    time.Now(),
-		TotalPosts:    25,
-		TotalLikes:    150,
-		TotalComments: 30,
-		TotalShares:   45,
-		TotalViews:    500,
-		Engagement:    225, // 150 + 30 + 45
-		TopPosts:      `[{"id":"1","content":"Sample post","likes":10,"comments":2,"shares":3,"views":50,"engagement":19,"created_at":"2024-01-01T00:00:00Z"}]`,
-	}
-}
-
 // fetchFacebookAnalytics fetches analytics data from Facebook API
 func (as *AnalyticsSyncer) fetchFacebookAnalytics(accountID, accessToken string) (*models.PostAnalytics, error) {
 	// Use proper HTTP client like your working social account syncer
@@ -231,24 +207,19 @@ func (as *AnalyticsSyncer) fetchFacebookAnalytics(accountID, accessToken string)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		log.Printf("Error creating Facebook request: %v", err)
-		return as.getFacebookMockData(), nil
+		return nil, fmt.Errorf("error creating facebook request: %v", err)
 	}
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("Error fetching Facebook data: %v", err)
-		log.Printf("Falling back to mock data for Facebook")
-		return as.getFacebookMockData(), nil
+		return nil, fmt.Errorf("error fetching facebook data: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
-		log.Printf("Facebook API returned status %d: %s", resp.StatusCode, string(body))
-		log.Printf("Falling back to mock data for Facebook")
-		return as.getFacebookMockData(), nil
+		return nil, fmt.Errorf("facebook API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var fbResponse struct {
@@ -273,19 +244,7 @@ func (as *AnalyticsSyncer) fetchFacebookAnalytics(accountID, accessToken string)
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&fbResponse); err != nil {
-		log.Printf("Error decoding Facebook response: %v", err)
-		// Return mock data if parsing fails
-		return &models.PostAnalytics{
-			UserID:        as.UserID,
-			Platform:      as.Platform,
-			SnapshotAt:    time.Now(),
-			TotalPosts:    30,
-			TotalLikes:    200,
-			TotalComments: 50,
-			TotalShares:   60,
-			TotalViews:    800,
-			TopPosts:      `[{"id":"1","content":"Facebook post","likes":15,"comments":5,"shares":8,"views":100,"engagement":39,"created_at":"2024-01-01T00:00:00Z"}]`,
-		}, nil
+		return nil, fmt.Errorf("error decoding facebook response: %v", err)
 	}
 
 	// Calculate totals from real data
@@ -333,22 +292,6 @@ func (as *AnalyticsSyncer) fetchFacebookAnalytics(accountID, accessToken string)
 	}, nil
 }
 
-// getFacebookMockData returns mock data for Facebook when API calls fail
-func (as *AnalyticsSyncer) getFacebookMockData() *models.PostAnalytics {
-	return &models.PostAnalytics{
-		UserID:        as.UserID,
-		Platform:      as.Platform,
-		SnapshotAt:    time.Now(),
-		TotalPosts:    30,
-		TotalLikes:    200,
-		TotalComments: 50,
-		TotalShares:   60,
-		TotalViews:    800,
-		Engagement:    310, // 200 + 50 + 60
-		TopPosts:      `[{"id":"1","content":"Facebook post","likes":15,"comments":5,"shares":8,"views":100,"engagement":39,"created_at":"2024-01-01T00:00:00Z"}]`,
-	}
-}
-
 // fetchInstagramAnalytics fetches analytics data from Instagram API
 func (as *AnalyticsSyncer) fetchInstagramAnalytics(accountID, accessToken string) (*models.PostAnalytics, error) {
 	// Use proper HTTP client like your working social account syncer
@@ -357,24 +300,19 @@ func (as *AnalyticsSyncer) fetchInstagramAnalytics(accountID, accessToken string
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		log.Printf("Error creating Instagram request: %v", err)
-		return as.getInstagramMockData(), nil
+		return nil, fmt.Errorf("error creating instagram request: %v", err)
 	}
 	req.Header.Add("Authorization", "Bearer "+accessToken)
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("Error fetching Instagram data: %v", err)
-		log.Printf("Falling back to mock data for Instagram")
-		return as.getInstagramMockData(), nil
+		return nil, fmt.Errorf("error fetching instagram data: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
-		log.Printf("Instagram API returned status %d: %s", resp.StatusCode, string(body))
-		log.Printf("Falling back to mock data for Instagram")
-		return as.getInstagramMockData(), nil
+		return nil, fmt.Errorf("instagram API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var igResponse struct {
@@ -391,8 +329,7 @@ func (as *AnalyticsSyncer) fetchInstagramAnalytics(accountID, accessToken string
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&igResponse); err != nil {
-		log.Printf("Error decoding Instagram response: %v", err)
-		return as.getInstagramMockData(), nil
+		return nil, fmt.Errorf("error decoding instagram response: %v", err)
 	}
 
 	// Calculate totals from real data
@@ -440,37 +377,91 @@ func (as *AnalyticsSyncer) fetchInstagramAnalytics(accountID, accessToken string
 	}, nil
 }
 
-// getInstagramMockData returns mock data for Instagram when API calls fail
-func (as *AnalyticsSyncer) getInstagramMockData() *models.PostAnalytics {
-	return &models.PostAnalytics{
-		UserID:        as.UserID,
-		Platform:      as.Platform,
-		SnapshotAt:    time.Now(),
-		TotalPosts:    20,
-		TotalLikes:    300,
-		TotalComments: 40,
-		TotalShares:   25,
-		TotalViews:    1200,
-		Engagement:    365, // 300 + 40 + 25
-		TopPosts:      `[{"id":"1","content":"Instagram post","likes":25,"comments":8,"shares":5,"views":150,"engagement":51,"created_at":"2024-01-01T00:00:00Z"}]`,
-	}
-}
-
 // fetchTwitterAnalytics fetches analytics data from Twitter API
 func (as *AnalyticsSyncer) fetchTwitterAnalytics(accountID, accessToken string) (*models.PostAnalytics, error) {
-	// This would make API calls to Twitter API v2
-	// For now, return mock data
+	// Use proper HTTP client
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	// Get user's tweets from Twitter API v2
+	url := fmt.Sprintf("https://api.twitter.com/2/users/%s/tweets?tweet.fields=public_metrics,created_at&max_results=40", accountID)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error creating twitter request: %v", err)
+	}
+	req.Header.Add("Authorization", "Bearer "+accessToken)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching twitter data: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("twitter API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var twitterResponse struct {
+		Data []struct {
+			ID            string `json:"id"`
+			Text          string `json:"text"`
+			CreatedAt     string `json:"created_at"`
+			PublicMetrics struct {
+				RetweetCount int `json:"retweet_count"`
+				LikeCount    int `json:"like_count"`
+				ReplyCount   int `json:"reply_count"`
+				QuoteCount   int `json:"quote_count"`
+			} `json:"public_metrics"`
+		} `json:"data"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&twitterResponse); err != nil {
+		return nil, fmt.Errorf("error decoding twitter response: %v", err)
+	}
+
+	// Calculate totals from real data
+	var totalPosts, totalLikes, totalComments, totalShares int
+	var topPosts []map[string]interface{}
+
+	for _, tweet := range twitterResponse.Data {
+		totalPosts++
+		totalLikes += tweet.PublicMetrics.LikeCount
+		totalComments += tweet.PublicMetrics.ReplyCount
+		totalShares += tweet.PublicMetrics.RetweetCount + tweet.PublicMetrics.QuoteCount
+
+		// Store top posts (limit to 5)
+		if len(topPosts) < 5 {
+			engagement := tweet.PublicMetrics.LikeCount + tweet.PublicMetrics.ReplyCount + tweet.PublicMetrics.RetweetCount + tweet.PublicMetrics.QuoteCount
+			topPosts = append(topPosts, map[string]interface{}{
+				"id":         tweet.ID,
+				"content":    tweet.Text,
+				"likes":      tweet.PublicMetrics.LikeCount,
+				"comments":   tweet.PublicMetrics.ReplyCount,
+				"shares":     tweet.PublicMetrics.RetweetCount + tweet.PublicMetrics.QuoteCount,
+				"engagement": engagement,
+				"created_at": tweet.CreatedAt,
+			})
+		}
+	}
+
+	// Convert top posts to JSON
+	topPostsJSON, _ := json.Marshal(topPosts)
+
+	// Calculate total engagement
+	engagement := totalLikes + totalComments + totalShares
+
 	return &models.PostAnalytics{
 		UserID:        as.UserID,
 		Platform:      as.Platform,
 		SnapshotAt:    time.Now(),
-		TotalPosts:    40,
-		TotalLikes:    180,
-		TotalComments: 35,
-		TotalShares:   55,
-		TotalViews:    600,
-		Engagement:    270, // 180 + 35 + 55
-		TopPosts:      `[{"id":"1","content":"Twitter post","likes":12,"comments":3,"shares":7,"views":80,"engagement":29,"created_at":"2024-01-01T00:00:00Z"}]`,
+		TotalPosts:    totalPosts,
+		TotalLikes:    totalLikes,
+		TotalComments: totalComments,
+		TotalShares:   totalShares,
+		TotalViews:    0, // Twitter doesn't provide view counts in basic API
+		Engagement:    engagement,
+		TopPosts:      string(topPostsJSON),
 	}, nil
 }
 
@@ -483,9 +474,7 @@ func (as *AnalyticsSyncer) fetchYouTubeAnalytics(_, accessToken string) (*models
 	channelsURL := "https://www.googleapis.com/youtube/v3/channels?part=id,snippet&mine=true"
 	req, err := http.NewRequest("GET", channelsURL, nil)
 	if err != nil {
-		log.Printf("Error creating YouTube request: %v", err)
-		log.Printf("Falling back to mock data for YouTube")
-		return as.getYouTubeMockData(), nil
+		return nil, fmt.Errorf("error creating youtube request: %v", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 
@@ -493,9 +482,7 @@ func (as *AnalyticsSyncer) fetchYouTubeAnalytics(_, accessToken string) (*models
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("Error fetching YouTube channel info: %v", err)
-		log.Printf("Falling back to mock data for YouTube")
-		return as.getYouTubeMockData(), nil
+		return nil, fmt.Errorf("error fetching youtube channel info: %v", err)
 	}
 	defer resp.Body.Close()
 
@@ -510,17 +497,13 @@ func (as *AnalyticsSyncer) fetchYouTubeAnalytics(_, accessToken string) (*models
 		refreshQuery := `SELECT refresh_token FROM social_accounts WHERE user_id = $1 AND platform = 'youtube'`
 		err := lib.DB.QueryRow(refreshQuery, as.UserID).Scan(&refreshToken)
 		if err != nil {
-			log.Printf("No refresh token found for YouTube: %v", err)
-			log.Printf("Falling back to mock data for YouTube")
-			return as.getYouTubeMockData(), nil
+			return nil, fmt.Errorf("no refresh token found for youtube: %v", err)
 		}
 
 		// Try to refresh the token
 		newAccessToken, err := as.refreshYouTubeToken(refreshToken)
 		if err != nil {
-			log.Printf("Failed to refresh YouTube token: %v", err)
-			log.Printf("Falling back to mock data for YouTube")
-			return as.getYouTubeMockData(), nil
+			return nil, fmt.Errorf("failed to refresh youtube token: %v", err)
 		}
 
 		// Update the access token in database
@@ -534,23 +517,17 @@ func (as *AnalyticsSyncer) fetchYouTubeAnalytics(_, accessToken string) (*models
 		req.Header.Set("Authorization", "Bearer "+newAccessToken)
 		resp, err = client.Do(req)
 		if err != nil {
-			log.Printf("Error retrying YouTube request: %v", err)
-			log.Printf("Falling back to mock data for YouTube")
-			return as.getYouTubeMockData(), nil
+			return nil, fmt.Errorf("error retrying youtube request: %v", err)
 		}
 		defer resp.Body.Close()
 
 		if resp.StatusCode != 200 {
 			body, _ := io.ReadAll(resp.Body)
-			log.Printf("YouTube API still returned status %d after refresh: %s", resp.StatusCode, string(body))
-			log.Printf("Falling back to mock data for YouTube")
-			return as.getYouTubeMockData(), nil
+			return nil, fmt.Errorf("youtube API still returned status %d after refresh: %s", resp.StatusCode, string(body))
 		}
 	} else if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(resp.Body)
-		log.Printf("YouTube API returned status %d for channel info: %s", resp.StatusCode, string(body))
-		log.Printf("Falling back to mock data for YouTube")
-		return as.getYouTubeMockData(), nil
+		return nil, fmt.Errorf("youtube API returned status %d for channel info: %s", resp.StatusCode, string(body))
 	}
 
 	log.Printf("YouTube API channel request successful, status: %d", resp.StatusCode)
@@ -567,15 +544,11 @@ func (as *AnalyticsSyncer) fetchYouTubeAnalytics(_, accessToken string) (*models
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&channelsResp); err != nil {
-		log.Printf("Error decoding YouTube channel response: %v", err)
-		log.Printf("Falling back to mock data for YouTube")
-		return as.getYouTubeMockData(), nil
+		return nil, fmt.Errorf("error decoding youtube channel response: %v", err)
 	}
 
 	if len(channelsResp.Items) == 0 {
-		log.Printf("No YouTube channel found")
-		log.Printf("Falling back to mock data for YouTube")
-		return as.getYouTubeMockData(), nil
+		return nil, fmt.Errorf("no youtube channel found")
 	}
 	channelID := channelsResp.Items[0].ID
 	log.Printf("Found YouTube channel: %s", channelID)
@@ -584,25 +557,19 @@ func (as *AnalyticsSyncer) fetchYouTubeAnalytics(_, accessToken string) (*models
 	playlistURL := fmt.Sprintf("https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=%s", channelID)
 	req2, err := http.NewRequest("GET", playlistURL, nil)
 	if err != nil {
-		log.Printf("Error creating YouTube playlist request: %v", err)
-		log.Printf("Falling back to mock data for YouTube")
-		return as.getYouTubeMockData(), nil
+		return nil, fmt.Errorf("error creating youtube playlist request: %v", err)
 	}
 	req2.Header.Set("Authorization", "Bearer "+accessToken)
 
 	resp2, err := client.Do(req2)
 	if err != nil {
-		log.Printf("Error fetching YouTube playlist info: %v", err)
-		log.Printf("Falling back to mock data for YouTube")
-		return as.getYouTubeMockData(), nil
+		return nil, fmt.Errorf("error fetching youtube playlist info: %v", err)
 	}
 	defer resp2.Body.Close()
 
 	if resp2.StatusCode != 200 {
 		body, _ := io.ReadAll(resp2.Body)
-		log.Printf("YouTube API returned status %d for playlist info: %s", resp2.StatusCode, string(body))
-		log.Printf("Falling back to mock data for YouTube")
-		return as.getYouTubeMockData(), nil
+		return nil, fmt.Errorf("youtube API returned status %d for playlist info: %s", resp2.StatusCode, string(body))
 	}
 
 	var playlistResp struct {
@@ -617,14 +584,12 @@ func (as *AnalyticsSyncer) fetchYouTubeAnalytics(_, accessToken string) (*models
 
 	if err := json.NewDecoder(resp2.Body).Decode(&playlistResp); err != nil {
 		log.Printf("Error decoding YouTube playlist response: %v", err)
-		log.Printf("Falling back to mock data for YouTube")
-		return as.getYouTubeMockData(), nil
+		return nil, fmt.Errorf("YouTube API error")
 	}
 
 	if len(playlistResp.Items) == 0 {
 		log.Printf("No uploads playlist found")
-		log.Printf("Falling back to mock data for YouTube")
-		return as.getYouTubeMockData(), nil
+		return nil, fmt.Errorf("YouTube API error")
 	}
 	uploadsPlaylistID := playlistResp.Items[0].ContentDetails.RelatedPlaylists.Uploads
 	log.Printf("Found uploads playlist: %s", uploadsPlaylistID)
@@ -634,24 +599,21 @@ func (as *AnalyticsSyncer) fetchYouTubeAnalytics(_, accessToken string) (*models
 	req3, err := http.NewRequest("GET", videosURL, nil)
 	if err != nil {
 		log.Printf("Error creating YouTube videos request: %v", err)
-		log.Printf("Falling back to mock data for YouTube")
-		return as.getYouTubeMockData(), nil
+		return nil, fmt.Errorf("YouTube API error")
 	}
 	req3.Header.Set("Authorization", "Bearer "+accessToken)
 
 	resp3, err := client.Do(req3)
 	if err != nil {
 		log.Printf("Error fetching YouTube videos: %v", err)
-		log.Printf("Falling back to mock data for YouTube")
-		return as.getYouTubeMockData(), nil
+		return nil, fmt.Errorf("YouTube API error")
 	}
 	defer resp3.Body.Close()
 
 	if resp3.StatusCode != 200 {
 		body, _ := io.ReadAll(resp3.Body)
 		log.Printf("YouTube API returned status %d for videos: %s", resp3.StatusCode, string(body))
-		log.Printf("Falling back to mock data for YouTube")
-		return as.getYouTubeMockData(), nil
+		return nil, fmt.Errorf("YouTube API error")
 	}
 
 	var videosResponse struct {
@@ -669,8 +631,7 @@ func (as *AnalyticsSyncer) fetchYouTubeAnalytics(_, accessToken string) (*models
 
 	if err := json.NewDecoder(resp3.Body).Decode(&videosResponse); err != nil {
 		log.Printf("Error decoding YouTube videos response: %v", err)
-		log.Printf("Falling back to mock data for YouTube")
-		return as.getYouTubeMockData(), nil
+		return nil, fmt.Errorf("YouTube API error")
 	}
 
 	log.Printf("Found %d YouTube videos", len(videosResponse.Items))
@@ -683,8 +644,7 @@ func (as *AnalyticsSyncer) fetchYouTubeAnalytics(_, accessToken string) (*models
 
 	if len(videoIDs) == 0 {
 		log.Printf("No videos found")
-		log.Printf("Falling back to mock data for YouTube")
-		return as.getYouTubeMockData(), nil
+		return nil, fmt.Errorf("YouTube API error")
 	}
 
 	log.Printf("Getting statistics for %d videos", len(videoIDs))
@@ -694,24 +654,21 @@ func (as *AnalyticsSyncer) fetchYouTubeAnalytics(_, accessToken string) (*models
 	req4, err := http.NewRequest("GET", statsURL, nil)
 	if err != nil {
 		log.Printf("Error creating YouTube stats request: %v", err)
-		log.Printf("Falling back to mock data for YouTube")
-		return as.getYouTubeMockData(), nil
+		return nil, fmt.Errorf("YouTube API error")
 	}
 	req4.Header.Set("Authorization", "Bearer "+accessToken)
 
 	statsResp, err := client.Do(req4)
 	if err != nil {
 		log.Printf("Error fetching YouTube video stats: %v", err)
-		log.Printf("Falling back to mock data for YouTube")
-		return as.getYouTubeMockData(), nil
+		return nil, fmt.Errorf("YouTube API error")
 	}
 	defer statsResp.Body.Close()
 
 	if statsResp.StatusCode != 200 {
 		body, _ := io.ReadAll(statsResp.Body)
 		log.Printf("YouTube API returned status %d for video stats: %s", statsResp.StatusCode, string(body))
-		log.Printf("Falling back to mock data for YouTube")
-		return as.getYouTubeMockData(), nil
+		return nil, fmt.Errorf("YouTube API error")
 	}
 
 	var statsResponse struct {
@@ -732,8 +689,7 @@ func (as *AnalyticsSyncer) fetchYouTubeAnalytics(_, accessToken string) (*models
 
 	if err := json.NewDecoder(statsResp.Body).Decode(&statsResponse); err != nil {
 		log.Printf("Error decoding YouTube video stats: %v", err)
-		log.Printf("Falling back to mock data for YouTube")
-		return as.getYouTubeMockData(), nil
+		return nil, fmt.Errorf("YouTube API error")
 	}
 
 	log.Printf("Successfully fetched statistics for %d videos", len(statsResponse.Items))
@@ -800,20 +756,116 @@ func (as *AnalyticsSyncer) fetchYouTubeAnalytics(_, accessToken string) (*models
 	}, nil
 }
 
-// getYouTubeMockData returns mock data for YouTube when API calls fail
-func (as *AnalyticsSyncer) getYouTubeMockData() *models.PostAnalytics {
+// fetchTelegramAnalytics fetches analytics data from Telegram API
+func (as *AnalyticsSyncer) fetchTelegramAnalytics(accountID, accessToken string) (*models.PostAnalytics, error) {
+	// Use proper HTTP client
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	// Get recent updates from the bot
+	url := fmt.Sprintf("https://api.telegram.org/bot%s/getUpdates?limit=100", accessToken)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error creating Telegram request: %v", err)
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching Telegram data: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("telegram API returned status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var telegramResponse struct {
+		OK     bool `json:"ok"`
+		Result []struct {
+			UpdateID int `json:"update_id"`
+			Message  struct {
+				MessageID int `json:"message_id"`
+				From      struct {
+					ID        int64  `json:"id"`
+					IsBot     bool   `json:"is_bot"`
+					FirstName string `json:"first_name"`
+					Username  string `json:"username"`
+				} `json:"from"`
+				Chat struct {
+					ID       int64  `json:"id"`
+					Type     string `json:"type"`
+					Title    string `json:"title"`
+					Username string `json:"username"`
+				} `json:"chat"`
+				Date     int64  `json:"date"`
+				Text     string `json:"text"`
+				Views    int    `json:"views"`
+				Forwards int    `json:"forwards"`
+			} `json:"message"`
+		} `json:"result"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&telegramResponse); err != nil {
+		return nil, fmt.Errorf("error decoding Telegram response: %v", err)
+	}
+
+	if !telegramResponse.OK {
+		return nil, fmt.Errorf("telegram API error")
+	}
+
+	// Filter messages from the connected channel
+	var totalPosts, totalViews, totalForwards int
+	var topPosts []map[string]interface{}
+
+	for _, update := range telegramResponse.Result {
+		if update.Message.MessageID == 0 {
+			continue
+		}
+
+		// Only include messages from the specified chat
+		if fmt.Sprintf("%d", update.Message.Chat.ID) != accountID && update.Message.Chat.Username != accountID {
+			continue
+		}
+
+		totalPosts++
+		totalViews += update.Message.Views
+		totalForwards += update.Message.Forwards
+
+		// Store top posts (limit to 5)
+		if len(topPosts) < 5 {
+			engagement := update.Message.Views + update.Message.Forwards
+			topPosts = append(topPosts, map[string]interface{}{
+				"id":         update.Message.MessageID,
+				"content":    update.Message.Text,
+				"likes":      0, // Telegram doesn't have likes in basic API
+				"comments":   0, // Telegram doesn't have comments in basic API
+				"shares":     update.Message.Forwards,
+				"views":      update.Message.Views,
+				"engagement": engagement,
+				"created_at": time.Unix(update.Message.Date, 0).Format(time.RFC3339),
+			})
+		}
+	}
+
+	// Convert top posts to JSON
+	topPostsJSON, _ := json.Marshal(topPosts)
+
+	// Calculate total engagement
+	engagement := totalViews + totalForwards
+
 	return &models.PostAnalytics{
 		UserID:        as.UserID,
 		Platform:      as.Platform,
 		SnapshotAt:    time.Now(),
-		TotalPosts:    15,
-		TotalLikes:    400,
-		TotalComments: 80,
-		TotalShares:   30,
-		TotalViews:    2000,
-		Engagement:    510, // 400 + 80 + 30
-		TopPosts:      `[{"id":"1","content":"YouTube video","likes":50,"comments":15,"shares":10,"views":300,"engagement":95,"created_at":"2024-01-01T00:00:00Z"}]`,
-	}
+		TotalPosts:    totalPosts,
+		TotalLikes:    0, // Telegram doesn't have likes in basic API
+		TotalComments: 0, // Telegram doesn't have comments in basic API
+		TotalShares:   totalForwards,
+		TotalViews:    totalViews,
+		Engagement:    engagement,
+		TopPosts:      string(topPostsJSON),
+	}, nil
 }
 
 // storeAnalytics stores analytics data in the database
@@ -894,13 +946,25 @@ func SyncAllUserAnalytics(userID uuid.UUID) error {
 	log.Printf("Found %d connected platforms for user %s: %v", len(platforms), userID, platforms)
 
 	// Sync each platform
+	var syncErrors []string
 	for _, platform := range platforms {
 		log.Printf("Syncing analytics for platform %s", platform)
 		syncer := NewAnalyticsSyncer(userID, platform)
 		if err := syncer.SyncAnalytics(); err != nil {
 			log.Printf("Error syncing %s analytics for user %s: %v", platform, userID, err)
+			syncErrors = append(syncErrors, fmt.Sprintf("%s: %v", platform, err))
 			// Continue with other platforms even if one fails
 		}
+	}
+
+	// If all platforms failed, return an error
+	if len(syncErrors) == len(platforms) {
+		return fmt.Errorf("failed to sync analytics for all platforms: %s", strings.Join(syncErrors, "; "))
+	}
+
+	// If some platforms failed, log warnings but don't fail completely
+	if len(syncErrors) > 0 {
+		log.Printf("Some platforms failed to sync: %s", strings.Join(syncErrors, "; "))
 	}
 
 	log.Printf("Completed analytics sync for user %s", userID)
