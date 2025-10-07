@@ -235,24 +235,6 @@ func GetUserPermissions(userID, workspaceID string) ([]string, error) {
 		// New system: Parse permissions from JSON
 		var permissions []string
 		if err := json.Unmarshal(permissionsJSON, &permissions); err == nil {
-			// Compatibility shim: if post:* exists, ensure equivalent task:* exists
-			permSet := make(map[string]bool)
-			for _, p := range permissions {
-				permSet[p] = true
-			}
-			// Map post -> task mirrors
-			if permSet[models.PermPostCreate] && !permSet["task:create"] {
-				permissions = append(permissions, "task:create")
-			}
-			if permSet[models.PermPostRead] && !permSet["task:read"] {
-				permissions = append(permissions, "task:read")
-			}
-			if permSet[models.PermPostUpdate] && !permSet["task:update"] {
-				permissions = append(permissions, "task:update")
-			}
-			if permSet[models.PermPostDelete] && !permSet["task:delete"] {
-				permissions = append(permissions, "task:delete")
-			}
 			allPermissions = append(allPermissions, permissions...)
 		}
 	} else {
@@ -355,8 +337,6 @@ func getAllPermissions() []string {
 		models.PermMemberRead, models.PermMemberInvite, models.PermMemberRemove, models.PermMemberRoleChange,
 		models.PermPostCreate, models.PermPostRead, models.PermPostUpdate, models.PermPostDelete, models.PermPostPublish, models.PermPostSchedule,
 		models.PermDraftCreate, models.PermDraftRead, models.PermDraftUpdate, models.PermDraftDelete,
-	// Task permissions
-	"task:create", "task:read", "task:update", "task:delete", "task:assign",
 		models.PermAnalyticsRead, models.PermAnalyticsExport, models.PermAnalyticsAdvanced,
 		models.PermSocialAccountConnect, models.PermSocialAccountDisconnect, models.PermSocialAccountRead, models.PermSocialAccountPost,
 		models.PermMediaUpload, models.PermMediaDelete, models.PermMediaRead,

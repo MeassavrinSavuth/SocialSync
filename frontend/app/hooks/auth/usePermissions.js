@@ -1,11 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useProtectedFetch } from './useProtectedFetch';
 import { useUser } from './useUser';
-
-// Global, per-workspace request coordination to avoid refetch storms
-const inFlightByWorkspace = new Map(); // workspaceId -> Promise
-const lastFetchAtByWorkspace = new Map(); // workspaceId -> timestamp ms
-const MIN_FETCH_INTERVAL_MS = 600; // coalesce bursts within this window
 
 export function usePermissions(workspaceId) {
   const [permissions, setPermissions] = useState([]);
@@ -13,53 +8,6 @@ export function usePermissions(workspaceId) {
   const [error, setError] = useState(null);
   const protectedFetch = useProtectedFetch();
   const { profileData: currentUser } = useUser();
-  const isMounted = useRef(true);
-
-  useEffect(() => {
-    return () => { isMounted.current = false; };
-  }, []);
-
-  const fetchPermissions = useCallback(async () => {
-    try {
-      if (!workspaceId) return;
-
-      const now = Date.now();
-      const lastAt = lastFetchAtByWorkspace.get(workspaceId) || 0;
-
-      // If there's an in-flight request for this workspace, await it and return
-      if (inFlightByWorkspace.has(workspaceId)) {
-        await inFlightByWorkspace.get(workspaceId);
-        return;
-      }
-
-      // If fetched very recently, skip to avoid hammering the API
-      if (now - lastAt < MIN_FETCH_INTERVAL_MS) {
-        return;
-      }
-
-      // Mark loading only when we actually issue a request
-      if (isMounted.current) setLoading(true);
-
-      const p = (async () => {
-        try {
-          const response = await protectedFetch(`/workspaces/${workspaceId}/permissions`);
-          if (response && response.permissions && isMounted.current) {
-            setPermissions(response.permissions);
-            setError(null);
-          }
-        } finally {
-          lastFetchAtByWorkspace.set(workspaceId, Date.now());
-          inFlightByWorkspace.delete(workspaceId);
-          if (isMounted.current) setLoading(false);
-        }
-      })();
-      inFlightByWorkspace.set(workspaceId, p);
-      await p;
-    } catch (err) {
-      console.error('Error fetching permissions:', err);
-      setError(err.message);
-    }
-  }, [workspaceId, protectedFetch]);
 
   useEffect(() => {
     if (!workspaceId) {
@@ -68,7 +16,26 @@ export function usePermissions(workspaceId) {
     }
 
     fetchPermissions();
-  }, [workspaceId, fetchPermissions]);
+  }, [workspaceId]);
+
+  // Note: Real-time updates are now handled by the shared WebSocket context
+  // in the components that use this hook, rather than creating individual connections
+
+  const fetchPermissions = async () => {
+    try {
+      setLoading(true);
+      const response = await protectedFetch(`/workspaces/${workspaceId}/permissions`);
+      
+      if (response && response.permissions) {
+        setPermissions(response.permissions);
+      }
+    } catch (err) {
+      console.error('Error fetching permissions:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const hasPermission = (permission) => {
     return permissions.includes(permission) || 
@@ -157,7 +124,7 @@ export function useRoleBasedUI(workspaceId) {
     loading,
     canEdit: hasPermission(PERMISSIONS.POST_UPDATE) || hasPermission(PERMISSIONS.DRAFT_UPDATE),
     canDelete: hasPermission(PERMISSIONS.POST_DELETE) || hasPermission(PERMISSIONS.DRAFT_DELETE),
-    canCreate: hasPermission(PERMISSIONS.POST_CREATE) || hasPermission(PERMISSIONS.DRAFT_CREATE) || hasPermission(PERMISSIONS.TASK_CREATE),
+    canCreate: hasPermission(PERMISSIONS.POST_CREATE) || hasPermission(PERMISSIONS.DRAFT_CREATE),
     // Only admins can publish/post from draft menu (editor cannot)
     canPublish: isAdmin,
     canManageMembers: hasPermission(PERMISSIONS.MEMBER_ROLE_CHANGE),
@@ -165,9 +132,9 @@ export function useRoleBasedUI(workspaceId) {
     canManageMedia: hasPermission(PERMISSIONS.MEDIA_DELETE),
     canViewAnalytics: hasPermission(PERMISSIONS.ANALYTICS_READ),
     // Task permissions
-  canCreateTask: hasPermission(PERMISSIONS.TASK_CREATE) || hasPermission(PERMISSIONS.POST_CREATE),
-  canUpdateTask: hasPermission(PERMISSIONS.TASK_UPDATE) || hasPermission(PERMISSIONS.POST_UPDATE),
-  canDeleteTask: hasPermission(PERMISSIONS.TASK_DELETE) || hasPermission(PERMISSIONS.POST_DELETE),
+    canCreateTask: hasPermission(PERMISSIONS.TASK_CREATE),
+    canUpdateTask: hasPermission(PERMISSIONS.TASK_UPDATE),
+    canDeleteTask: hasPermission(PERMISSIONS.TASK_DELETE),
     canCommentOnTask: hasPermission(PERMISSIONS.TASK_COMMENT) || hasPermission(PERMISSIONS.WORKSPACE_READ),
     isAdmin,
     refetch: fetchPermissions
