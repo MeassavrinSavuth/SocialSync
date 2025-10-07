@@ -1,6 +1,6 @@
 "use client";
 import React from 'react';
-import { useWorkspaceState } from '../../hooks/workspace/useWorkspaceState';
+import { useWorkspaceStateSimple as useWorkspaceState } from '../../hooks/workspace/useWorkspaceStateSimple';
 import { WebSocketProvider } from '../../contexts/WebSocketContext';
 import WorkspaceDashboard from '../../components/workspace/WorkspaceDashboard';
 import WorkspaceHeader from '../../components/workspace/WorkspaceHeader';

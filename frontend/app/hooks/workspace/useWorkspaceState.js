@@ -39,8 +39,9 @@ export function useWorkspaceState() {
   const [kickMemberId, setKickMemberId] = useState(null);
   const [kickMemberName, setKickMemberName] = useState('');
 
-  // Use workspace members hook
-  const { members, loading: membersLoading, error: membersError, refetch: fetchMembers, leaveWorkspace, removeMember, changeMemberRole } = useWorkspaceMembers(selectedWorkspace?.id);
+  // Use workspace members hook - only call when selectedWorkspace exists
+  const workspaceMembersResult = selectedWorkspace?.id ? useWorkspaceMembers(selectedWorkspace.id) : {};
+  const { members, loading: membersLoading, error: membersError, refetch: fetchMembers, leaveWorkspace, removeMember, changeMemberRole } = workspaceMembersResult;
 
   // Handlers
   const handleEnterWorkspace = (ws) => {
