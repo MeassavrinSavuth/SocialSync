@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://socialsync-j7ih.onrender.com';
 
@@ -15,7 +15,7 @@ export const useTasks = (workspaceId) => {
     return null;
   };
 
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
     if (!workspaceId) return;
     
     setLoading(true);
@@ -56,7 +56,7 @@ export const useTasks = (workspaceId) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [workspaceId]);
 
   const createTask = async (taskData) => {
     if (!workspaceId) return null;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useUser } from '../auth/useUser';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://socialsync-j7ih.onrender.com';
@@ -18,7 +18,7 @@ export const useWorkspaces = () => {
   };
 
   // Fetch all workspaces
-  const fetchWorkspaces = async () => {
+  const fetchWorkspaces = useCallback(async () => {
     setLoading(true);
     setError(null);
     
@@ -44,7 +44,7 @@ export const useWorkspaces = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Create a new workspace
   const createWorkspace = async (workspaceData) => {

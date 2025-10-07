@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useUser } from '../auth/useUser';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://socialsync-j7ih.onrender.com';
@@ -18,7 +18,7 @@ export const useInvitations = () => {
   };
 
   // Fetch all pending invitations
-  const fetchInvitations = async () => {
+  const fetchInvitations = useCallback(async () => {
     setLoading(true);
     setError(null);
     
@@ -65,7 +65,7 @@ export const useInvitations = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Send invitation to join workspace
   const sendInvitation = async (workspaceId, email, role = 'Editor') => {

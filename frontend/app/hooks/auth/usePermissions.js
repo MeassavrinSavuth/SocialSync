@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useProtectedFetch } from './useProtectedFetch';
 import { useUser } from './useUser';
 
@@ -21,7 +21,7 @@ export function usePermissions(workspaceId) {
   // Note: Real-time updates are now handled by the shared WebSocket context
   // in the components that use this hook, rather than creating individual connections
 
-  const fetchPermissions = async () => {
+  const fetchPermissions = useCallback(async () => {
     try {
       setLoading(true);
       const response = await protectedFetch(`/workspaces/${workspaceId}/permissions`);
@@ -35,7 +35,7 @@ export function usePermissions(workspaceId) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [workspaceId, protectedFetch]);
 
   const hasPermission = (permission) => {
     return permissions.includes(permission) || 

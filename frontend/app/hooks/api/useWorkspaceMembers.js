@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useUser } from '../auth/useUser';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://socialsync-j7ih.onrender.com';
@@ -17,7 +17,7 @@ export const useWorkspaceMembers = (workspaceId) => {
     return null;
   };
 
-  const fetchMembers = async () => {
+  const fetchMembers = useCallback(async () => {
     if (!workspaceId) return;
     
     setLoading(true);
@@ -44,7 +44,7 @@ export const useWorkspaceMembers = (workspaceId) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [workspaceId]);
 
   const leaveWorkspace = async () => {
     if (!workspaceId) return;
