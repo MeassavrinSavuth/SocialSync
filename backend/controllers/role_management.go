@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 	"github.com/lib/pq"
 )
 
@@ -144,6 +145,16 @@ func UpdateUserRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Broadcast role change to workspace so clients can refetch permissions
+	if hub != nil {
+		msg, _ := json.Marshal(map[string]interface{}{
+			"type":    "member_role_changed",
+			"user_id": targetUserID,
+			"role":    req.Role,
+		})
+		hub.broadcast(workspaceID, websocket.TextMessage, msg)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"message": "User role updated successfully",
@@ -261,6 +272,17 @@ func GrantCustomPermission(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Notify workspace clients to refresh permissions (reuse member_role_changed for simplicity)
+	if hub != nil {
+		msg, _ := json.Marshal(map[string]interface{}{
+			"type":       "member_role_changed",
+			"user_id":    targetUserID,
+			"permission": req.Permission,
+			"action":     "granted",
+		})
+		hub.broadcast(workspaceID, websocket.TextMessage, msg)
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"message":    "Permission granted successfully",
@@ -333,6 +355,17 @@ func RevokeCustomPermission(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, "Failed to revoke permission", http.StatusInternalServerError)
 		return
+	}
+
+	// Notify workspace clients to refresh permissions (reuse member_role_changed for simplicity)
+	if hub != nil {
+		msg, _ := json.Marshal(map[string]interface{}{
+			"type":       "member_role_changed",
+			"user_id":    targetUserID,
+			"permission": permission,
+			"action":     "revoked",
+		})
+		hub.broadcast(workspaceID, websocket.TextMessage, msg)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
