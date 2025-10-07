@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useProtectedFetch } from '../../hooks/auth/useProtectedFetch';
 
-export default function FacebookPageSelection() {
+function FacebookPageSelectionContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const protectedFetch = useProtectedFetch();
@@ -199,5 +199,13 @@ export default function FacebookPageSelection() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function FacebookPageSelection() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <FacebookPageSelectionContent />
+    </Suspense>
   );
 }

@@ -117,9 +117,11 @@ const Login = () => {
                 onClick={loginWithGoogle}
                 className="flex items-center justify-center gap-2 w-full bg-white border border-gray-300 hover:border-gray-500 text-black py-2 rounded-md font-medium text-sm transition duration-200"
               >
-                <img
+                <Image
                   src="https://www.svgrepo.com/show/475656/google-color.svg"
                   alt="Google"
+                  width={20}
+                  height={20}
                   className="w-5 h-5"
                 />
                 Continue with Google

@@ -109,7 +109,7 @@ export const useWorkspaces = () => {
   // Load workspaces on mount
   useEffect(() => {
     fetchWorkspaces();
-  }, []);
+  }, [fetchWorkspaces]);
 
   // Note: Real-time updates are now handled by the shared WebSocket context
   // in the components that use this hook, rather than creating individual connections

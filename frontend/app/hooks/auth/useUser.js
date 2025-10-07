@@ -50,7 +50,7 @@ export const useUser = () => {
     };
 
     fetchProfile();
-  }, []);
+  }, [API_BASE_URL]);
 
   return {
     profileData,
