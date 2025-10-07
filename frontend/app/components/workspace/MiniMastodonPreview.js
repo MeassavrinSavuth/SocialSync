@@ -4,7 +4,7 @@ import { FaThumbsUp, FaCommentAlt, FaShare, FaEllipsisH } from 'react-icons/fa';
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '👎'];
 
-export default function MiniMastodonPreview({ task, onReact, showReactions = true, showTitle = false, fullWidth = false, onEdit, onPost, onDelete, fitMode = 'auto', workspaceId, canEdit = true, canPublish = true }) {
+export default function MiniMastodonPreview({ task, onReact, showReactions = true, showTitle = false, fullWidth = false, onEdit, onPost, onDelete, fitMode = 'auto', workspaceId, canEdit = true, canDelete = true, canPublish = true }) {
   const [comments, setComments] = useState(task.comments || []);
   const [newComment, setNewComment] = useState("");
   const [showComments, setShowComments] = useState(false);
@@ -106,8 +106,8 @@ export default function MiniMastodonPreview({ task, onReact, showReactions = tru
             type="button"
             aria-haspopup="menu"
             aria-expanded={menuOpen}
-            className={`text-gray-400 text-lg cursor-pointer hover:text-gray-200 ${(!canEdit && !canPublish) ? 'hidden' : ''}`}
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (canEdit || canPublish) setMenuOpen((open) => !open); }}
+            className={`text-gray-400 text-lg cursor-pointer hover:text-gray-200 ${(!canEdit && !canDelete && !canPublish) ? 'hidden' : ''}`}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (canEdit || canDelete || canPublish) setMenuOpen((open) => !open); }}
           >
             <FaEllipsisH />
           </button>
@@ -120,6 +120,15 @@ export default function MiniMastodonPreview({ task, onReact, showReactions = tru
                   onClick={() => { setMenuOpen(false); onEdit && onEdit(); }}
                 >
                   Edit
+                </button>
+              )}
+              {canDelete && (
+                <button
+                  type="button"
+                  className="block w-full text-left px-4 py-2 text-red-600 hover:bg-red-100 font-semibold"
+                  onClick={() => { setMenuOpen(false); onDelete && onDelete(); }}
+                >
+                  Delete
                 </button>
               )}
               {canPublish && (

@@ -19,7 +19,7 @@ export function usePermissions(workspaceId) {
     return () => { isMounted.current = false; };
   }, []);
 
-  const fetchPermissions = useCallback(async () => {
+  const fetchPermissions = useCallback(async (force = false) => {
     try {
       if (!workspaceId) return;
 
@@ -33,7 +33,8 @@ export function usePermissions(workspaceId) {
       }
 
       // If fetched very recently, skip to avoid hammering the API
-      if (now - lastAt < MIN_FETCH_INTERVAL_MS) {
+      // But allow immediate refetch if permissions are empty (first load or after role change)
+      if (!force && now - lastAt < MIN_FETCH_INTERVAL_MS && permissions.length > 0) {
         return;
       }
 
@@ -64,9 +65,12 @@ export function usePermissions(workspaceId) {
   useEffect(() => {
     if (!workspaceId) {
       setLoading(false);
+      setPermissions([]); // Clear permissions when no workspace
       return;
     }
 
+    // Clear permissions when workspace changes to avoid stale data
+    setPermissions([]);
     fetchPermissions();
   }, [workspaceId, fetchPermissions]);
 

@@ -96,7 +96,7 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
 
       // If any member role changes in this workspace, refresh permissions
       if (msg.type === 'member_role_changed') {
-        refetchPermissions();
+        refetchPermissions(true); // Force refresh permissions
         return;
       }
     });

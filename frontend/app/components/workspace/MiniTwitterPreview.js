@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useWebSocket } from '../../contexts/WebSocketContext';
 import { FaThumbsUp, FaCommentAlt, FaShare, FaGlobeAmericas, FaEllipsisH } from 'react-icons/fa';
 
-export default function MiniTwitterPreview({ task, onReact, showReactions = true, showTitle = false, fullWidth = false, onEdit, onPost, onDelete, fitMode = 'auto', workspaceId, canEdit = true, canPublish = true }) {
+export default function MiniTwitterPreview({ task, onReact, showReactions = true, showTitle = false, fullWidth = false, onEdit, onPost, onDelete, fitMode = 'auto', workspaceId, canEdit = true, canDelete = true, canPublish = true }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef();
   const [showComments, setShowComments] = useState(false);
@@ -92,8 +92,8 @@ export default function MiniTwitterPreview({ task, onReact, showReactions = true
             type="button"
             aria-haspopup="menu"
             aria-expanded={menuOpen}
-            className={`text-gray-400 text-lg cursor-pointer hover:text-gray-600 ${(!canEdit && !canPublish) ? 'hidden' : ''}`}
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (canEdit || canPublish) setMenuOpen((open) => !open); }}
+            className={`text-gray-400 text-lg cursor-pointer hover:text-gray-600 ${(!canEdit && !canDelete && !canPublish) ? 'hidden' : ''}`}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (canEdit || canDelete || canPublish) setMenuOpen((open) => !open); }}
           >
             <FaEllipsisH />
           </button>
@@ -117,7 +117,7 @@ export default function MiniTwitterPreview({ task, onReact, showReactions = true
                   Post
                 </button>
               )}
-              {canEdit && (
+              {canDelete && (
                 <button
                   type="button"
                   className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-50"
