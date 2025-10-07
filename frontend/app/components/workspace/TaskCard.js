@@ -261,7 +261,7 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], med
                   <span>{getUserDisplayName(task.assigned_to)}</span>
                 </div>
               ) : (
-                canEdit ? (
+                canUpdateTask ? (
                   <button
                     onClick={() => setIsEditing(true)}
                     className="px-2 py-1 bg-green-50 text-green-700 border border-green-200 rounded-full text-xs"
@@ -306,7 +306,7 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], med
               >
                 {showComments ? 'Hide Comments' : 'Show Comments'}
               </button>
-              {!task.assigned_to && canEdit && (
+              {!task.assigned_to && canUpdateTask && (
                 <button
                   onClick={() => setIsEditing(true)}
                   className="text-sm text-green-500 hover:text-green-700 focus:outline-none"
@@ -316,7 +316,7 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], med
               )}
             </div>
             {/* Status dropdown - only show if user can update tasks */}
-            {canEdit && (
+            {canUpdateTask && (
               <select
                 value={task.status}
                 onChange={async (e) => {
