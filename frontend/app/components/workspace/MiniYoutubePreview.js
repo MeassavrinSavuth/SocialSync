@@ -116,52 +116,52 @@ export default function MiniYoutubePreview({ task, onReact, showReactions = true
               type="button"
               aria-haspopup="menu"
               aria-expanded={menuOpen}
-              className="text-gray-500 text-lg cursor-pointer hover:text-gray-700"
-              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setMenuOpen((open) => !open); }}
+              className={`text-gray-500 text-lg cursor-pointer hover:text-gray-700 ${(!canEdit && !canPublish) ? 'hidden' : ''}`}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (canEdit || canPublish) setMenuOpen((open) => !open); }}
             >
               <FaEllipsisH />
             </button>
           {menuOpen && (
             <div ref={menuRef} className="absolute right-0 mt-2 w-36 bg-white border rounded-xl shadow-lg z-20 overflow-hidden">
-                <button
-                  type="button"
-                  disabled={!canEdit}
-                  onClick={(e) => {
-                    if (!canEdit) return;
-                    e.stopPropagation();
-                    setMenuOpen(false);
-                    onEdit && onEdit();
-                  }}
-                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  disabled={!canPublish}
-                  onClick={(e) => {
-                    if (!canPublish) return;
-                    e.stopPropagation();
-                    setMenuOpen(false);
-                    onPost && onPost();
-                  }}
-                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Post
-                </button>
-                <button
-                  type="button"
-                  disabled={!canEdit}
-                  onClick={(e) => {
-                    if (!canEdit) return;
-                    e.stopPropagation();
-                    setMenuOpen(false);
-                    onDelete && onDelete();
-                  }}
-                  className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Delete
-                </button>
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMenuOpen(false);
+                      onEdit && onEdit();
+                    }}
+                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    Edit
+                  </button>
+                )}
+                {canPublish && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMenuOpen(false);
+                      onPost && onPost();
+                    }}
+                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                  >
+                    Post
+                  </button>
+                )}
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMenuOpen(false);
+                      onDelete && onDelete();
+                    }}
+                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
+                  >
+                    Delete
+                  </button>
+                )}
               </div>
             )}
           </div>

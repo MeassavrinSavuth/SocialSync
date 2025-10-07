@@ -76,15 +76,24 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], med
   // Close menu on outside click
   const menuRef = useRef(null);
   useEffect(() => {
-    function handleClickOutside(e) {
+    let bound = false;
+    const handleClickOutside = (e) => {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
         setMenuOpen(false);
       }
-    }
+    };
     if (menuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
+      // Delay binding to avoid the same click that opens the menu closing it immediately
+      const id = setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+        bound = true;
+      }, 0);
+      return () => {
+        clearTimeout(id);
+        if (bound) document.removeEventListener('mousedown', handleClickOutside);
+      };
     }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => {};
   }, [menuOpen]);
 
   // Show the 3-dot menu for all users in the workspace
@@ -168,11 +177,11 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], med
                 <p className="text-xs text-gray-500">{task.created_at ? new Date(task.created_at).toLocaleDateString() : 'Today'}</p>
               </div>
             </div>
-            {/* Three-dot menu - always visible; actions disabled when not permitted */}
+      {/* Three-dot menu - hidden for viewers; actions disabled when not permitted */}
             <div className="relative" ref={menuRef}>
               <button
                 type="button"
-                className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+        className={`p-1 rounded-full hover:bg-gray-100 transition-colors ${!(canEdit || canDelete) ? 'hidden' : ''}`}
                 onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
                 aria-label="More options"
               >

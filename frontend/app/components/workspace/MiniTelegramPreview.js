@@ -94,37 +94,40 @@ export default function MiniTelegramPreview({ task, onReact, showReactions = tru
             type="button"
             aria-haspopup="menu"
             aria-expanded={menuOpen}
-            className="text-gray-400 text-lg cursor-pointer hover:text-gray-600"
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setMenuOpen((open) => !open); }}
+            className={`text-gray-400 text-lg cursor-pointer hover:text-gray-600 ${(!canEdit && !canPublish) ? 'hidden' : ''}`}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (canEdit || canPublish) setMenuOpen((open) => !open); }}
           >
             <FaEllipsisH />
           </button>
           {menuOpen && (
             <div ref={menuRef} className="absolute right-0 mt-2 w-36 bg-white border rounded-xl shadow-lg z-20 overflow-hidden">
-              <button
-                type="button"
-                disabled={!canEdit}
-                className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={() => { if (!canEdit) return; setMenuOpen(false); onEdit && onEdit(); }}
-              >
-                Edit
-              </button>
-              <button
-                type="button"
-                disabled={!canPublish}
-                className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={() => { if (!canPublish) return; setMenuOpen(false); onPost && onPost(); }}
-              >
-                Post
-              </button>
-              <button
-                type="button"
-                disabled={!canEdit}
-                className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={() => { if (!canEdit) return; setMenuOpen(false); onDelete && onDelete(); }}
-              >
-                Delete
-              </button>
+              {canEdit && (
+                <button
+                  type="button"
+                  className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50"
+                  onClick={() => { setMenuOpen(false); onEdit && onEdit(); }}
+                >
+                  Edit
+                </button>
+              )}
+              {canPublish && (
+                <button
+                  type="button"
+                  className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50"
+                  onClick={() => { setMenuOpen(false); onPost && onPost(); }}
+                >
+                  Post
+                </button>
+              )}
+              {canEdit && (
+                <button
+                  type="button"
+                  className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-50"
+                  onClick={() => { setMenuOpen(false); onDelete && onDelete(); }}
+                >
+                  Delete
+                </button>
+              )}
             </div>
           )}
         </div>
