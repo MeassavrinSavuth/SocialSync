@@ -1,4 +1,4 @@
-import React, { memo, useState, useEffect } from 'react';
+import React, { memo, useState, useEffect, useRef } from 'react';
 import { useToggle } from '../../hooks/ui/useToggle';
 import CommentSection from './CommentSection';
 import MentionInput from '../common/MentionInput';
@@ -72,6 +72,20 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], med
       setMenuOpen(false);
     }
   }, [menuOpen, canEdit, canDelete]);
+
+  // Close menu on outside click
+  const menuRef = useRef(null);
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    }
+    if (menuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [menuOpen]);
 
   // Show the 3-dot menu for all users in the workspace
   const isOwner = true;
@@ -155,10 +169,11 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], med
               </div>
             </div>
             {/* Three-dot menu - always visible; actions disabled when not permitted */}
-            <div className="relative">
+            <div className="relative" ref={menuRef}>
               <button
+                type="button"
                 className="p-1 rounded-full hover:bg-gray-100 transition-colors"
-                onClick={() => setMenuOpen(!menuOpen)}
+                onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
                 aria-label="More options"
               >
                 <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">

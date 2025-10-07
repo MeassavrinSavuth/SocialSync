@@ -27,6 +27,8 @@ export default function MiniMastodonPreview({ task, onReact, showReactions = tru
         if (typeof msg.reactions.thumbsUp === 'number') {
           setLikeCount(msg.reactions.thumbsUp);
         }
+      } else if (msg.type === 'member_role_changed') {
+        setMenuOpen(false);
       } else if (msg.type === 'draft_updated' && msg.draft_id === task.id && msg.last_updated_by && msg.updated_at) {
         // Update last updated info
         setLastUpdatedByName(msg.last_updated_by_name || lastUpdatedByName);
@@ -101,22 +103,40 @@ export default function MiniMastodonPreview({ task, onReact, showReactions = tru
         </div>
         <div className="relative">
           <button
-            className={`text-gray-400 text-lg cursor-pointer hover:text-gray-200 ${(!canEdit && !canPublish) ? 'hidden' : ''}`}
-            onClick={() => { if (canEdit || canPublish) setMenuOpen((open) => !open); }}
+            type="button"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            className="text-gray-400 text-lg cursor-pointer hover:text-gray-200"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setMenuOpen((open) => !open); }}
           >
             <FaEllipsisH />
           </button>
           {menuOpen && (
             <div ref={menuRef} className="absolute right-0 mt-2 w-32 bg-white border rounded shadow z-20">
-              {canEdit && (
-                <button className="block w-full text-left px-4 py-2 text-blue-700 hover:bg-blue-100 font-semibold" onClick={() => { setMenuOpen(false); onEdit && onEdit(); }}>Edit</button>
-              )}
-              {canPublish && (
-                <button className="block w-full text-left px-4 py-2 text-blue-700 hover:bg-blue-100 font-semibold" onClick={() => { setMenuOpen(false); onPost && onPost(); }}>Post</button>
-              )}
-              {canEdit && (
-                <button className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 font-semibold" onClick={() => { setMenuOpen(false); onDelete && onDelete(); }}>Delete</button>
-              )}
+              <button
+                type="button"
+                disabled={!canEdit}
+                className="block w-full text-left px-4 py-2 text-blue-700 hover:bg-blue-100 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => { if (!canEdit) return; setMenuOpen(false); onEdit && onEdit(); }}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                disabled={!canPublish}
+                className="block w-full text-left px-4 py-2 text-blue-700 hover:bg-blue-100 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => { if (!canPublish) return; setMenuOpen(false); onPost && onPost(); }}
+              >
+                Post
+              </button>
+              <button
+                type="button"
+                disabled={!canEdit}
+                className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => { if (!canEdit) return; setMenuOpen(false); onDelete && onDelete(); }}
+              >
+                Delete
+              </button>
             </div>
           )}
         </div>

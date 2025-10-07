@@ -23,6 +23,8 @@ export default function MiniYoutubePreview({ task, onReact, showReactions = true
         if (typeof msg.reactions.thumbsUp === 'number') {
           setLikeCount(msg.reactions.thumbsUp);
         }
+      } else if (msg.type === 'member_role_changed') {
+        setMenuOpen(false);
       } else if (msg.type === 'draft_updated' && msg.draft_id === task.id && msg.last_updated_by && msg.updated_at) {
         // Update last updated info
         setLastUpdatedByName(msg.last_updated_by_name || lastUpdatedByName);
@@ -111,49 +113,55 @@ export default function MiniYoutubePreview({ task, onReact, showReactions = true
           </div>
           <div className="relative flex-shrink-0 z-10 ml-2 mr-1">
             <button
-              className={`text-gray-500 text-lg cursor-pointer hover:text-gray-700 ${(!canEdit && !canPublish) ? 'hidden' : ''}`}
-              onClick={() => { if (canEdit || canPublish) setMenuOpen((open) => !open); }}
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              className="text-gray-500 text-lg cursor-pointer hover:text-gray-700"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setMenuOpen((open) => !open); }}
             >
               <FaEllipsisH />
             </button>
           {menuOpen && (
             <div ref={menuRef} className="absolute right-0 mt-2 w-36 bg-white border rounded-xl shadow-lg z-20 overflow-hidden">
-                {canEdit && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMenuOpen(false);
-                      onEdit();
-                    }}
-                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    Edit
-                  </button>
-                )}
-                {canPublish && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMenuOpen(false);
-                      onPost();
-                    }}
-                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-                  >
-                    Post
-                  </button>
-                )}
-                {canEdit && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMenuOpen(false);
-                      onDelete();
-                    }}
-                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50"
-                  >
-                    Delete
-                  </button>
-                )}
+                <button
+                  type="button"
+                  disabled={!canEdit}
+                  onClick={(e) => {
+                    if (!canEdit) return;
+                    e.stopPropagation();
+                    setMenuOpen(false);
+                    onEdit && onEdit();
+                  }}
+                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  disabled={!canPublish}
+                  onClick={(e) => {
+                    if (!canPublish) return;
+                    e.stopPropagation();
+                    setMenuOpen(false);
+                    onPost && onPost();
+                  }}
+                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Post
+                </button>
+                <button
+                  type="button"
+                  disabled={!canEdit}
+                  onClick={(e) => {
+                    if (!canEdit) return;
+                    e.stopPropagation();
+                    setMenuOpen(false);
+                    onDelete && onDelete();
+                  }}
+                  className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Delete
+                </button>
               </div>
             )}
           </div>
