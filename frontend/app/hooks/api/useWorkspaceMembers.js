@@ -75,7 +75,10 @@ export const useWorkspaceMembers = (workspaceId) => {
 
   const removeMember = async (memberId) => {
     if (!workspaceId || !memberId) return;
-    
+    // Optimistically remove the member for instant UI feedback
+    const prevMembers = members;
+    setMembers(prev => prev.filter(m => m.id !== memberId));
+
     try {
       const token = getAuthToken();
       const response = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/members/${memberId}`, {
@@ -88,11 +91,11 @@ export const useWorkspaceMembers = (workspaceId) => {
       
       if (!response.ok) {
         const errorData = await response.json();
+        // Rollback on failure
+        setMembers(prevMembers);
         throw new Error(errorData.error || errorData.message || 'Failed to remove member');
       }
-
-      // Refresh the member list
-      await fetchMembers();
+      // Server will broadcast via WebSocket; keep optimistic state until then
       return true;
     } catch (err) {
       console.error('Error removing member:', err);
@@ -102,6 +105,10 @@ export const useWorkspaceMembers = (workspaceId) => {
 
   const changeMemberRole = async (memberId, newRole) => {
     if (!workspaceId || !memberId) return;
+    // Optimistically update the role for instant UI feedback
+    const prevMembers = members;
+    setMembers(prev => prev.map(m => m.id === memberId ? { ...m, role: newRole } : m));
+
     try {
       const token = getAuthToken();
       const response = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/members/${memberId}/role`, {
@@ -114,9 +121,11 @@ export const useWorkspaceMembers = (workspaceId) => {
       });
       if (!response.ok) {
         const errorData = await response.json();
+        // Rollback on failure
+        setMembers(prevMembers);
         throw new Error(errorData.error || errorData.message || 'Failed to change member role');
       }
-      await fetchMembers();
+      // Server will broadcast member_role_changed; keep optimistic change until then
       return true;
     } catch (err) {
       throw err;
@@ -138,5 +147,7 @@ export const useWorkspaceMembers = (workspaceId) => {
     leaveWorkspace,
     removeMember,
     changeMemberRole,
+  // Expose setter for advanced callers if needed
+  setMembers,
   };
 }; // Build fix: Wed Sep 17 01:32:56 +07 2025

@@ -53,9 +53,17 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
       
       // Handle task-related events for instant UI updates
       if (msg.type === 'task_created' && msg.task) {
-        // Prepend task from server; no optimistic entry present
-        console.log('Task created via WebSocket - adding to state immediately:', msg.task);
-        addTaskOptimistically(msg.task);
+        // Replace temp optimistic task (if any) or prepend
+        console.log('Task created via WebSocket - merging into state immediately:', msg.task);
+        setTasks(prev => {
+          const tempIndex = prev.findIndex(t => t.__optimistic && t.__clientId && t.title === msg.task.title);
+          if (tempIndex !== -1) {
+            const next = [...prev];
+            next[tempIndex] = { ...msg.task };
+            return next;
+          }
+          return [msg.task, ...prev];
+        });
       } else if (msg.type === 'task_updated' && msg.task_id && msg.task) {
         // Use optimistic update for better performance
         console.log('Task updated via WebSocket - updating state immediately:', msg.task);
@@ -84,7 +92,7 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
     });
 
     return unsubscribe;
-  }, [subscribe, refetchPermissions, currentUser?.id, addTaskOptimistically, updateTaskOptimistically, removeTaskOptimistically]);
+  }, [subscribe, refetchPermissions, currentUser?.id, setTasks, updateTaskOptimistically, removeTaskOptimistically]);
 
   const handleOpenModal = () => {
     setShowModal(true);
@@ -97,7 +105,13 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
   };
 
   const handleDeleteTask = async (taskId) => {
-    await deleteTask(taskId);
+    // Optimistic remove for instant UX
+    removeTaskOptimistically(taskId);
+    const ok = await deleteTask(taskId);
+    if (!ok) {
+      // Roll back by refetching if server rejected
+      fetchTasks();
+    }
   };
 
   // Get the task being edited
@@ -196,7 +210,26 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
               setShowModal(false);
               return true; // Always return true for instant feedback
             } else {
-              // Create new task: rely on server WS to deliver the card (avoid duplicates)
+              // Create new task: add an optimistic placeholder now for instant feedback
+              const tempId = `temp-${Date.now()}`;
+              const optimisticTask = {
+                id: tempId,
+                title: taskData.title,
+                description: taskData.description,
+                status: taskData.status || 'Todo',
+                assigned_to: taskData.assigned_to || null,
+                due_date: taskData.due_date || null,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                creator_name: currentUser?.name || 'You',
+                creator_avatar: currentUser?.profile_picture || null,
+                last_updated_by_name: currentUser?.name || 'You',
+                last_updated_by_avatar: currentUser?.profile_picture || null,
+                __optimistic: true,
+                __clientId: tempId,
+              };
+              addTaskOptimistically(optimisticTask);
+              // Fire-and-forget create; WebSocket will replace the optimistic entry
               createTask(taskData);
               setShowModal(false);
               return true;
@@ -226,6 +259,7 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
               key={task.id}
               task={task}
               onUpdate={updateTask}
+              onUpdateOptimistic={(id, updates) => updateTaskOptimistically(id, updates)}
               onDelete={handleDeleteTask}
               workspaceId={workspaceId}
               teamMembers={teamMembers}

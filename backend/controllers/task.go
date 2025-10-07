@@ -324,10 +324,54 @@ func UpdateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	msg, _ := json.Marshal(map[string]interface{}{
+	// Fetch the updated task with related display fields to broadcast full payload
+	type TaskWithCreator struct {
+		models.Task
+		CreatorName         *string `json:"creator_name"`
+		CreatorAvatar       *string `json:"creator_avatar"`
+		LastUpdatedByName   *string `json:"last_updated_by_name"`
+		LastUpdatedByAvatar *string `json:"last_updated_by_avatar"`
+		AssigneeName        *string `json:"assignee_name"`
+		AssigneeAvatar      *string `json:"assignee_avatar"`
+	}
+
+	var updated TaskWithCreator
+	// NOTE: LEFT JOIN on users to enrich payload
+	q := `
+		SELECT t.id, t.workspace_id, t.title, t.description, t.status, t.assigned_to, t.created_by, t.last_updated_by, t.due_date, t.created_at, t.updated_at,
+			   u.name as creator_name, u.profile_picture as creator_avatar,
+			   lu.name as last_updated_by_name, lu.profile_picture as last_updated_by_avatar,
+			   au.name as assignee_name, au.profile_picture as assignee_avatar
+		FROM tasks t
+		LEFT JOIN users u  ON t.created_by      = u.id
+		LEFT JOIN users lu ON t.last_updated_by = lu.id
+		LEFT JOIN users au ON t.assigned_to     = au.id
+		WHERE t.id = $1`
+	var creatorName, creatorAvatar, lastUpdatedByName, lastUpdatedByAvatar, assigneeName, assigneeAvatar *string
+	scanErr := lib.DB.QueryRow(q, taskID).Scan(
+		&updated.ID, &updated.WorkspaceID, &updated.Title, &updated.Description, &updated.Status, &updated.AssignedTo, &updated.CreatedBy, &updated.LastUpdatedBy, &updated.DueDate, &updated.CreatedAt, &updated.UpdatedAt,
+		&creatorName, &creatorAvatar,
+		&lastUpdatedByName, &lastUpdatedByAvatar,
+		&assigneeName, &assigneeAvatar,
+	)
+	if scanErr == nil {
+		updated.CreatorName = creatorName
+		updated.CreatorAvatar = creatorAvatar
+		updated.LastUpdatedByName = lastUpdatedByName
+		updated.LastUpdatedByAvatar = lastUpdatedByAvatar
+		updated.AssigneeName = assigneeName
+		updated.AssigneeAvatar = assigneeAvatar
+	}
+
+	payload := map[string]interface{}{
 		"type":    "task_updated",
 		"task_id": taskID,
-	})
+	}
+	// Include task only if we successfully scanned it
+	if scanErr == nil {
+		payload["task"] = updated
+	}
+	msg, _ := json.Marshal(payload)
 	hub.broadcast(workspaceID, websocket.TextMessage, msg)
 
 	w.WriteHeader(http.StatusOK)
