@@ -118,6 +118,14 @@ export default function WorkspacePage() {
   }
 
   // Show workspace view
+  if (!selectedWorkspace) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-500">Loading workspace...</div>
+      </div>
+    );
+  }
+
   return (
     <WebSocketProvider workspaceId={selectedWorkspace?.id}>
       <div className="min-h-screen bg-gray-50 p-4 md:p-6 lg:p-8">
