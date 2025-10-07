@@ -7,7 +7,17 @@ export const useWorkspaces = () => {
   const [workspaces, setWorkspaces] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const { profileData: currentUser } = useUser();
+  
+  // Add error handling for useUser hook
+  let userHook;
+  try {
+    userHook = useUser();
+  } catch (err) {
+    console.error('Error in useUser hook:', err);
+    userHook = { profileData: null };
+  }
+  
+  const { profileData: currentUser } = userHook || {};
 
   // Get access token from localStorage
   const getAuthToken = () => {

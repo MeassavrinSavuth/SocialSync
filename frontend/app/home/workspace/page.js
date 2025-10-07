@@ -8,21 +8,17 @@ import WorkspaceContent from '../../components/workspace/WorkspaceContent';
 import MemberList from '../../components/workspace/MemberList';
 import ConfirmModal from '../../components/workspace/ConfirmModal';
 import InviteModal from '../../components/workspace/InviteModal';
+import ErrorBoundary from '../../components/ErrorBoundary';
 
 export default function WorkspacePage() {
-  // Add error boundary to prevent uninitialized variable errors
-  let workspaceState;
-  try {
-    workspaceState = useWorkspaceState();
-  } catch (error) {
-    console.error('Error initializing workspace state:', error);
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-red-500">Error loading workspace. Please refresh the page.</div>
-      </div>
-    );
-  }
+  return (
+    <ErrorBoundary>
+      <WorkspacePageContent />
+    </ErrorBoundary>
+  );
+}
 
+function WorkspacePageContent() {
   const {
     // State
     workspaces,
@@ -88,7 +84,7 @@ export default function WorkspacePage() {
     kickMemberName,
     confirmKickMember,
     cancelKickMember,
-  } = workspaceState || {};
+  } = useWorkspaceState();
 
   // Show loading state
   if (userLoading) {
