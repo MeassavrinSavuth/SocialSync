@@ -5,15 +5,7 @@ const WebSocketContext = createContext();
 export const useWebSocket = () => {
   const context = useContext(WebSocketContext);
   if (!context) {
-    // Return a safe fallback instead of throwing an error
-    console.warn('useWebSocket used outside WebSocketProvider, returning fallback');
-    return {
-      isConnected: false,
-      subscribe: () => () => {}, // Return a no-op unsubscribe function
-      unsubscribe: () => {},
-      connect: () => {},
-      disconnect: () => {}
-    };
+    throw new Error('useWebSocket must be used within a WebSocketProvider');
   }
   return context;
 };
@@ -35,12 +27,6 @@ export const WebSocketProvider = ({ children, workspaceId }) => {
       
       if (wsRef.current) {
         wsRef.current.close();
-      }
-      
-      // Add safety check for WebSocket support
-      if (typeof window === 'undefined' || !window.WebSocket) {
-        console.warn('WebSocket not supported in this environment');
-        return;
       }
       
       wsRef.current = new window.WebSocket(`${wsUrl}/ws/${workspaceId}`);
@@ -70,8 +56,6 @@ export const WebSocketProvider = ({ children, workspaceId }) => {
       
       wsRef.current.onerror = (error) => {
         console.warn('WebSocket error:', error);
-        // Don't let WebSocket errors crash the app
-        setIsConnected(false);
       };
       
       wsRef.current.onclose = () => {

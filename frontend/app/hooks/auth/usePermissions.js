@@ -19,7 +19,7 @@ export function usePermissions(workspaceId) {
     return () => { isMounted.current = false; };
   }, []);
 
-  const fetchPermissions = useCallback(async (force = false) => {
+  const fetchPermissions = useCallback(async () => {
     try {
       if (!workspaceId) return;
 
@@ -33,8 +33,7 @@ export function usePermissions(workspaceId) {
       }
 
       // If fetched very recently, skip to avoid hammering the API
-      // But allow immediate refetch if permissions are empty (first load or after role change)
-      if (!force && now - lastAt < MIN_FETCH_INTERVAL_MS && permissions.length > 0) {
+      if (now - lastAt < MIN_FETCH_INTERVAL_MS) {
         return;
       }
 
@@ -43,32 +42,11 @@ export function usePermissions(workspaceId) {
 
       const p = (async () => {
         try {
-          console.log('Fetching permissions for workspace:', workspaceId);
           const response = await protectedFetch(`/workspaces/${workspaceId}/permissions`);
-          console.log('Permission fetch response:', response);
-          console.log('Response type:', typeof response);
-          console.log('Response permissions:', response?.permissions);
-          console.log('Response permissions type:', typeof response?.permissions);
-          console.log('Response permissions length:', response?.permissions?.length);
-          console.log('Response keys:', response ? Object.keys(response) : 'response is null/undefined');
-          console.log('isMounted.current:', isMounted.current);
-          console.log('response check:', !!response);
-          console.log('permissions check:', !!response?.permissions);
-          console.log('isMounted check:', isMounted.current);
-          
           if (response && response.permissions && isMounted.current) {
             setPermissions(response.permissions);
             setError(null);
-            console.log('Permissions set:', response.permissions);
-          } else {
-            console.log('No permissions found in response');
-            console.log('Condition failed - response:', !!response, 'permissions:', !!response?.permissions, 'isMounted:', isMounted.current);
-            
-            setPermissions([]);
           }
-        } catch (fetchError) {
-          console.error('Permission fetch error:', fetchError);
-          setError(fetchError.message);
         } finally {
           lastFetchAtByWorkspace.set(workspaceId, Date.now());
           inFlightByWorkspace.delete(workspaceId);
@@ -86,12 +64,9 @@ export function usePermissions(workspaceId) {
   useEffect(() => {
     if (!workspaceId) {
       setLoading(false);
-      setPermissions([]); // Clear permissions when no workspace
       return;
     }
 
-    // Clear permissions when workspace changes to avoid stale data
-    setPermissions([]);
     fetchPermissions();
   }, [workspaceId, fetchPermissions]);
 
@@ -175,33 +150,10 @@ export function useHasPermission(workspaceId, permission) {
 
 // Helper hook for role-based UI rendering
 export function useRoleBasedUI(workspaceId) {
-  const { hasPermission, loading, PERMISSIONS, refetch: fetchPermissions, permissions } = usePermissions(workspaceId);
+  const { hasPermission, loading, PERMISSIONS, refetch: fetchPermissions } = usePermissions(workspaceId);
   const isAdmin = hasPermission(PERMISSIONS.WORKSPACE_DELETE);
   
-  // Safety check for undefined values
-  if (!hasPermission || !PERMISSIONS) {
-    return {
-      loading: true,
-      canEdit: false,
-      canDelete: false,
-      canCreate: false,
-      canPublish: false,
-      canManageMembers: false,
-      canInvite: false,
-      canManageMedia: false,
-      canViewAnalytics: false,
-      canCreateTask: false,
-      canUpdateTask: false,
-      canDeleteTask: false,
-      canCommentOnTask: false,
-      isAdmin: false,
-      refetch: () => {}
-    };
-  }
-  
-  // REMOVED: Problematic fallback that was causing infinite loops
-  
-  const result = {
+  return {
     loading,
     canEdit: hasPermission(PERMISSIONS.POST_UPDATE) || hasPermission(PERMISSIONS.DRAFT_UPDATE),
     canDelete: hasPermission(PERMISSIONS.POST_DELETE) || hasPermission(PERMISSIONS.DRAFT_DELETE),
@@ -220,9 +172,4 @@ export function useRoleBasedUI(workspaceId) {
     isAdmin,
     refetch: fetchPermissions
   };
-  
-  // Debug logging
-  console.log('useRoleBasedUI result:', { workspaceId, permissions, result });
-  
-  return result;
 }

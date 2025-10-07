@@ -2,39 +2,14 @@ import React, { memo, useState, useEffect } from 'react';
 import { useToggle } from '../../hooks/ui/useToggle';
 import { useMenuToggle } from '../../hooks/ui/useMenuToggle';
 import { useWebSocket } from '../../contexts/WebSocketContext';
-import { useRoleBasedUI } from '../../hooks/auth/usePermissions';
-import { useUser } from '../../hooks/auth/useUser';
 import CommentSection from './CommentSection';
 import MentionInput from '../common/MentionInput';
 import TaggedText from '../common/TaggedText';
 
-const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], mediaFiles = [] }) => {
+const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], mediaFiles = [], canEdit = false, canDelete = false }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [showComments, toggleComments] = useToggle(false);
   const { menuOpen, toggle: toggleMenu, close: closeMenu, containerRef } = useMenuToggle();
-  const { profileData: currentUser } = useUser();
-  const { canUpdateTask, canDeleteTask, loading: permissionsLoading, refetch: refetchPermissions } = useRoleBasedUI(workspaceId);
-  
-  // Use shared WebSocket connection for real-time permission updates
-  const { subscribe } = useWebSocket() || {};
-
-  // Subscribe to WebSocket messages for real-time permission updates
-  useEffect(() => {
-    if (!subscribe) return;
-    
-    const unsubscribe = subscribe((msg) => {
-      console.log('TaskCard received WebSocket message:', msg);
-      
-      if (msg.type === 'member_role_changed' && msg.user_id === currentUser?.id) {
-        console.log('User role changed, refreshing permissions...');
-        // Refresh permissions when current user's role changes
-        refetchPermissions();
-      }
-    });
-
-    return unsubscribe;
-  }, [subscribe, refetchPermissions, currentUser?.id]);
-  
   const [editForm, setEditForm] = useState({
     title: task.title,
     description: task.description || '',
@@ -95,12 +70,13 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], med
 
   // If permissions drop while the menu is open, auto-close it
   useEffect(() => {
-    if (menuOpen && !(canUpdateTask || canDeleteTask)) {
+    if (menuOpen && !(canEdit || canDelete)) {
       closeMenu();
     }
-  }, [menuOpen, canUpdateTask, canDeleteTask, closeMenu]);
+  }, [menuOpen, canEdit, canDelete, closeMenu]);
 
   // Close on role changes via WebSocket
+  const { subscribe } = useWebSocket();
   useEffect(() => {
     const unsubscribe = subscribe?.((msg) => {
       if (msg?.type === 'member_role_changed') closeMenu();
@@ -193,7 +169,7 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], med
       <div className="relative" ref={containerRef}>
               <button
                 type="button"
-        className={`p-1 rounded-full hover:bg-gray-100 transition-colors ${!(canUpdateTask || canDeleteTask) ? 'hidden' : ''}`}
+        className={`p-1 rounded-full hover:bg-gray-100 transition-colors ${!(canEdit || canDelete) ? 'hidden' : ''}`}
         onClick={toggleMenu}
                 aria-label="More options"
               >
@@ -204,10 +180,10 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], med
               {menuOpen && (
                 <div className="absolute right-0 top-8 w-36 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
                   <button
-                    className={`block w-full text-left px-4 py-2 font-semibold ${canUpdateTask ? 'text-blue-700 hover:bg-blue-100' : 'text-gray-400 cursor-not-allowed'}`}
-                    disabled={!canUpdateTask}
+                    className={`block w-full text-left px-4 py-2 font-semibold ${canEdit ? 'text-blue-700 hover:bg-blue-100' : 'text-gray-400 cursor-not-allowed'}`}
+                    disabled={!canEdit}
                     onClick={() => {
-                      if (!canUpdateTask) return;
+                      if (!canEdit) return;
                       setIsEditing(true);
                       closeMenu();
                     }}
@@ -215,10 +191,10 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], med
                     Edit
                   </button>
                   <button
-                    className={`block w-full text-left px-4 py-2 font-semibold ${canDeleteTask ? 'text-red-600 hover:bg-gray-100' : 'text-gray-400 cursor-not-allowed'}`}
-                    disabled={!canDeleteTask}
+                    className={`block w-full text-left px-4 py-2 font-semibold ${canDelete ? 'text-red-600 hover:bg-gray-100' : 'text-gray-400 cursor-not-allowed'}`}
+                    disabled={!canDelete}
                     onClick={() => {
-                      if (!canDeleteTask) return;
+                      if (!canDelete) return;
                       closeMenu();
                       handleDelete();
                     }}
@@ -261,7 +237,7 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], med
                   <span>{getUserDisplayName(task.assigned_to)}</span>
                 </div>
               ) : (
-                canUpdateTask ? (
+                canEdit ? (
                   <button
                     onClick={() => setIsEditing(true)}
                     className="px-2 py-1 bg-green-50 text-green-700 border border-green-200 rounded-full text-xs"
@@ -306,7 +282,7 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], med
               >
                 {showComments ? 'Hide Comments' : 'Show Comments'}
               </button>
-              {!task.assigned_to && canUpdateTask && (
+              {!task.assigned_to && canEdit && (
                 <button
                   onClick={() => setIsEditing(true)}
                   className="text-sm text-green-500 hover:text-green-700 focus:outline-none"
@@ -316,7 +292,7 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], med
               )}
             </div>
             {/* Status dropdown - only show if user can update tasks */}
-            {canUpdateTask && (
+            {canEdit && (
               <select
                 value={task.status}
                 onChange={async (e) => {
@@ -331,7 +307,7 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], med
               </select>
             )}
             {/* Show status as read-only text for viewers */}
-            {!canUpdateTask && (
+            {!canEdit && (
               <span className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
                 {task.status}
               </span>

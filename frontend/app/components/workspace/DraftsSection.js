@@ -62,12 +62,7 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
 
   // Use backend-powered drafts
   const { drafts, loading, error, createDraft, updateDraft, deleteDraft, publishDraft, addDraftOptimistically, updateDraftOptimistically, removeDraftOptimistically } = useDraftPosts(workspaceId);
-  const { canEdit, canDelete, canPublish, refetch: refetchPermissions } = useRoleBasedUI(workspaceId); // includes draft:update via hook
-  
-  // Debug logging for permissions
-  useEffect(() => {
-    console.log('DraftsSection permissions:', { canEdit, canDelete, canPublish });
-  }, [canEdit, canDelete, canPublish]);
+  const { canEdit, canPublish, refetch: refetchPermissions } = useRoleBasedUI(workspaceId); // includes draft:update via hook
   
   // Use shared WebSocket connection for real-time permission updates
   const { subscribe } = useWebSocket();
@@ -79,10 +74,7 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
 
       // Any member role change in this workspace may alter effective permissions
       if (msg.type === 'member_role_changed') {
-        // Debounce permission refresh to prevent rapid successive calls
-        setTimeout(() => {
-          refetchPermissions(true); // Force refresh permissions
-        }, 50);
+        refetchPermissions();
         return;
       }
 
@@ -1001,7 +993,6 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
                   }}
                   workspaceId={workspaceId}
                   canEdit={canEdit}
-                  canDelete={canDelete}
                   canPublish={canPublish}
                   showReactions={true}
                   showTitle={false}
@@ -1026,7 +1017,6 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
                   }}
                   workspaceId={workspaceId}
                   canEdit={canEdit}
-                  canDelete={canDelete}
                   canPublish={canPublish}
                   showReactions={true}
                   showTitle={false}
@@ -1051,7 +1041,6 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
                   }}
                   workspaceId={workspaceId}
                   canEdit={canEdit}
-                  canDelete={canDelete}
                   canPublish={canPublish}
                   showReactions={true}
                   showTitle={false}
@@ -1076,7 +1065,6 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
                   }}
                   workspaceId={workspaceId}
                   canEdit={canEdit}
-                  canDelete={canDelete}
                   canPublish={canPublish}
                   showReactions={true}
                   showTitle={false}
@@ -1101,7 +1089,6 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
                   }}
                   workspaceId={workspaceId}
                   canEdit={canEdit}
-                  canDelete={canDelete}
                   canPublish={canPublish}
                   showReactions={true}
                   showTitle={false}

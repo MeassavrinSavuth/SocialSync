@@ -355,8 +355,8 @@ func getAllPermissions() []string {
 		models.PermMemberRead, models.PermMemberInvite, models.PermMemberRemove, models.PermMemberRoleChange,
 		models.PermPostCreate, models.PermPostRead, models.PermPostUpdate, models.PermPostDelete, models.PermPostPublish, models.PermPostSchedule,
 		models.PermDraftCreate, models.PermDraftRead, models.PermDraftUpdate, models.PermDraftDelete,
-		// Task permissions
-		"task:create", "task:read", "task:update", "task:delete", "task:comment",
+	// Task permissions
+	"task:create", "task:read", "task:update", "task:delete", "task:assign",
 		models.PermAnalyticsRead, models.PermAnalyticsExport, models.PermAnalyticsAdvanced,
 		models.PermSocialAccountConnect, models.PermSocialAccountDisconnect, models.PermSocialAccountRead, models.PermSocialAccountPost,
 		models.PermMediaUpload, models.PermMediaDelete, models.PermMediaRead,

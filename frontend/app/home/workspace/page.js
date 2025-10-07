@@ -8,7 +8,6 @@ import WorkspaceContent from '../../components/workspace/WorkspaceContent';
 import MemberList from '../../components/workspace/MemberList';
 import ConfirmModal from '../../components/workspace/ConfirmModal';
 import InviteModal from '../../components/workspace/InviteModal';
-import ErrorBoundary from '../../components/ErrorBoundary';
 
 export default function WorkspacePage() {
   const {
@@ -120,9 +119,8 @@ export default function WorkspacePage() {
 
   // Show workspace view
   return (
-    <ErrorBoundary>
-      <WebSocketProvider workspaceId={selectedWorkspace?.id}>
-        <div className="min-h-screen bg-gray-50 p-4 md:p-6 lg:p-8">
+    <WebSocketProvider workspaceId={selectedWorkspace?.id}>
+      <div className="min-h-screen bg-gray-50 p-4 md:p-6 lg:p-8">
         <WorkspaceHeader
           workspace={selectedWorkspace}
           currentUser={currentUser}
@@ -185,8 +183,7 @@ export default function WorkspacePage() {
           onDecline={declineInvitation}
           loading={invitationsLoading}
         />
-        </div>
-      </WebSocketProvider>
-    </ErrorBoundary>
+      </div>
+    </WebSocketProvider>
   );
 }
