@@ -1,7 +1,4 @@
 export default function Modal({ open, onClose, children }) {
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('Modal component rendered with open:', open);
-  }
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[100] grid place-items-center bg-black/50 supports-[backdrop-filter]:backdrop-blur-sm supports-[backdrop-filter]:backdrop-saturate-150 transition-opacity duration-200 pointer-events-none">

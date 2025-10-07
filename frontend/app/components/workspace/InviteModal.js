@@ -6,9 +6,7 @@ function getField(inv, camel, snake) {
 
 export default function InviteModal({ open, invitations, onAccept, onDecline, onClose, loading = false }) {
   useEffect(() => {
-    if (process.env.NODE_ENV !== 'production') {
-      console.log('InviteModal render - open:', open, 'invitations:', invitations);
-    }
+    console.log('InviteModal render - open:', open, 'invitations:', invitations);
   }, [open, invitations]);
   
   useEffect(() => {

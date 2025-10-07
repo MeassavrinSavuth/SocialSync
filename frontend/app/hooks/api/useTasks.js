@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://socialsync-j7ih.onrender.com';
 
@@ -6,6 +6,7 @@ export const useTasks = (workspaceId) => {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const isFetchingRef = useRef(false);
 
   // Get access token from localStorage
   const getAuthToken = () => {
@@ -17,7 +18,9 @@ export const useTasks = (workspaceId) => {
 
   const fetchTasks = useCallback(async () => {
     if (!workspaceId) return;
+    if (isFetchingRef.current) return;
     
+    isFetchingRef.current = true;
     setLoading(true);
     setError(null);
     
@@ -35,24 +38,18 @@ export const useTasks = (workspaceId) => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
-      const tasksWithDefaults = data.map(task => ({
+  const data = await response.json();
+  const tasksWithDefaults = data.map(task => ({
         ...task,
         reactions: task.reactions || { thumbsUp: 0, fire: 0, thumbsDown: 0 },
         comments: task.comments || []
       }));
-      console.log('Tasks with last_updated_by info:', tasksWithDefaults.map(t => ({
-        id: t.id,
-        title: t.title,
-        last_updated_by_name: t.last_updated_by_name,
-        last_updated_by_avatar: t.last_updated_by_avatar,
-        updated_at: t.updated_at
-      })));
       setTasks(tasksWithDefaults);
     } catch (err) {
       setError(err.message);
       console.error('Error fetching tasks:', err);
     } finally {
+  isFetchingRef.current = false;
       setLoading(false);
     }
   }, [workspaceId]);

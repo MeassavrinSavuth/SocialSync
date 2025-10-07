@@ -2,7 +2,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { FaBell } from 'react-icons/fa';
-import { useWebSocket } from '../../contexts/WebSocketContext';
 import WorkspaceCard from './WorkspaceCard';
 import ConfirmModal from './ConfirmModal';
 import InviteModal from './InviteModal';
@@ -104,9 +103,7 @@ export default function WorkspaceDashboard({
             <button
               className="relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ring-offset-2 p-2 hover:bg-gray-100 rounded-lg transition-colors"
               onClick={() => {
-                if (process.env.NODE_ENV !== 'production') {
-                  console.log('Bell clicked!');
-                }
+                console.log('Bell clicked!');
                 setShowInvitesModal(true);
               }}
               aria-label="View Invitations"
@@ -275,9 +272,7 @@ export default function WorkspaceDashboard({
       <InviteModal
         open={showInvitesModal}
         onClose={() => {
-          if (process.env.NODE_ENV !== 'production') {
-            console.log('InviteModal closed');
-          }
+          console.log('InviteModal closed');
           setShowInvitesModal(false);
         }}
         invitations={invitations}

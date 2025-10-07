@@ -27,21 +27,11 @@ export default function MemberList({
   // Subscribe to WebSocket messages for real-time member updates
   useEffect(() => {
     const unsubscribe = subscribe((msg) => {
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('MemberList received WebSocket message:', msg);
-      }
+      console.log('MemberList received WebSocket message:', msg);
       
-      if (msg.type === 'member_role_changed' && msg.user_id && msg.role) {
-        // Optimistically reflect role change without refetch
-        if (onRefreshMembers) {
-          // Still allow a background refresh, but UI should already be updated by hook
-          onRefreshMembers();
-        }
-      } else if (msg.type === 'member_removed' && msg.user_id) {
-        if (onRefreshMembers) {
-          onRefreshMembers();
-        }
-      } else if (msg.type === 'member_added') {
+      if (msg.type === 'member_added' || msg.type === 'member_removed' || msg.type === 'member_role_changed') {
+        console.log('Member change detected, refreshing members list...');
+        // Refresh the members list to get the latest data
         if (onRefreshMembers) {
           onRefreshMembers();
         }

@@ -1,40 +1,13 @@
-import { useState, useEffect } from 'react';
+import React, { memo, useState } from 'react';
 import { useToggle } from '../../hooks/ui/useToggle';
 import CommentSection from './CommentSection';
-import { useUser } from '../../hooks/auth/useUser';
-import { useRoleBasedUI } from '../../hooks/auth/usePermissions';
-import { useWebSocket } from '../../contexts/WebSocketContext';
 import MentionInput from '../common/MentionInput';
 import TaggedText from '../common/TaggedText';
 
-const TaskCard = ({ task, onUpdate, onDelete, onUpdateOptimistic, workspaceId, teamMembers = [], mediaFiles = [] }) => {
+const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], mediaFiles = [], canEdit = false, canDelete = false }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [showComments, toggleComments] = useToggle(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const { profileData: currentUser } = useUser();
-  const { canEdit, canDelete, loading: permissionsLoading, refetch: refetchPermissions } = useRoleBasedUI(workspaceId);
-  
-  // Use shared WebSocket connection for real-time permission updates
-  const { subscribe } = useWebSocket();
-
-  // Subscribe to WebSocket messages for real-time permission updates
-  useEffect(() => {
-    const unsubscribe = subscribe((msg) => {
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('TaskCard received WebSocket message:', msg);
-      }
-      
-      if (msg.type === 'member_role_changed' && msg.user_id === currentUser?.id) {
-        if (process.env.NODE_ENV !== 'production') {
-          console.log('User role changed, refreshing permissions...');
-        }
-        // Refresh permissions when current user's role changes
-        refetchPermissions();
-      }
-    });
-
-    return unsubscribe;
-  }, [subscribe, refetchPermissions, currentUser?.id]);
   const [editForm, setEditForm] = useState({
     title: task.title,
     description: task.description || '',
@@ -73,11 +46,10 @@ const TaskCard = ({ task, onUpdate, onDelete, onUpdateOptimistic, workspaceId, t
     });
 
     if (Object.keys(updates).length > 0) {
-      // Optimistic update first for snappy UX
-      onUpdateOptimistic && onUpdateOptimistic(task.id, updates);
-      // Fire and forget; WS will confirm
-      onUpdate(task.id, updates);
-      setIsEditing(false);
+      const success = await onUpdate(task.id, updates);
+      if (success) {
+        setIsEditing(false);
+      }
     }
   };
 
@@ -296,20 +268,11 @@ const TaskCard = ({ task, onUpdate, onDelete, onUpdateOptimistic, workspaceId, t
               )}
             </div>
             {/* Status dropdown - only show if user can update tasks */}
-    {canEdit && (
+            {canEdit && (
               <select
                 value={task.status}
                 onChange={async (e) => {
-                  console.log('Status change triggered by user:', currentUser);
-                  console.log('Updating task:', task.id, 'to status:', e.target.value);
-                  // Optimistic status change with updated meta
-                  onUpdateOptimistic && onUpdateOptimistic(task.id, {
-                    status: e.target.value,
-                    updated_at: new Date().toISOString(),
-                    last_updated_by_name: currentUser?.name || 'You',
-                    last_updated_by_avatar: currentUser?.profile_picture || currentUser?.avatar || null,
-                  });
-      onUpdate(task.id, { status: e.target.value });
+                  await onUpdate(task.id, { status: e.target.value });
                 }}
                 className="text-xs border rounded px-2 py-1 text-gray-800 bg-white min-w-0"
               >
@@ -338,4 +301,5 @@ const TaskCard = ({ task, onUpdate, onDelete, onUpdateOptimistic, workspaceId, t
   );
 };
 
-export default TaskCard;
+// Prevent unnecessary re-renders when unrelated props don't change
+export default memo(TaskCard);
