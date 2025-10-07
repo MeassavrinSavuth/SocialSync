@@ -298,8 +298,13 @@ const TaskCard = ({ task, onUpdate, onDelete, onUpdateOptimistic, workspaceId, t
                 onChange={async (e) => {
                   console.log('Status change triggered by user:', currentUser);
                   console.log('Updating task:', task.id, 'to status:', e.target.value);
-      // Optimistic status change
-      onUpdateOptimistic && onUpdateOptimistic(task.id, { status: e.target.value });
+                  // Optimistic status change with updated meta
+                  onUpdateOptimistic && onUpdateOptimistic(task.id, {
+                    status: e.target.value,
+                    updated_at: new Date().toISOString(),
+                    last_updated_by_name: currentUser?.name || 'You',
+                    last_updated_by_avatar: currentUser?.profile_picture || currentUser?.avatar || null,
+                  });
       onUpdate(task.id, { status: e.target.value });
                 }}
                 className="text-xs border rounded px-2 py-1 text-gray-800 bg-white min-w-0"

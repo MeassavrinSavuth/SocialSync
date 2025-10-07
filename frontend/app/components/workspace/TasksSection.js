@@ -198,6 +198,10 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
                 status: taskData.status,
                 assigned_to: taskData.assigned_to,
                 due_date: taskData.due_date,
+                // Make the card look updated immediately
+                updated_at: new Date().toISOString(),
+                last_updated_by_name: currentUser?.name || 'You',
+                last_updated_by_avatar: currentUser?.profile_picture || currentUser?.avatar || null,
               };
               
               // Apply optimistic update immediately for instant feedback
