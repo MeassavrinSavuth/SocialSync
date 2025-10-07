@@ -1,4 +1,4 @@
-import React, { memo, useState } from 'react';
+import React, { memo, useState, useEffect } from 'react';
 import { useToggle } from '../../hooks/ui/useToggle';
 import CommentSection from './CommentSection';
 import MentionInput from '../common/MentionInput';
@@ -65,6 +65,13 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], med
   };
 
   const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'Done';
+
+  // If permissions drop while the menu is open, auto-close it
+  useEffect(() => {
+    if (menuOpen && !(canEdit || canDelete)) {
+      setMenuOpen(false);
+    }
+  }, [menuOpen, canEdit, canDelete]);
 
   // Show the 3-dot menu for all users in the workspace
   const isOwner = true;
