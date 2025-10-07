@@ -205,13 +205,18 @@ func CreateWorkspace(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(ws)
 
-	// Broadcast workspace creation to all workspace members (in this case, just the admin)
+	// Broadcast workspace creation to the user for real-time workspace list updates
 	msg, _ := json.Marshal(map[string]interface{}{
 		"type":      "workspace_created",
 		"workspace": ws,
 	})
-	// Since this is a new workspace, we broadcast to the user instead of the workspace
-	// You might want to implement a user-specific broadcast for workspace list updates
+	
+	// Get user email for broadcast
+	var userEmail string
+	err = lib.DB.QueryRow("SELECT email FROM users WHERE id = $1", userID).Scan(&userEmail)
+	if err == nil && userEmail != "" {
+		userHub.broadcast(userEmail, msg)
+	}
 }
 
 func ListWorkspaceMembers(w http.ResponseWriter, r *http.Request) {

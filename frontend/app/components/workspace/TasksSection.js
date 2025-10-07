@@ -33,7 +33,8 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
     fetchTasks,
     addTaskOptimistically,
     updateTaskOptimistically,
-    removeTaskOptimistically 
+    removeTaskOptimistically,
+    setTasks
   } = useTasks(workspaceId);
   
   // Media files for @ tagging
@@ -52,11 +53,16 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
       
       // Handle task-related events for instant UI updates
       if (msg.type === 'task_created' && msg.task) {
-        // Immediately add the new task to the list for instant feedback
-        console.log('Task created via WebSocket - adding to state immediately:', msg.task);
-        addTaskOptimistically(msg.task);
+        // Replace optimistic task with real one from server
+        console.log('Task created via WebSocket - replacing optimistic with real task:', msg.task);
+        // Remove any existing optimistic task and add the real one
+        setTasks(prev => {
+          // Remove any temporary tasks (those with string IDs from Date.now())
+          const withoutTemp = prev.filter(t => typeof t.id === 'number');
+          return [msg.task, ...withoutTemp];
+        });
       } else if (msg.type === 'task_updated' && msg.task_id && msg.task) {
-        // Use optimistic update instead of full refetch for better performance
+        // Use optimistic update for better performance
         console.log('Task updated via WebSocket - updating state immediately:', msg.task);
         updateTaskOptimistically(msg.task_id, msg.task);
       } else if (msg.type === 'task_deleted' && msg.task_id) {
@@ -83,7 +89,7 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
     });
 
     return unsubscribe;
-  }, [subscribe, refetchPermissions, currentUser?.id, addTaskOptimistically, updateTaskOptimistically, removeTaskOptimistically]);
+  }, [subscribe, refetchPermissions, currentUser?.id, updateTaskOptimistically, removeTaskOptimistically]);
 
   const handleOpenModal = () => {
     setShowModal(true);
@@ -171,7 +177,7 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
         <TaskForm
           onSubmit={async (taskData) => {
             if (editTaskId) {
-              // Update existing task
+              // Update existing task - optimistic update for instant feedback
               const updates = {
                 title: taskData.title,
                 description: taskData.description,
@@ -179,19 +185,36 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
                 assigned_to: taskData.assigned_to,
                 due_date: taskData.due_date,
               };
-              const success = await updateTask(editTaskId, updates);
-              if (success) {
-                setEditTaskId(null);
-                setShowModal(false);
-              }
-              return success;
+              
+              // Apply optimistic update immediately for instant feedback
+              updateTaskOptimistically(editTaskId, updates);
+              
+              // Send to server (don't await - let WebSocket handle confirmation)
+              updateTask(editTaskId, updates);
+              
+              setEditTaskId(null);
+              setShowModal(false);
+              return true; // Always return true for instant feedback
             } else {
-              // Create new task
-              const success = await createTask(taskData);
-              if (success) {
-                setShowModal(false);
-              }
-              return success;
+              // Create new task - optimistic update for instant feedback
+              const tempId = Date.now().toString();
+              const optimisticTask = {
+                id: tempId,
+                ...taskData,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                reactions: { thumbsUp: 0, fire: 0, thumbsDown: 0 },
+                comments: []
+              };
+              
+              // Apply optimistic update immediately for instant feedback
+              addTaskOptimistically(optimisticTask);
+              
+              // Send to server (don't await - let WebSocket handle confirmation) 
+              createTask(taskData);
+              
+              setShowModal(false);
+              return true; // Always return true for instant feedback
             }
           }}
           onCancel={() => {

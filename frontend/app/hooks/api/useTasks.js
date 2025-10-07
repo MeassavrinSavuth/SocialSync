@@ -58,13 +58,9 @@ export const useTasks = (workspaceId) => {
   }, [workspaceId]);
 
   const createTask = async (taskData) => {
-    if (!workspaceId) return null;
-    
-    setLoading(true);
-    setError(null);
+    if (!workspaceId) return false;
     
     try {
-  
       const token = getAuthToken();
       const response = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/tasks`, {
         method: 'POST',
@@ -75,32 +71,23 @@ export const useTasks = (workspaceId) => {
         body: JSON.stringify(taskData),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (response.ok) {
+        // Don't update state here - WebSocket will handle the real-time update
+        console.log('Task created successfully - WebSocket will update the UI');
+      } else {
+        const errorText = await response.text();
+        console.error('Create task failed:', response.status, errorText);
       }
-
-      const newTask = await response.json();
-      newTask.reactions = newTask.reactions || { thumbsUp: 0, fire: 0, thumbsDown: 0 };
-      newTask.comments = newTask.comments || [];
-      // Don't update state here - WebSocket will handle the real-time update
-      console.log('Task created successfully - WebSocket will update the UI');
-      return newTask;
-    } catch (err) {
-      setError(err.message);
-      console.error('Error creating task:', err);
-      return null;
-    } finally {
-      setLoading(false);
+      return response.ok;
+    } catch (error) {
+      console.error('Create task error:', error);
+      return false;
     }
   };
 
   const updateTask = async (taskId, updates) => {
-    setLoading(true);
-    setError(null);
-    
     try {
       const token = getAuthToken();
-      console.log('Sending task update:', { taskId, updates, token: token ? 'present' : 'missing' });
       const response = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/tasks/${taskId}`, {
         method: 'PATCH',
         headers: {
@@ -110,26 +97,21 @@ export const useTasks = (workspaceId) => {
         body: JSON.stringify(updates),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (response.ok) {
+        // Don't update state here - WebSocket will handle the real-time update  
+        console.log('Task updated successfully - WebSocket will update the UI');
+      } else {
+        const errorText = await response.text();
+        console.error('Update task failed:', response.status, errorText);
       }
-
-      // Don't fetchTasks() here - WebSocket will handle the real-time update  
-      console.log('Task updated successfully - WebSocket will update the UI');
-      return true;
-    } catch (err) {
-      setError(err.message);
-      console.error('Error updating task:', err);
+      return response.ok;
+    } catch (error) {
+      console.error('Update task error:', error);
       return false;
-    } finally {
-      setLoading(false);
     }
   };
 
-  const deleteTask = async (taskId) => {
-    setLoading(true);
-    setError(null);
-    
+    const deleteTask = async (taskId) => {
     try {
       const token = getAuthToken();
       const response = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/tasks/${taskId}`, {
@@ -140,19 +122,17 @@ export const useTasks = (workspaceId) => {
         },
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (response.ok) {
+        // Don't update state here - WebSocket will handle the real-time update
+        console.log('Task deleted successfully - WebSocket will update the UI');
+      } else {
+        const errorText = await response.text();
+        console.error('Delete task failed:', response.status, errorText);
       }
-
-      // Don't update state here - WebSocket will handle the real-time update
-      console.log('Task deleted successfully - WebSocket will update the UI');
-      return true;
-    } catch (err) {
-      setError(err.message);
-      console.error('Error deleting task:', err);
+      return response.ok;
+    } catch (error) {
+      console.error('Delete task error:', error);
       return false;
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -186,5 +166,6 @@ export const useTasks = (workspaceId) => {
     addTaskOptimistically,
     updateTaskOptimistically,
     removeTaskOptimistically,
+    setTasks,
   };
 }; 
