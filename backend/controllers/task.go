@@ -116,15 +116,19 @@ func ListTasks(w http.ResponseWriter, r *http.Request) {
 		CreatorAvatar       *string `json:"creator_avatar"`
 		LastUpdatedByName   *string `json:"last_updated_by_name"`
 		LastUpdatedByAvatar *string `json:"last_updated_by_avatar"`
+		AssigneeName        *string `json:"assignee_name"`
+		AssigneeAvatar      *string `json:"assignee_avatar"`
 	}
 
 	rows, err := lib.DB.Query(`
 		SELECT t.id, t.workspace_id, t.title, t.description, t.status, t.assigned_to, t.created_by, t.last_updated_by, t.due_date, t.created_at, t.updated_at,
-		       u.name as creator_name, u.profile_picture as creator_avatar,
-		       lu.name as last_updated_by_name, lu.profile_picture as last_updated_by_avatar
+			   u.name as creator_name, u.profile_picture as creator_avatar,
+			   lu.name as last_updated_by_name, lu.profile_picture as last_updated_by_avatar,
+			   au.name as assignee_name, au.profile_picture as assignee_avatar
 		FROM tasks t
 		LEFT JOIN users u ON t.created_by = u.id
 		LEFT JOIN users lu ON t.last_updated_by = lu.id
+		LEFT JOIN users au ON t.assigned_to = au.id
 		WHERE t.workspace_id = $1 ORDER BY t.created_at DESC
 	`, workspaceID)
 
@@ -142,7 +146,14 @@ func ListTasks(w http.ResponseWriter, r *http.Request) {
 		var creatorAvatar *string
 		var lastUpdatedByName *string
 		var lastUpdatedByAvatar *string
-		err := rows.Scan(&t.ID, &t.WorkspaceID, &t.Title, &t.Description, &t.Status, &t.AssignedTo, &t.CreatedBy, &t.LastUpdatedBy, &t.DueDate, &t.CreatedAt, &t.UpdatedAt, &creatorName, &creatorAvatar, &lastUpdatedByName, &lastUpdatedByAvatar)
+		var assigneeName *string
+		var assigneeAvatar *string
+		err := rows.Scan(
+			&t.ID, &t.WorkspaceID, &t.Title, &t.Description, &t.Status, &t.AssignedTo, &t.CreatedBy, &t.LastUpdatedBy, &t.DueDate, &t.CreatedAt, &t.UpdatedAt,
+			&creatorName, &creatorAvatar,
+			&lastUpdatedByName, &lastUpdatedByAvatar,
+			&assigneeName, &assigneeAvatar,
+		)
 		if err != nil {
 			continue
 		}
@@ -174,6 +185,8 @@ func ListTasks(w http.ResponseWriter, r *http.Request) {
 			CreatorAvatar:       creatorAvatar,
 			LastUpdatedByName:   lastUpdatedByName,
 			LastUpdatedByAvatar: lastUpdatedByAvatar,
+			AssigneeName:        assigneeName,
+			AssigneeAvatar:      assigneeAvatar,
 		})
 	}
 	w.Header().Set("Content-Type", "application/json")

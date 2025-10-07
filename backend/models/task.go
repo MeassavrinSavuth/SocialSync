@@ -15,3 +15,10 @@ type Task struct {
 	CreatedAt     time.Time  `json:"created_at"`
 	UpdatedAt     time.Time  `json:"updated_at"`
 }
+
+// Optional projection the API may attach alongside Task in responses
+type Assignee struct {
+	ID     *string `json:"id"`
+	Name   *string `json:"name"`
+	Avatar *string `json:"avatar"`
+}

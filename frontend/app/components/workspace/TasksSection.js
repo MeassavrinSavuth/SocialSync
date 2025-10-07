@@ -53,14 +53,9 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
       
       // Handle task-related events for instant UI updates
       if (msg.type === 'task_created' && msg.task) {
-        // Replace optimistic task with real one from server
-        console.log('Task created via WebSocket - replacing optimistic with real task:', msg.task);
-        // Remove any existing optimistic task and add the real one
-        setTasks(prev => {
-          // Remove any temporary tasks (those with string IDs from Date.now())
-          const withoutTemp = prev.filter(t => typeof t.id === 'number');
-          return [msg.task, ...withoutTemp];
-        });
+        // Prepend task from server; no optimistic entry present
+        console.log('Task created via WebSocket - adding to state immediately:', msg.task);
+        addTaskOptimistically(msg.task);
       } else if (msg.type === 'task_updated' && msg.task_id && msg.task) {
         // Use optimistic update for better performance
         console.log('Task updated via WebSocket - updating state immediately:', msg.task);
@@ -89,7 +84,7 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
     });
 
     return unsubscribe;
-  }, [subscribe, refetchPermissions, currentUser?.id, updateTaskOptimistically, removeTaskOptimistically]);
+  }, [subscribe, refetchPermissions, currentUser?.id, addTaskOptimistically, updateTaskOptimistically, removeTaskOptimistically]);
 
   const handleOpenModal = () => {
     setShowModal(true);
@@ -118,10 +113,15 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
   // Deduplicate tasks by id before rendering
   const uniqueTasks = Array.from(new Map(tasks.map(t => [t.id, t])).values());
 
-  // Filter tasks by selected member (using same logic as drafts system)
+  // Filter tasks by selected member (supports id or name, and new assignee fields)
   const filteredTasks = filterMember === 'all'
     ? uniqueTasks
-    : uniqueTasks.filter(t => t.assigned_to && (t.assigned_to.id === filterMember || t.assigned_to.name === filterMember));
+    : uniqueTasks.filter(t => {
+        const idFromObj = typeof t.assigned_to === 'object' ? t.assigned_to?.id : undefined;
+        const assignedId = idFromObj || (typeof t.assigned_to === 'string' ? t.assigned_to : undefined);
+        const assignedName = t.assignee_name || (typeof t.assigned_to === 'object' ? t.assigned_to?.name : undefined);
+        return (assignedId && assignedId === filterMember) || (assignedName && assignedName === filterMember);
+      });
 
   // Show loading state
   if (loading) {
@@ -196,25 +196,10 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
               setShowModal(false);
               return true; // Always return true for instant feedback
             } else {
-              // Create new task - optimistic update for instant feedback
-              const tempId = Date.now().toString();
-              const optimisticTask = {
-                id: tempId,
-                ...taskData,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-                reactions: { thumbsUp: 0, fire: 0, thumbsDown: 0 },
-                comments: []
-              };
-              
-              // Apply optimistic update immediately for instant feedback
-              addTaskOptimistically(optimisticTask);
-              
-              // Send to server (don't await - let WebSocket handle confirmation) 
+              // Create new task: rely on server WS to deliver the card (avoid duplicates)
               createTask(taskData);
-              
               setShowModal(false);
-              return true; // Always return true for instant feedback
+              return true;
             }
           }}
           onCancel={() => {
