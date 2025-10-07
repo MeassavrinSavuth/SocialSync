@@ -118,6 +118,29 @@ export const useTaskReactions = (workspaceId, taskId) => {
     }
   };
 
+  // Optimistic update functions for instant UI feedback
+  const addReactionOptimistically = (reactionData) => {
+    // Add reaction to reactions count
+    setReactions(prev => ({
+      ...prev,
+      [reactionData.emoji]: (prev[reactionData.emoji] || 0) + 1
+    }));
+    
+    // Add to user reactions if it's the current user
+    setUserReactions(prev => [...prev, reactionData.emoji]);
+  };
+
+  const removeReactionOptimistically = (emoji) => {
+    // Remove reaction from reactions count
+    setReactions(prev => ({
+      ...prev,
+      [emoji]: Math.max((prev[emoji] || 0) - 1, 0)
+    }));
+    
+    // Remove from user reactions
+    setUserReactions(prev => prev.filter(r => r !== emoji));
+  };
+
   useEffect(() => {
     if (workspaceId && taskId) {
       fetchReactions();
@@ -133,5 +156,7 @@ export const useTaskReactions = (workspaceId, taskId) => {
     toggleReaction,
     fetchReactions,
     fetchUserReactions,
+    addReactionOptimistically,
+    removeReactionOptimistically,
   };
 }; 

@@ -82,7 +82,8 @@ export const useTasks = (workspaceId) => {
       const newTask = await response.json();
       newTask.reactions = newTask.reactions || { thumbsUp: 0, fire: 0, thumbsDown: 0 };
       newTask.comments = newTask.comments || [];
-      setTasks(prev => [newTask, ...prev]);
+      // Don't update state here - WebSocket will handle the real-time update
+      console.log('Task created successfully - WebSocket will update the UI');
       return newTask;
     } catch (err) {
       setError(err.message);
@@ -113,9 +114,8 @@ export const useTasks = (workspaceId) => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      // Force refresh the tasks to get updated data including last_updated_by
-      console.log('Status update completed, refreshing tasks...');
-      fetchTasks();
+      // Don't fetchTasks() here - WebSocket will handle the real-time update  
+      console.log('Task updated successfully - WebSocket will update the UI');
       return true;
     } catch (err) {
       setError(err.message);
@@ -144,7 +144,8 @@ export const useTasks = (workspaceId) => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      setTasks(prev => prev.filter(task => task.id !== taskId));
+      // Don't update state here - WebSocket will handle the real-time update
+      console.log('Task deleted successfully - WebSocket will update the UI');
       return true;
     } catch (err) {
       setError(err.message);
@@ -164,6 +165,12 @@ export const useTasks = (workspaceId) => {
     setTasks(prev => [newTask, ...prev]);
   }, []);
 
+  const updateTaskOptimistically = useCallback((taskId, updatedTask) => {
+    setTasks(prev => prev.map(task => 
+      task.id === taskId ? { ...task, ...updatedTask } : task
+    ));
+  }, []);
+
   const removeTaskOptimistically = useCallback((taskId) => {
     setTasks(prev => prev.filter(task => task.id !== taskId));
   }, []);
@@ -177,6 +184,7 @@ export const useTasks = (workspaceId) => {
     updateTask,
     deleteTask,
     addTaskOptimistically,
+    updateTaskOptimistically,
     removeTaskOptimistically,
   };
 }; 

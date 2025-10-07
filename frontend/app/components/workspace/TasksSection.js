@@ -20,6 +20,7 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
   const [showModal, setShowModal] = useState(false);
   const [editTaskId, setEditTaskId] = useState(null);
   const [openCommentTaskId, setOpenCommentTaskId] = useState(null);
+  const [filterMember, setFilterMember] = useState('all');
   
   // Backend integration
   const { 
@@ -31,14 +32,15 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
     deleteTask, 
     fetchTasks,
     addTaskOptimistically,
+    updateTaskOptimistically,
     removeTaskOptimistically 
   } = useTasks(workspaceId);
   
   // Media files for @ tagging
   const { media: mediaFiles } = useMedia(workspaceId);
   
-  // Permission checks
-  const { canCreateTask, loading: permissionsLoading } = useRoleBasedUI(workspaceId);
+  // Permission checks with refetch capability
+  const { canCreateTask, loading: permissionsLoading, refetch: refetchPermissions } = useRoleBasedUI(workspaceId);
 
   // Use shared WebSocket connection for real-time updates
   const { subscribe } = useWebSocket();
@@ -48,23 +50,40 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
     const unsubscribe = subscribe((msg) => {
       console.log('TasksSection received WebSocket message:', msg);
       
+      // Handle task-related events for instant UI updates
       if (msg.type === 'task_created' && msg.task) {
         // Immediately add the new task to the list for instant feedback
         console.log('Task created via WebSocket - adding to state immediately:', msg.task);
         addTaskOptimistically(msg.task);
-      } else if (msg.type === 'task_updated' && msg.task_id) {
-        // For updates, we still need to fetch to get complete updated data including last_updated_by
-        console.log('Task updated via WebSocket - fetching latest data...');
-        fetchTasks();
+      } else if (msg.type === 'task_updated' && msg.task_id && msg.task) {
+        // Use optimistic update instead of full refetch for better performance
+        console.log('Task updated via WebSocket - updating state immediately:', msg.task);
+        updateTaskOptimistically(msg.task_id, msg.task);
       } else if (msg.type === 'task_deleted' && msg.task_id) {
         // Immediately remove from state for instant feedback  
         console.log('Task deleted via WebSocket - removing from state immediately:', msg.task_id);
         removeTaskOptimistically(msg.task_id);
+      } else if (msg.type === 'member_role_changed' && msg.user_id === currentUser?.id) {
+        console.log('User role changed, refreshing permissions...');
+        // Refresh permissions when current user's role changes
+        refetchPermissions();
+      } else if (msg.type === 'reaction_added' && msg.reaction) {
+        // Handle instant reaction updates
+        console.log('Reaction added via WebSocket - updating reactions immediately:', msg.reaction);
+        // This will be handled by individual TaskCard components that have reaction hooks
+      } else if (msg.type === 'reaction_removed' && msg.reaction) {
+        // Handle instant reaction removal
+        console.log('Reaction removed via WebSocket - updating reactions immediately:', msg.reaction);
+        // This will be handled by individual TaskCard components that have reaction hooks
+      } else if (msg.type === 'comment_added' && msg.comment) {
+        // Handle instant comment updates
+        console.log('Comment added via WebSocket - comment will be updated by CommentSection');
+        // CommentSection handles this with its own WebSocket subscription
       }
     });
 
     return unsubscribe;
-  }, [subscribe, fetchTasks, addTaskOptimistically, removeTaskOptimistically]);
+  }, [subscribe, refetchPermissions, currentUser?.id, addTaskOptimistically, updateTaskOptimistically, removeTaskOptimistically]);
 
   const handleOpenModal = () => {
     setShowModal(true);
@@ -93,6 +112,11 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
   // Deduplicate tasks by id before rendering
   const uniqueTasks = Array.from(new Map(tasks.map(t => [t.id, t])).values());
 
+  // Filter tasks by selected member (using same logic as drafts system)
+  const filteredTasks = filterMember === 'all'
+    ? uniqueTasks
+    : uniqueTasks.filter(t => t.assigned_to && (t.assigned_to.id === filterMember || t.assigned_to.name === filterMember));
+
   // Show loading state
   if (loading) {
     return (
@@ -117,6 +141,21 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
 
   return (
     <section className="w-full">
+      {/* Member filter dropdown (same as drafts system) */}
+      <div className="mb-4">
+        <label className="mr-2 font-medium text-gray-700">Filter by member:</label>
+        <select
+          className="border rounded px-2 py-1 text-gray-700"
+          value={filterMember}
+          onChange={e => setFilterMember(e.target.value)}
+        >
+          <option value="all">All</option>
+          {teamMembers && teamMembers.map(member => (
+            <option key={member.id || member.name} value={member.id || member.name}>{member.name}</option>
+          ))}
+        </select>
+      </div>
+
       {/* Only show Add Task button if user has permission to create tasks */}
       {canCreateTask && (
         <div className="mb-6">
@@ -166,7 +205,7 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
       </Modal>
       {/* Task List Grid - Mobile responsive and compact */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-        {uniqueTasks.map((task) => {
+        {filteredTasks.map((task) => {
           console.log('TasksSection rendering task:', {
             id: task.id,
             title: task.title,

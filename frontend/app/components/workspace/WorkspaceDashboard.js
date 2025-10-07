@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { FaBell } from 'react-icons/fa';
+import { useWebSocket } from '../../contexts/WebSocketContext';
 import WorkspaceCard from './WorkspaceCard';
 import ConfirmModal from './ConfirmModal';
 import InviteModal from './InviteModal';

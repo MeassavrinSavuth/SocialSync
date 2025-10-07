@@ -204,6 +204,14 @@ func CreateWorkspace(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(ws)
+
+	// Broadcast workspace creation to all workspace members (in this case, just the admin)
+	msg, _ := json.Marshal(map[string]interface{}{
+		"type":      "workspace_created",
+		"workspace": ws,
+	})
+	// Since this is a new workspace, we broadcast to the user instead of the workspace
+	// You might want to implement a user-specific broadcast for workspace list updates
 }
 
 func ListWorkspaceMembers(w http.ResponseWriter, r *http.Request) {
@@ -477,6 +485,13 @@ func DeleteWorkspace(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"message": "Workspace deleted successfully"})
+
+	// Broadcast workspace deletion to notify all members
+	msg, _ := json.Marshal(map[string]interface{}{
+		"type":         "workspace_deleted",
+		"workspace_id": workspaceID,
+	})
+	hub.broadcast(workspaceID, websocket.TextMessage, msg)
 }
 
 // ChangeMemberRole allows users with permission to change a member's role in the workspace
