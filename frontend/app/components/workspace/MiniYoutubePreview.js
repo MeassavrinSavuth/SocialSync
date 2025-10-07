@@ -111,7 +111,7 @@ export default function MiniYoutubePreview({ task, onReact, showReactions = true
             <p className="text-xs text-gray-600 mb-1 truncate">{task.author.name}</p>
             <p className="text-xs text-gray-500 truncate">42K views • 2 hours ago</p>
           </div>
-          <div className="relative flex-shrink-0 z-10 ml-2 mr-1">
+          <div className="relative flex-shrink-0 z-10 ml-2 mr-1" ref={menuRef}>
             <button
               type="button"
               aria-haspopup="menu"
@@ -122,7 +122,7 @@ export default function MiniYoutubePreview({ task, onReact, showReactions = true
               <FaEllipsisH />
             </button>
           {menuOpen && (
-            <div ref={menuRef} className="absolute right-0 mt-2 w-36 bg-white border rounded-xl shadow-lg z-20 overflow-hidden">
+            <div className="absolute right-0 mt-2 w-36 bg-white border rounded-xl shadow-lg z-20 overflow-hidden">
                 {canEdit && (
                   <button
                     type="button"

@@ -101,7 +101,7 @@ export default function MiniMastodonPreview({ task, onReact, showReactions = tru
             </span>
           </div>
         </div>
-        <div className="relative">
+  <div className="relative" ref={menuRef}>
           <button
             type="button"
             aria-haspopup="menu"
@@ -112,7 +112,7 @@ export default function MiniMastodonPreview({ task, onReact, showReactions = tru
             <FaEllipsisH />
           </button>
           {menuOpen && (
-            <div ref={menuRef} className="absolute right-0 mt-2 w-32 bg-white border rounded shadow z-20">
+            <div className="absolute right-0 mt-2 w-32 bg-white border rounded shadow z-20">
               {canEdit && (
                 <button
                   type="button"

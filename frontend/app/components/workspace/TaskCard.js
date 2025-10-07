@@ -1,5 +1,7 @@
-import React, { memo, useState, useEffect, useRef } from 'react';
+import React, { memo, useState, useEffect } from 'react';
 import { useToggle } from '../../hooks/ui/useToggle';
+import { useMenuToggle } from '../../hooks/ui/useMenuToggle';
+import { useWebSocket } from '../../contexts/WebSocketContext';
 import CommentSection from './CommentSection';
 import MentionInput from '../common/MentionInput';
 import TaggedText from '../common/TaggedText';
@@ -7,7 +9,7 @@ import TaggedText from '../common/TaggedText';
 const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], mediaFiles = [], canEdit = false, canDelete = false }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [showComments, toggleComments] = useToggle(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const { menuOpen, toggle: toggleMenu, close: closeMenu, containerRef } = useMenuToggle();
   const [editForm, setEditForm] = useState({
     title: task.title,
     description: task.description || '',
@@ -69,32 +71,18 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], med
   // If permissions drop while the menu is open, auto-close it
   useEffect(() => {
     if (menuOpen && !(canEdit || canDelete)) {
-      setMenuOpen(false);
+      closeMenu();
     }
-  }, [menuOpen, canEdit, canDelete]);
+  }, [menuOpen, canEdit, canDelete, closeMenu]);
 
-  // Close menu on outside click
-  const menuRef = useRef(null);
+  // Close on role changes via WebSocket
+  const { subscribe } = useWebSocket();
   useEffect(() => {
-    let bound = false;
-    const handleClickOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setMenuOpen(false);
-      }
-    };
-    if (menuOpen) {
-      // Delay binding to avoid the same click that opens the menu closing it immediately
-      const id = setTimeout(() => {
-        document.addEventListener('mousedown', handleClickOutside);
-        bound = true;
-      }, 0);
-      return () => {
-        clearTimeout(id);
-        if (bound) document.removeEventListener('mousedown', handleClickOutside);
-      };
-    }
-    return () => {};
-  }, [menuOpen]);
+    const unsubscribe = subscribe?.((msg) => {
+      if (msg?.type === 'member_role_changed') closeMenu();
+    });
+    return unsubscribe;
+  }, [subscribe, closeMenu]);
 
   // Show the 3-dot menu for all users in the workspace
   const isOwner = true;
@@ -178,11 +166,11 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], med
               </div>
             </div>
       {/* Three-dot menu - hidden for viewers; actions disabled when not permitted */}
-            <div className="relative" ref={menuRef}>
+      <div className="relative" ref={containerRef}>
               <button
                 type="button"
         className={`p-1 rounded-full hover:bg-gray-100 transition-colors ${!(canEdit || canDelete) ? 'hidden' : ''}`}
-                onClick={(e) => { e.stopPropagation(); setMenuOpen(!menuOpen); }}
+        onClick={toggleMenu}
                 aria-label="More options"
               >
                 <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
@@ -197,7 +185,7 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], med
                     onClick={() => {
                       if (!canEdit) return;
                       setIsEditing(true);
-                      setMenuOpen(false);
+                      closeMenu();
                     }}
                   >
                     Edit
@@ -207,7 +195,7 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], med
                     disabled={!canDelete}
                     onClick={() => {
                       if (!canDelete) return;
-                      setMenuOpen(false);
+                      closeMenu();
                       handleDelete();
                     }}
                   >

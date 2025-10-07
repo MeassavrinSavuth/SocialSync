@@ -91,7 +91,7 @@ export default function MiniInstagramPreview({ task, onReact, showReactions = tr
             </span>
           </div>
         </div>
-        <div className="relative">
+  <div className="relative" ref={menuRef}>
           <button
             type="button"
             aria-haspopup="menu"
@@ -102,7 +102,7 @@ export default function MiniInstagramPreview({ task, onReact, showReactions = tr
             <FaEllipsisH />
           </button>
           {menuOpen && (
-            <div ref={menuRef} className="absolute right-0 mt-2 w-36 bg-white border rounded-xl shadow-lg z-20 overflow-hidden">
+            <div className="absolute right-0 mt-2 w-36 bg-white border rounded-xl shadow-lg z-20 overflow-hidden">
               {canEdit && (
                 <button
                   type="button"
