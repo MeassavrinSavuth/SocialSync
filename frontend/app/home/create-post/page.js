@@ -160,8 +160,8 @@ export default function CreatePostPage() {
       return;
     }
 
-    // Combine date and time into ISO string
-    const scheduledDateTime = new Date(`${scheduledDate}T${scheduledTime}`);
+    // Combine date and time into ISO string, ensuring local timezone handling
+    const scheduledDateTime = new Date(`${scheduledDate}T${scheduledTime}:00`);
     
     // Check if scheduled time is in the future
     if (scheduledDateTime <= new Date()) {

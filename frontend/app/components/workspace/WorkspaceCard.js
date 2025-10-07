@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 import { FaTrash } from 'react-icons/fa';
 
 export default function WorkspaceCard({ avatar, name, admin, onClick, isAdmin, onDelete }) {
@@ -16,9 +17,11 @@ export default function WorkspaceCard({ avatar, name, admin, onClick, isAdmin, o
           <FaTrash className="text-sm md:text-base" />
         </button>
       )}
-      <img
+      <Image
         src={avatar}
         alt={name}
+        width={56}
+        height={56}
         className="w-14 h-14 rounded-full ring-1 ring-black/5 object-cover bg-gray-100"
       />
       <div className="text-base font-semibold text-gray-900 truncate text-center">{name}</div>

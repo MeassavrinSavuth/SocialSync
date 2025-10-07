@@ -1130,7 +1130,12 @@ export default function PostEditor({
                   type="date"
                   value={scheduledDate}
                   onChange={(e) => setScheduledDate(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
+                  min={(() => {
+                    const today = new Date();
+                    return today.getFullYear() + '-' + 
+                           String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                           String(today.getDate()).padStart(2, '0');
+                  })()}
                   className="w-full px-2 md:px-3 py-2 md:py-3 border border-gray-300 rounded-lg text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-xs md:text-sm lg:text-base min-h-[40px] md:min-h-[44px]"
                   required={isScheduled}
                 />

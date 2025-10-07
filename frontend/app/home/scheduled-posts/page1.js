@@ -98,8 +98,15 @@ export default function ScheduledPostsPage() {
   const handleEditClick = (post) => {
     setPostToEdit(post);
     setEditContent(post.content || '');
-    setEditDate(new Date(post.scheduled_time).toISOString().split('T')[0]);
-    setEditTime(new Date(post.scheduled_time).toTimeString().slice(0, 5));
+    // Use local date formatting to avoid timezone issues
+    const postDate = new Date(post.scheduled_time);
+    setEditDate(postDate.getFullYear() + '-' + 
+                String(postDate.getMonth() + 1).padStart(2, '0') + '-' + 
+                String(postDate.getDate()).padStart(2, '0'));
+    // Use local time formatting to avoid timezone issues
+    const postTime = new Date(post.scheduled_time);
+    setEditTime(String(postTime.getHours()).padStart(2, '0') + ':' + 
+                String(postTime.getMinutes()).padStart(2, '0'));
     setShowEditModal(true);
   };
 
@@ -116,7 +123,8 @@ export default function ScheduledPostsPage() {
       return;
     }
 
-    const newScheduledTime = new Date(`${editDate}T${editTime}`).toISOString();
+    // Create date in local timezone to avoid timezone conversion issues
+    const newScheduledTime = new Date(`${editDate}T${editTime}:00`);
 
     try {
       const res = await protectedFetch(`/scheduled-posts/${postToEdit.id}`, {
@@ -171,7 +179,10 @@ export default function ScheduledPostsPage() {
   };
 
   const formatDate = (date) => {
-    return date.toISOString().split('T')[0];
+    // Use local date formatting to avoid timezone issues
+    return date.getFullYear() + '-' + 
+           String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+           String(date.getDate()).padStart(2, '0');
   };
 
   const formatTime = (date) => {
@@ -262,7 +273,11 @@ export default function ScheduledPostsPage() {
   const getPostsForDate = (date) => {
     const dateStr = formatDate(date);
     return scheduledPosts.filter(post => {
-      const postDate = new Date(post.scheduled_time).toISOString().split('T')[0];
+      // Use local date formatting to avoid timezone issues
+      const postDateObj = new Date(post.scheduled_time);
+      const postDate = postDateObj.getFullYear() + '-' + 
+                      String(postDateObj.getMonth() + 1).padStart(2, '0') + '-' + 
+                      String(postDateObj.getDate()).padStart(2, '0');
       return postDate === dateStr && post.status !== 'cancelled';
     });
   };
