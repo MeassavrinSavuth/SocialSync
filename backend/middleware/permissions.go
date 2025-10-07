@@ -350,9 +350,9 @@ func getLegacyRolePermissions(roleName string) []string {
 		"Admin": getAllPermissions(), // Old Admin role gets all permissions
 		"Editor": {
 			models.PermWorkspaceRead, models.PermMemberRead,
-			models.PermPostCreate, models.PermPostRead, models.PermPostUpdate, models.PermPostDelete, models.PermPostPublish, models.PermPostSchedule,
+			models.PermPostCreate, models.PermPostRead, models.PermPostUpdate, models.PermPostDelete, models.PermPostSchedule,
 			models.PermDraftCreate, models.PermDraftRead, models.PermDraftUpdate, models.PermDraftDelete,
-			models.PermAnalyticsRead, models.PermSocialAccountRead, models.PermSocialAccountPost,
+			models.PermAnalyticsRead, models.PermSocialAccountRead,
 			models.PermMediaUpload, models.PermMediaDelete, models.PermMediaRead,
 			// Task permissions for Editor (can create, read, update, but not delete)
 			models.PermTaskCreate, models.PermTaskRead, models.PermTaskUpdate, models.PermTaskComment,

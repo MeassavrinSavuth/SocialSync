@@ -135,15 +135,15 @@ func GetDefaultRolePermissions() map[string][]string {
 			PermWorkspaceRead,
 			// Member read-only
 			PermMemberRead,
-			// Full content control
-			PermPostCreate, PermPostRead, PermPostUpdate, PermPostDelete, PermPostPublish, PermPostSchedule,
+			// Content control (Editor can create, read, update, delete but NOT publish)
+			PermPostCreate, PermPostRead, PermPostUpdate, PermPostDelete, PermPostSchedule,
 			PermDraftCreate, PermDraftRead, PermDraftUpdate, PermDraftDelete,
 			// Full comment control
 			PermCommentCreate, PermCommentRead, PermCommentUpdate, PermCommentDelete,
 			// Analytics read access
 			PermAnalyticsRead, PermAnalyticsExport,
-			// Social account posting
-			PermSocialAccountRead, PermSocialAccountPost,
+			// Social account read-only (cannot post)
+			PermSocialAccountRead,
 			// Media management
 			PermMediaUpload, PermMediaDelete, PermMediaRead,
 			// Task management (can create, read, update, but not delete)

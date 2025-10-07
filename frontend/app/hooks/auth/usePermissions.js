@@ -125,8 +125,8 @@ export function useRoleBasedUI(workspaceId) {
     canEdit: hasPermission(PERMISSIONS.POST_UPDATE) || hasPermission(PERMISSIONS.DRAFT_UPDATE),
     canDelete: hasPermission(PERMISSIONS.POST_DELETE) || hasPermission(PERMISSIONS.DRAFT_DELETE),
     canCreate: hasPermission(PERMISSIONS.POST_CREATE) || hasPermission(PERMISSIONS.DRAFT_CREATE),
-    // Both Admin and Editor can publish posts
-    canPublish: hasPermission(PERMISSIONS.POST_PUBLISH),
+    // Only Admin can publish posts (Editor cannot publish)
+    canPublish: isAdmin,
     canManageMembers: hasPermission(PERMISSIONS.MEMBER_ROLE_CHANGE),
     canInvite: hasPermission(PERMISSIONS.MEMBER_INVITE),
     canManageMedia: hasPermission(PERMISSIONS.MEDIA_DELETE),
