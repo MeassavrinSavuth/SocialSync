@@ -61,26 +61,76 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
   const menuRef = useRef();
 
   // Use backend-powered drafts
-  const { drafts, loading, error, createDraft, updateDraft, deleteDraft, publishDraft } = useDraftPosts(workspaceId);
+  const { drafts, loading, error, createDraft, updateDraft, deleteDraft, publishDraft, addDraftOptimistically, updateDraftOptimistically, removeDraftOptimistically } = useDraftPosts(workspaceId);
   const { canEdit, canPublish, refetch: refetchPermissions } = useRoleBasedUI(workspaceId); // includes draft:update via hook
   
   // Use shared WebSocket connection for real-time permission updates
   const { subscribe } = useWebSocket();
 
-  // Subscribe to WebSocket messages for real-time permission updates
+  // Subscribe to WebSocket messages for real-time updates (permissions + drafts CRUD)
   useEffect(() => {
     const unsubscribe = subscribe((msg) => {
-      console.log('DraftsSection received WebSocket message:', msg);
-      
+      if (!msg || !msg.type) return;
+
       if (msg.type === 'member_role_changed' && msg.user_id === currentUser?.id) {
-        console.log('User role changed, refreshing permissions...');
-        // Refresh permissions when current user's role changes
         refetchPermissions();
+        return;
+      }
+
+      // Helper to merge only provided fields from a partial patch
+      const applyDraftPatch = (patch) => {
+        const out = {};
+        if (!patch || typeof patch !== 'object') return out;
+        if (typeof patch.content !== 'undefined') out.content = patch.content;
+        if (typeof patch.status !== 'undefined') out.status = patch.status;
+        if (typeof patch.platforms !== 'undefined') out.platforms = patch.platforms;
+        if (typeof patch.media !== 'undefined') out.media = patch.media;
+        if (typeof patch.scheduled_time !== 'undefined') out.scheduled_time = patch.scheduled_time;
+        return out;
+      };
+
+      // Draft created
+      if (msg.type === 'draft_created' && msg.draft) {
+        const exists = drafts.some(d => d.id === msg.draft.id);
+        if (!exists) {
+          // Provide minimal shape; author will fallback to currentUser in previews
+          addDraftOptimistically({
+            id: msg.draft.id,
+            workspace_id: msg.draft.workspace_id,
+            created_by: msg.draft.created_by,
+            content: msg.draft.content,
+            media: msg.draft.media || [],
+            platforms: msg.draft.platforms || [],
+            status: msg.draft.status,
+            scheduled_time: msg.draft.scheduled_time || null,
+            published_time: msg.draft.published_time || null,
+            created_at: msg.draft.created_at,
+            updated_at: msg.draft.updated_at,
+          });
+        }
+        return;
+      }
+
+      // Draft updated
+      if (msg.type === 'draft_updated' && msg.draft_id) {
+        const patch = applyDraftPatch(msg.draft);
+        // Add last updated meta if available
+        if (typeof msg.last_updated_by_name !== 'undefined') patch.last_updated_by_name = msg.last_updated_by_name;
+        if (typeof msg.last_updated_by_avatar !== 'undefined') patch.last_updated_by_avatar = msg.last_updated_by_avatar;
+        if (typeof msg.updated_at !== 'undefined') patch.updated_at = msg.updated_at;
+        updateDraftOptimistically(msg.draft_id, patch);
+        return;
+      }
+
+      // Draft deleted
+      if (msg.type === 'draft_deleted' && msg.draft_id) {
+        removeDraftOptimistically(msg.draft_id);
+        return;
       }
     });
 
     return unsubscribe;
-  }, [subscribe, refetchPermissions, currentUser?.id]);
+  }, [subscribe, drafts, addDraftOptimistically, updateDraftOptimistically, removeDraftOptimistically, refetchPermissions, currentUser?.id]);
 
   // Cleanup timeouts on unmount
   useEffect(() => {

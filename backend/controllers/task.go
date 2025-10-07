@@ -24,6 +24,17 @@ func CreateTask(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	workspaceID := vars["workspaceId"]
 
+	// Permission: allow explicit task:create or fallback to post:create for editors
+	if ok, err := middleware.CheckUserPermission(userID, workspaceID, "task:create"); err != nil {
+		http.Error(w, "Failed to verify permissions", http.StatusInternalServerError)
+		return
+	} else if !ok {
+		if ok2, err2 := middleware.CheckUserPermission(userID, workspaceID, models.PermPostCreate); err2 != nil || !ok2 {
+			http.Error(w, "You don't have permission to create tasks", http.StatusForbidden)
+			return
+		}
+	}
+
 	var req struct {
 		Title       string     `json:"title"`
 		Description string     `json:"description"`
@@ -203,14 +214,20 @@ func UpdateTask(w http.ResponseWriter, r *http.Request) {
 	log.Printf("[DEBUG] UpdateTask called with userID: %s", userID)
 
 	// Check if user has permission to update tasks
-	hasPermission, err := middleware.CheckUserPermission(userID, workspaceID, models.PermPostUpdate)
+	// Accept either explicit task:update or legacy post:update for backward compatibility
+	hasPermission, err := middleware.CheckUserPermission(userID, workspaceID, "task:update")
 	if err != nil {
 		http.Error(w, "Failed to verify permissions", http.StatusInternalServerError)
 		return
 	}
 	if !hasPermission {
-		http.Error(w, "You don't have permission to update tasks", http.StatusForbidden)
-		return
+		// Fallback to post:update if task permissions are not populated
+		if ok2, err2 := middleware.CheckUserPermission(userID, workspaceID, models.PermPostUpdate); err2 == nil && ok2 {
+			// allowed via post:update
+		} else {
+			http.Error(w, "You don't have permission to update tasks", http.StatusForbidden)
+			return
+		}
 	}
 
 	var reqBody []byte
@@ -380,9 +397,21 @@ func UpdateTask(w http.ResponseWriter, r *http.Request) {
 
 // DeleteTask deletes a task by ID
 func DeleteTask(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(middleware.UserIDKey).(string)
 	vars := mux.Vars(r)
 	workspaceID := vars["workspaceId"]
 	taskID := vars["taskId"]
+
+	// Permission: allow explicit task:delete or fallback to post:delete for editors
+	if ok, err := middleware.CheckUserPermission(userID, workspaceID, "task:delete"); err != nil {
+		http.Error(w, "Failed to verify permissions", http.StatusInternalServerError)
+		return
+	} else if !ok {
+		if ok2, err2 := middleware.CheckUserPermission(userID, workspaceID, models.PermPostDelete); err2 != nil || !ok2 {
+			http.Error(w, "You don't have permission to delete tasks", http.StatusForbidden)
+			return
+		}
+	}
 
 	_, err := lib.DB.Exec(`DELETE FROM tasks WHERE id = $1`, taskID)
 	if err != nil {
