@@ -13,7 +13,20 @@ function timeAgo(dateString) {
   return date.toLocaleDateString();
 }
 
-export default function YouTubePosts({ posts, loading, error, searchQuery, setSearchQuery }) {
+export default function YouTubePosts({ posts, loading, error, searchQuery, setSearchQuery, selectedAccounts = [] }) {
+  // Debug logging
+  console.log('YouTubePosts received:', {
+    postsCount: posts?.length || 0,
+    selectedAccountsCount: selectedAccounts?.length || 0,
+    selectedAccounts: selectedAccounts,
+    firstPost: posts?.[0] ? {
+      id: posts[0].id,
+      _accountId: posts[0]._accountId,
+      _accountName: posts[0]._accountName,
+      _accountAvatar: posts[0]._accountAvatar,
+      snippet: posts[0].snippet
+    } : null
+  });
   if (loading) {
     return (
       <div className="mt-8 max-w-4xl mx-auto">
@@ -122,8 +135,13 @@ export default function YouTubePosts({ posts, loading, error, searchQuery, setSe
           const stats = video.statistics || {};
           const thumbnails = snippet.thumbnails || {};
           const thumb = thumbnails.high?.url || thumbnails.medium?.url || thumbnails.default?.url || '';
+          
+          // Use account-specific metadata if available (for multi-account posts)
+          const postAccountName = video._accountName || snippet.channelTitle || 'YouTube Channel';
+          const postAccountAvatar = video._accountAvatar || '/default-avatar.png';
+          
           return (
-            <div key={video.id} className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col md:flex-row gap-4 p-5 transition-transform hover:shadow-md hover:border-red-400 duration-150">
+            <div key={`${video.id}-${video._accountId || 'default'}`} className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col md:flex-row gap-4 p-5 transition-transform hover:shadow-md hover:border-red-400 duration-150">
               {/* Thumbnail */}
               <div className="flex-shrink-0 relative group">
                 <a href={`https://www.youtube.com/watch?v=${video.id}`} target="_blank" rel="noopener noreferrer">
@@ -142,9 +160,19 @@ export default function YouTubePosts({ posts, loading, error, searchQuery, setSe
                 <a href={`https://www.youtube.com/watch?v=${video.id}`} target="_blank" rel="noopener noreferrer" className="font-bold text-lg text-gray-900 hover:underline leading-snug">
                   {snippet.title}
                 </a>
-                {snippet.channelTitle && (
-                  <div className="text-sm text-gray-600 mb-1">Channel: <span className="font-medium text-gray-800">{snippet.channelTitle}</span></div>
-                )}
+                <div className="flex items-center gap-2 mb-1">
+                  <img 
+                    src={postAccountAvatar} 
+                    alt={postAccountName}
+                    className="w-6 h-6 rounded-full object-cover"
+                    onError={(e) => {
+                      e.target.src = '/default-avatar.png';
+                    }}
+                  />
+                  <div className="text-sm text-gray-600">
+                    <span className="font-medium text-gray-800">{postAccountName}</span>
+                  </div>
+                </div>
                 <div className="text-xs text-gray-500">Published {timeAgo(snippet.publishedAt)}</div>
                 <div className="text-gray-700 text-sm mt-1 line-clamp-3 whitespace-pre-line">{snippet.description}</div>
                 {/* Stats bar */}

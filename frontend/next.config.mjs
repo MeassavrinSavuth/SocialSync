@@ -9,14 +9,14 @@ const nextConfig = {
       },
     ],
     domains: ['upload.wikimedia.org', 'platform-lookaside.fbsbx.com', "res.cloudinary.com",
-       "api.telegram.org" ,"yt3.ggpht.com",'pbs.twimg.com', "files.mastodon.social","scontent.fbkk29-8.fna.fbcdn.net",
+       "api.telegram.org" ,"yt3.ggpht.com",'pbs.twimg.com','abs.twimg.com', "files.mastodon.social","scontent.fbkk29-8.fna.fbcdn.net",
       "instagram.com","scontent.fbkk2-8.fna.fbcdn.net",'scontent.fbkk22-1.fna.fbcdn.net','scontent.fbkk22-2.fna.fbcdn.net','graph.facebook.com', 'localhost', "lh3.googleusercontent.com","scontent.fbkk18-2.fna.fbcdn.net", "mastodon.social" ],
   },
   async rewrites() {
     return [
       {
         source: '/api/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}/api/:path*`,
+        destination: `${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://socialsync-j7ih.onrender.com'}/api/:path*`,
       },
     ];
   },

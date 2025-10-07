@@ -1,6 +1,6 @@
 'use client';
 
-import { FaFacebook, FaInstagram, FaYoutube, FaTwitter } from 'react-icons/fa';
+import { FaFacebook, FaInstagram, FaYoutube, FaTwitter, FaTelegramPlane } from 'react-icons/fa';
 import { SiMastodon } from 'react-icons/si';
 
 const platformIcons = {
@@ -9,6 +9,7 @@ const platformIcons = {
   youtube: FaYoutube,
   twitter: FaTwitter,
   mastodon: SiMastodon,
+  telegram: FaTelegramPlane,
 };
 
 const platformColors = {
@@ -17,9 +18,10 @@ const platformColors = {
   youtube: 'bg-[#FF0000] text-white',
   twitter: 'bg-[#1DA1F2] text-white',
   mastodon: 'bg-[#6364FF] text-white',
+  telegram: 'bg-[#0088CC] text-white',
 };
 
-const platformsList = ['facebook', 'instagram', 'youtube', 'twitter', 'mastodon'];
+const platformsList = ['facebook', 'instagram', 'youtube', 'twitter', 'mastodon', 'telegram'];
 
 export default function PlatformSelector({ selectedPlatforms, togglePlatform }) {
   const isSelected = (platform) => selectedPlatforms.includes(platform);

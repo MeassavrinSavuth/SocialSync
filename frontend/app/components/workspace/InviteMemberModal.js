@@ -20,8 +20,8 @@ export default function InviteMemberModal({ open, onClose, onInvite, loading = f
   if (!open) return null;
   
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50 p-4 pointer-events-none">
-      <div className="bg-white rounded-xl shadow-2xl border-2 border-gray-300 p-6 md:p-8 w-full max-w-md max-h-[90vh] overflow-y-auto relative pointer-events-auto">
+    <div className="fixed inset-0 z-[100] grid place-items-center bg-black/50 supports-[backdrop-filter]:backdrop-blur-sm supports-[backdrop-filter]:backdrop-saturate-150 transition-opacity duration-200 p-4 pointer-events-none">
+      <div className="w-full max-w-3xl rounded-2xl bg-white shadow-xl ring-1 ring-black/5 p-6 md:p-8 max-w-md max-h-[90vh] overflow-y-auto relative pointer-events-auto">
         <h2 className="text-xl md:text-2xl font-bold mb-4 text-gray-900">Invite Member</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

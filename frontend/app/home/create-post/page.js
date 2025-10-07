@@ -13,6 +13,7 @@ const platformsList = ['facebook', 'instagram', 'youtube', 'twitter', 'mastodon'
 
 export default function CreatePostPage() {
   const [selectedPlatforms, setSelectedPlatforms] = useState([]);
+  const [accountsByProvider, setAccountsByProvider] = useState({});
   const [message, setMessage] = useState('');
   const [youtubeConfig, setYoutubeConfig] = useState({ title: '', description: '' });
   const [mediaFiles, setMediaFiles] = useState([]); // array of Cloudinary URLs
@@ -73,7 +74,7 @@ export default function CreatePostPage() {
     setPostQueue(prev => [...prev, ...newQueueItems]);
 
     try {
-      const results = await publish(selectedPlatforms);
+      const results = await publish(selectedPlatforms, accountsByProvider);
       
       // Separate successful results from errors
       const successfulResults = results.filter(r => r.success);
@@ -96,6 +97,10 @@ export default function CreatePostPage() {
         setMessage('');
         setMediaFiles([]);
         setSelectedPlatforms([]);
+        // Clear the post queue after a delay to show success status
+        setTimeout(() => {
+          setPostQueue([]);
+        }, 3000); // Clear after 3 seconds
       } else if (authErrorResults.length > 0) {
         // Show authentication error modal
         setAuthErrors(authErrorResults);
@@ -168,11 +173,32 @@ export default function CreatePostPage() {
     setStatus(null);
 
     try {
+      // If scheduling YouTube and no general message, use YouTube title as content so scheduler can title the video
+      const contentForSchedule = message && message.trim().length > 0
+        ? message
+        : (selectedPlatforms.includes('youtube') ? (youtubeConfig.title || '') : '');
+
+      // Attach YouTube-specific meta to targets so we can evolve later
+      const targets = { ...(accountsByProvider || {}) };
+      if (selectedPlatforms.includes('youtube')) {
+        targets.youtube = {
+          ...(targets.youtube || {}),
+          meta: {
+            title: youtubeConfig.title || '',
+            description: youtubeConfig.description || '',
+            privacy: youtubeConfig.privacy || 'private',
+            categoryId: youtubeConfig.categoryId || '22',
+            tags: youtubeConfig.tags || [],
+          },
+        };
+      }
+
       const result = await createScheduledPost({
-        content: message,
+        content: contentForSchedule,
         mediaFiles,
         platforms: selectedPlatforms,
         scheduledTime: scheduledDateTime.toISOString(),
+        targets,
       });
 
       if (result.success) {
@@ -221,6 +247,8 @@ export default function CreatePostPage() {
               handlePublish={handlePublish}
               isPublishing={isPublishing}
               status={status}
+              accountsByProvider={accountsByProvider}
+              setAccountsByProvider={setAccountsByProvider}
               // Scheduling props
               isScheduled={isScheduled}
               setIsScheduled={setIsScheduled}

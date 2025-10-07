@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -116,41 +117,212 @@ func FacebookCallbackHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		page := pageData.Data[0] // TODO: Let user pick later
-		pageID := page.ID
-		pageAccessToken := page.AccessToken
-		pageName := page.Name
-		pictureURL := fmt.Sprintf("https://graph.facebook.com/v18.0/%s/picture?type=large", pageID)
-
-		_, err = db.Exec(`
-			INSERT INTO social_accounts (
-				user_id, platform, social_id, access_token,
-				profile_picture_url, profile_name, connected_at
-			) VALUES (
-				$1, 'facebook', $2, $3, $4, $5, NOW()
-			)
-			ON CONFLICT (user_id, platform) DO UPDATE SET
-				access_token = EXCLUDED.access_token,
-				social_id = EXCLUDED.social_id,
-				profile_picture_url = EXCLUDED.profile_picture_url,
-				profile_name = EXCLUDED.profile_name,
-				connected_at = NOW()
-		`,
-			appUserIDStr,
-			pageID,
-			pageAccessToken,
-			pictureURL,
-			pageName,
-		)
+		// Get already connected Facebook pages for this user
+		rows, err := db.Query(`
+			SELECT external_account_id FROM social_accounts 
+			WHERE user_id = $1 AND provider = 'facebook'
+		`, appUserIDStr)
 		if err != nil {
-			http.Error(w, "Failed to save Facebook Page account: "+err.Error(), http.StatusInternalServerError)
+			http.Error(w, "Failed to check connected pages: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+
+		connectedPageIDs := make(map[string]bool)
+		for rows.Next() {
+			var pageID string
+			if err := rows.Scan(&pageID); err == nil {
+				connectedPageIDs[pageID] = true
+				log.Printf("DEBUG: Found connected Facebook page: %s", pageID)
+			}
+		}
+		log.Printf("DEBUG: Total connected Facebook pages: %d", len(connectedPageIDs))
+
+		// Filter out already connected pages
+		var availablePages []struct {
+			ID          string `json:"id"`
+			Name        string `json:"name"`
+			AccessToken string `json:"access_token"`
+		}
+
+		for _, page := range pageData.Data {
+			log.Printf("DEBUG: Checking page %s (%s) - connected: %v", page.ID, page.Name, connectedPageIDs[page.ID])
+			if !connectedPageIDs[page.ID] {
+				availablePages = append(availablePages, page)
+				log.Printf("DEBUG: Added page %s to available pages", page.Name)
+			} else {
+				log.Printf("DEBUG: Skipping already connected page %s", page.Name)
+			}
+		}
+		log.Printf("DEBUG: Available pages count: %d", len(availablePages))
+
+		// If all pages are already connected, redirect to manage accounts
+		if len(availablePages) == 0 {
+			frontendURL := os.Getenv("FRONTEND_URL")
+			if frontendURL == "" {
+				frontendURL = "http://localhost:3000" // fallback
+			}
+			http.Redirect(w, r, frontendURL+"/home/manage-accounts?message=all_pages_connected", http.StatusSeeOther)
 			return
 		}
 
+		// For now, let's use a simpler approach - redirect to frontend with pages data
+		// This is a temporary solution to get it working
 		frontendURL := os.Getenv("FRONTEND_URL")
 		if frontendURL == "" {
 			frontendURL = "http://localhost:3000" // fallback
 		}
-		http.Redirect(w, r, frontendURL+"/home/manage-accounts?connected=facebook", http.StatusSeeOther)
+
+		// Encode available pages data as JSON and pass to frontend
+		pagesJSON, err := json.Marshal(availablePages)
+		if err != nil {
+			http.Error(w, "Failed to encode pages data", http.StatusInternalServerError)
+			return
+		}
+
+		// Use base64 encoding to avoid URL issues
+		encodedPages := base64.URLEncoding.EncodeToString(pagesJSON)
+
+		// Redirect to page selection with encoded pages data
+		redirectURL := fmt.Sprintf("%s/home/facebook-page-selection?pages=%s",
+			frontendURL,
+			encodedPages)
+		http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+	}
+}
+
+// HandleFacebookPageSelection handles the user's page selection
+func HandleFacebookPageSelection(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, err := middleware.GetUserIDFromContext(r)
+		if err != nil {
+			http.Error(w, "Unauthorized: User not authenticated", http.StatusUnauthorized)
+			return
+		}
+
+		var req struct {
+			SelectedPages []struct {
+				ID          string `json:"id"`
+				Name        string `json:"name"`
+				AccessToken string `json:"access_token"`
+			} `json:"selectedPages"`
+		}
+
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid JSON body", http.StatusBadRequest)
+			return
+		}
+
+		if len(req.SelectedPages) == 0 {
+			http.Error(w, "No pages selected", http.StatusBadRequest)
+			return
+		}
+
+		// Connect selected pages
+		for _, page := range req.SelectedPages {
+			pageID := page.ID
+			pageAccessToken := page.AccessToken
+			pageName := page.Name
+			pictureURL := fmt.Sprintf("https://graph.facebook.com/v18.0/%s/picture?type=large", pageID)
+
+			// Use separate placeholders for new vs legacy columns to avoid type ambiguity
+			_, err = db.Exec(`
+	            INSERT INTO social_accounts (
+	                user_id, provider, external_account_id, access_token_enc, avatar, display_name,
+	                platform, social_id, access_token, profile_picture_url, profile_name,
+	                created_at, updated_at, connected_at, last_synced_at
+	            ) VALUES (
+	                $1, 'facebook', $2, $3, $4, $5,
+	                'facebook', $6, $7, $8, $9,
+	                NOW(), NOW(), NOW(), NOW()
+	            )
+	            ON CONFLICT (user_id, provider, external_account_id) DO UPDATE SET
+	                access_token_enc = EXCLUDED.access_token_enc,
+	                avatar = EXCLUDED.avatar,
+	                display_name = EXCLUDED.display_name,
+	                -- legacy sync
+	                access_token = EXCLUDED.access_token_enc,
+	                profile_picture_url = EXCLUDED.avatar,
+	                profile_name = EXCLUDED.display_name,
+	                social_id = EXCLUDED.external_account_id,
+	                platform = EXCLUDED.provider,
+	                updated_at = NOW(),
+	                last_synced_at = NOW()
+	        `,
+				userID,
+				pageID,          // $2 external_account_id
+				pageAccessToken, // $3 access_token_enc
+				pictureURL,      // $4 avatar
+				pageName,        // $5 display_name
+				pageID,          // $6 social_id (legacy)
+				pageAccessToken, // $7 access_token (legacy)
+				pictureURL,      // $8 profile_picture_url (legacy)
+				pageName,        // $9 profile_name (legacy)
+			)
+			if err != nil {
+				log.Printf("Failed to save Facebook Page %s: %v", pageName, err)
+				continue // Continue with other pages even if one fails
+			}
+			log.Printf("Successfully connected Facebook Page: %s (ID: %s)", pageName, pageID)
+		}
+
+		// Clean up temporary session data
+		_, err = db.Exec(`
+			DELETE FROM social_accounts 
+			WHERE user_id = $1 AND provider = 'facebook_temp'
+		`, userID)
+		if err != nil {
+			log.Printf("Failed to cleanup temporary session data: %v", err)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+			"message": fmt.Sprintf("Successfully connected %d Facebook pages", len(req.SelectedPages)),
+		})
+	}
+}
+
+// GetFacebookPagesData fetches the temporary pages data for selection
+func GetFacebookPagesData(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, err := middleware.GetUserIDFromContext(r)
+		if err != nil {
+			http.Error(w, "Unauthorized: User not authenticated", http.StatusUnauthorized)
+			return
+		}
+
+		sessionID := r.URL.Query().Get("session_id")
+		if sessionID == "" {
+			http.Error(w, "Missing session_id parameter", http.StatusBadRequest)
+			return
+		}
+
+		var pagesData string
+		err = db.QueryRow(`
+			SELECT access_token_enc FROM social_accounts 
+			WHERE user_id = $1 AND provider = 'facebook_temp' AND external_account_id = $2
+		`, userID, sessionID).Scan(&pagesData)
+		if err != nil {
+			http.Error(w, "Session not found or expired", http.StatusNotFound)
+			return
+		}
+
+		// Parse the pages data
+		var pages []struct {
+			ID          string `json:"id"`
+			Name        string `json:"name"`
+			AccessToken string `json:"access_token"`
+		}
+		if err := json.Unmarshal([]byte(pagesData), &pages); err != nil {
+			http.Error(w, "Invalid pages data", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+			"pages":   pages,
+		})
 	}
 }

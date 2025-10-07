@@ -15,4 +15,15 @@ func RegisterDraftPostRoutes(r *mux.Router) {
 	drafts.HandleFunc("/{draftId}", controllers.UpdateDraftPost).Methods("PATCH")
 	drafts.HandleFunc("/{draftId}", controllers.DeleteDraftPost).Methods("DELETE")
 	drafts.HandleFunc("/{draftId}/publish", controllers.PublishDraftPost).Methods("POST")
+
+	// Draft comments
+	comments := drafts.PathPrefix("/{draftId}/comments").Subrouter()
+	comments.HandleFunc("", controllers.DraftListComments).Methods("GET")
+	comments.HandleFunc("", controllers.DraftAddComment).Methods("POST")
+	comments.HandleFunc("/{commentId}", controllers.DraftDeleteComment).Methods("DELETE")
+
+	// Draft reactions
+	reactions := drafts.PathPrefix("/{draftId}/reactions").Subrouter()
+	reactions.HandleFunc("", controllers.DraftGetReactions).Methods("GET")
+	reactions.HandleFunc("", controllers.DraftToggleReaction).Methods("POST")
 }

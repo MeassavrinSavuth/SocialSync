@@ -11,6 +11,9 @@ const PLATFORMS = [
   { id: 'telegram', name: 'Telegram', color: 'bg-blue-500' }
 ];
 
+// Note: With multiple accounts per platform, analytics will show aggregated data
+// across all accounts for each selected platform
+
 export default function PlatformFilter({ onPlatformChange, selectedPlatforms = [] }) {
   const handlePlatformToggle = (platformId) => {
     const newSelection = selectedPlatforms.includes(platformId)

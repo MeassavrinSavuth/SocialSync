@@ -4,12 +4,12 @@ import { FaTrash } from 'react-icons/fa';
 export default function WorkspaceCard({ avatar, name, admin, onClick, isAdmin, onDelete }) {
   return (
     <div
-      className="bg-white rounded-xl md:rounded-2xl shadow-lg p-4 md:p-6 flex flex-col items-center border hover:shadow-xl transition cursor-pointer relative min-h-[160px] md:min-h-[180px]"
+      className="h-full rounded-2xl ring-1 ring-black/5 bg-white shadow-sm p-5 flex flex-col items-center justify-start gap-3 hover:shadow-md transition cursor-pointer relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ring-offset-2"
       onClick={onClick}
     >
       {isAdmin && (
         <button
-          className="absolute top-2 right-2 p-1.5 md:p-2 bg-red-100 hover:bg-red-200 rounded-full text-red-600 hover:text-red-800 transition z-10 min-h-[44px] min-w-[44px] flex items-center justify-center"
+          className="absolute top-2 right-2 rounded-full bg-red-50 text-red-600 ring-1 ring-red-200 hover:bg-red-100 transition z-10 min-h-[44px] min-w-[44px] flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ring-offset-2"
           onClick={e => { e.stopPropagation(); onDelete && onDelete(); }}
           title="Delete Workspace"
         >
@@ -19,10 +19,14 @@ export default function WorkspaceCard({ avatar, name, admin, onClick, isAdmin, o
       <img
         src={avatar}
         alt={name}
-        className="w-16 h-16 md:w-20 md:h-20 rounded-full border mb-3 md:mb-4 object-cover bg-gray-100"
+        className="w-14 h-14 rounded-full ring-1 ring-black/5 object-cover bg-gray-100"
       />
-      <div className="text-lg md:text-xl font-semibold text-gray-800 mb-1 text-center break-words">{name}</div>
-      <div className="text-gray-500 text-xs md:text-sm mb-2 text-center">Admin: <span className="font-medium break-words">{admin}</span></div>
+      <div className="text-base font-semibold text-gray-900 truncate text-center">{name}</div>
+      <div className="text-sm text-muted-foreground text-center">
+        <span className="inline-flex items-center gap-1 rounded-lg bg-gray-100 text-gray-700 text-xs px-2 py-0.5">
+          Admin: {admin}
+        </span>
+      </div>
     </div>
   );
 } 

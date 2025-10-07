@@ -1,13 +1,36 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useToggle } from '../../hooks/ui/useToggle';
 import CommentSection from './CommentSection';
 import { useUser } from '../../hooks/auth/useUser';
+import { useRoleBasedUI } from '../../hooks/auth/usePermissions';
+import { useWebSocket } from '../../contexts/WebSocketContext';
+import MentionInput from '../common/MentionInput';
+import TaggedText from '../common/TaggedText';
 
-const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [] }) => {
+const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], mediaFiles = [] }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [showComments, toggleComments] = useToggle(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const { profileData: currentUser } = useUser();
+  const { canEdit, canDelete, loading: permissionsLoading, refetch: refetchPermissions } = useRoleBasedUI(workspaceId);
+  
+  // Use shared WebSocket connection for real-time permission updates
+  const { subscribe } = useWebSocket();
+
+  // Subscribe to WebSocket messages for real-time permission updates
+  useEffect(() => {
+    const unsubscribe = subscribe((msg) => {
+      console.log('TaskCard received WebSocket message:', msg);
+      
+      if (msg.type === 'member_role_changed' && msg.user_id === currentUser?.id) {
+        console.log('User role changed, refreshing permissions...');
+        // Refresh permissions when current user's role changes
+        refetchPermissions();
+      }
+    });
+
+    return unsubscribe;
+  }, [subscribe, refetchPermissions, currentUser?.id]);
   const [editForm, setEditForm] = useState({
     title: task.title,
     description: task.description || '',
@@ -80,12 +103,12 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [] }) =
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 placeholder-gray-500"
             placeholder="Task title"
           />
-          <textarea
+          <MentionInput
             value={editForm.description}
-            onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 placeholder-gray-500"
-            placeholder="Task description"
-            rows="3"
+            onChange={(value) => setEditForm({ ...editForm, description: value })}
+            placeholder="Task description - Use @ to mention tags"
+            mediaFiles={mediaFiles}
+            rows={3}
           />
           <div className="grid grid-cols-2 gap-4">
             <select
@@ -147,33 +170,39 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [] }) =
                 <p className="text-xs text-gray-500">{task.created_at ? new Date(task.created_at).toLocaleDateString() : 'Today'}</p>
               </div>
             </div>
-            {/* Three-dot menu */}
-            <div className="relative">
-              <button
-                className="p-1 rounded-full hover:bg-gray-100 transition-colors"
-                onClick={() => setMenuOpen(!menuOpen)}
-              >
-                <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-                </svg>
-              </button>
-              {menuOpen && (
-                <div className="absolute right-0 top-8 w-32 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                  <button
-                    className="block w-full text-left px-4 py-2 text-blue-700 hover:bg-blue-100 font-semibold"
-                    onClick={() => { setIsEditing(true); setMenuOpen(false); }}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 font-semibold"
-                    onClick={() => { setMenuOpen(false); handleDelete(); }}
-                  >
-                    Delete
-                  </button>
-                </div>
-              )}
-            </div>
+            {/* Three-dot menu - only show if user has edit or delete permissions */}
+            {(canEdit || canDelete) && (
+              <div className="relative">
+                <button
+                  className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+                  onClick={() => setMenuOpen(!menuOpen)}
+                >
+                  <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                  </svg>
+                </button>
+                {menuOpen && (
+                  <div className="absolute right-0 top-8 w-32 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                    {canEdit && (
+                      <button
+                        className="block w-full text-left px-4 py-2 text-blue-700 hover:bg-blue-100 font-semibold"
+                        onClick={() => { setIsEditing(true); setMenuOpen(false); }}
+                      >
+                        Edit
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button
+                        className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 font-semibold"
+                        onClick={() => { setMenuOpen(false); handleDelete(); }}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Task Title */}
@@ -181,32 +210,65 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [] }) =
           
           {/* Task Description */}
           {task.description && (
-            <p className="text-sm text-gray-600 mb-3 line-clamp-3 bg-gray-50 rounded-md px-3 py-2 border border-gray-100">
-              {task.description}
-            </p>
+            <div className="text-sm text-gray-600 mb-3 line-clamp-3 bg-gray-50 rounded-md px-3 py-2 border border-gray-100">
+              <TaggedText 
+                text={task.description} 
+                mediaFiles={mediaFiles}
+              />
+            </div>
           )}
 
           {/* Status and Tags */}
-          <div className="flex flex-wrap gap-2 mb-3">
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[task.status] || statusColors['Todo']}`}>
-              {task.status}
-            </span>
-            {task.assigned_to && (
-              <div className="flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+          <div className="flex flex-col gap-1 mb-3">
+            {/* Row 1: Status, Assigned User, Date */}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[task.status] || statusColors['Todo']}`}>
+                {task.status}
+              </span>
+
+              {task.assigned_to ? (
+                <div className="flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                  <img
+                    src={getUserAvatar(task.assigned_to)}
+                    alt={getUserDisplayName(task.assigned_to)}
+                    className="w-4 h-4 rounded-full border"
+                  />
+                  <span>{getUserDisplayName(task.assigned_to)}</span>
+                </div>
+              ) : (
+                canEdit ? (
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="px-2 py-1 bg-green-50 text-green-700 border border-green-200 rounded-full text-xs"
+                  >
+                    Assign
+                  </button>
+                ) : (
+                  <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">Unassigned</span>
+                )
+              )}
+
+              {task.due_date && (
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                  isOverdue ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
+                }`}>
+                  {formatDate(task.due_date)}
+                </span>
+              )}
+            </div>
+
+            {/* Row 2: Last updated by */}
+            {task.last_updated_by_name && task.updated_at && (
+              <div className="flex items-center gap-2 px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
                 <img
-                  src={getUserAvatar(task.assigned_to)}
-                  alt={getUserDisplayName(task.assigned_to)}
+                  src={task.last_updated_by_avatar || '/default-avatar.png'}
+                  alt={task.last_updated_by_name || 'Updater'}
                   className="w-4 h-4 rounded-full border"
                 />
-                <span>{getUserDisplayName(task.assigned_to)}</span>
+                <span>
+                  Last updated by {task.last_updated_by_name} at {new Date(task.updated_at).toLocaleString()}
+                </span>
               </div>
-            )}
-            {task.due_date && (
-              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                isOverdue ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'
-              }`}>
-                {formatDate(task.due_date)}
-              </span>
             )}
           </div>
 
@@ -219,7 +281,7 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [] }) =
               >
                 {showComments ? 'Hide Comments' : 'Show Comments'}
               </button>
-              {!task.assigned_to && (
+              {!task.assigned_to && canEdit && (
                 <button
                   onClick={() => setIsEditing(true)}
                   className="text-sm text-green-500 hover:text-green-700 focus:outline-none"
@@ -228,18 +290,29 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [] }) =
                 </button>
               )}
             </div>
-            <select
-              value={task.status}
-              onChange={async (e) => {
-                await onUpdate(task.id, { status: e.target.value });
-              }}
-              className="text-xs border rounded px-2 py-1 text-gray-800 bg-white min-w-0"
-            >
-              <option value="Todo">Todo</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Review">Review</option>
-              <option value="Done">Done</option>
-            </select>
+            {/* Status dropdown - only show if user can update tasks */}
+            {canEdit && (
+              <select
+                value={task.status}
+                onChange={async (e) => {
+                  console.log('Status change triggered by user:', currentUser);
+                  console.log('Updating task:', task.id, 'to status:', e.target.value);
+                  await onUpdate(task.id, { status: e.target.value });
+                }}
+                className="text-xs border rounded px-2 py-1 text-gray-800 bg-white min-w-0"
+              >
+                <option value="Todo">Todo</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Review">Review</option>
+                <option value="Done">Done</option>
+              </select>
+            )}
+            {/* Show status as read-only text for viewers */}
+            {!canEdit && (
+              <span className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                {task.status}
+              </span>
+            )}
           </div>
           
           {showComments && (

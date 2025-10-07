@@ -12,9 +12,9 @@ export default function LogoutConfirm({ onCancel }) {
   };
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50 animate-fade-in"
+    <div className="fixed inset-0 z-[100] grid place-items-center bg-black/50 supports-[backdrop-filter]:backdrop-blur-sm supports-[backdrop-filter]:backdrop-saturate-150 transition-opacity duration-200 animate-fade-in"
     style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }}>
-      <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-sm text-center">
+      <div className="w-full max-w-3xl rounded-2xl bg-white shadow-xl ring-1 ring-black/5 p-6 max-w-sm text-center">
         <h2 className="text-lg font-semibold text-gray-800 mb-4">Confirm Logout</h2>
         <p className="text-gray-600 mb-6">Are you sure you want to log out?</p>
         <div className="flex justify-center space-x-4">

@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useTasks } from '../../hooks/api/useTasks';
 import { useTaskReactions } from '../../hooks/api/useTaskReactions';
+import { useRoleBasedUI } from '../../hooks/auth/usePermissions';
+import { useWebSocket } from '../../contexts/WebSocketContext';
+import { useMedia } from '../../hooks/api/useMedia';
 import TaskCard from './TaskCard';
 import TaskForm from './TaskForm';
 import Modal from './Modal';
@@ -19,7 +22,57 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
   const [openCommentTaskId, setOpenCommentTaskId] = useState(null);
   
   // Backend integration
-  const { tasks, loading, error, createTask, updateTask, deleteTask } = useTasks(workspaceId);
+  const { tasks, loading, error, createTask, updateTask, deleteTask, fetchTasks } = useTasks(workspaceId);
+  
+  // Media files for @ tagging
+  const { media: mediaFiles } = useMedia(workspaceId);
+  
+  // Permission checks
+  const { canCreate, loading: permissionsLoading } = useRoleBasedUI(workspaceId);
+
+  // Use shared WebSocket connection for real-time updates
+  const { subscribe } = useWebSocket();
+
+  // Subscribe to WebSocket messages for real-time task updates
+  useEffect(() => {
+    const timeoutRefs = [];
+    
+    const unsubscribe = subscribe((msg) => {
+      console.log('TasksSection received WebSocket message:', msg);
+      
+      if (msg.type === 'task_created' && msg.task) {
+        // Add the new task to the list immediately
+        console.log('Task created via WebSocket:', msg.task);
+        // The useTasks hook should handle this, but let's trigger a refresh to be sure
+        const timeout = setTimeout(() => {
+          fetchTasks();
+        }, 100);
+        timeoutRefs.push(timeout);
+      } else if (msg.type === 'task_updated' && msg.task_id) {
+        // Refetch all tasks to get updated data including last_updated_by
+        console.log('WebSocket: task_updated received, refreshing tasks...');
+        // Add a small delay to ensure backend has processed the update
+        const timeout = setTimeout(() => {
+          fetchTasks();
+        }, 100);
+        timeoutRefs.push(timeout);
+      } else if (msg.type === 'task_deleted' && msg.task_id) {
+        // Task deletion is handled by the useTasks hook
+        console.log('Task deleted via WebSocket:', msg.task_id);
+        // Trigger a refresh to remove the deleted task
+        const timeout = setTimeout(() => {
+          fetchTasks();
+        }, 100);
+        timeoutRefs.push(timeout);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+      // Clean up all timeouts
+      timeoutRefs.forEach(timeout => clearTimeout(timeout));
+    };
+  }, [subscribe, fetchTasks]);
 
   const handleOpenModal = () => {
     setShowModal(true);
@@ -72,14 +125,17 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
 
   return (
     <section className="w-full">
-      <div className="mb-6">
-        <button
-          className="py-2 px-6 bg-blue-600 text-white rounded hover:bg-blue-700 transition font-semibold flex items-center gap-2"
-          onClick={handleOpenModal}
-        >
-          <FaPlus className="text-base" /> Add Task
-        </button>
-      </div>
+      {/* Only show Add Task button if user has permission to create tasks */}
+      {canCreate && (
+        <div className="mb-6">
+          <button
+            className="py-2 px-6 bg-blue-600 text-white rounded hover:bg-blue-700 transition font-semibold flex items-center gap-2"
+            onClick={handleOpenModal}
+          >
+            <FaPlus className="text-base" /> Add Task
+          </button>
+        </div>
+      )}
       <Modal open={showModal} onClose={() => setShowModal(false)}>
         <TaskForm
           onSubmit={async (taskData) => {
@@ -112,21 +168,32 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
             setEditTaskId(null);
           }}
           teamMembers={teamMembers}
+          mediaFiles={mediaFiles}
           initialData={editingTask}
         />
       </Modal>
       {/* Task List Grid - Mobile responsive and compact */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-        {uniqueTasks.map((task) => (
-          <TaskCard
-            key={task.id}
-            task={task}
-            onUpdate={updateTask}
-            onDelete={handleDeleteTask}
-            workspaceId={workspaceId}
-            teamMembers={teamMembers}
-          />
-        ))}
+        {uniqueTasks.map((task) => {
+          console.log('TasksSection rendering task:', {
+            id: task.id,
+            title: task.title,
+            last_updated_by_name: task.last_updated_by_name,
+            creator_name: task.creator_name,
+            updated_at: task.updated_at
+          });
+          return (
+            <TaskCard
+              key={task.id}
+              task={task}
+              onUpdate={updateTask}
+              onDelete={handleDeleteTask}
+              workspaceId={workspaceId}
+              teamMembers={teamMembers}
+              mediaFiles={mediaFiles}
+            />
+          );
+        })}
       </div>
     </section>
   );

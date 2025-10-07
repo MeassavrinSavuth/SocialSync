@@ -2,7 +2,6 @@ package utils
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -63,68 +62,105 @@ func NewAnalyticsSyncer(userID uuid.UUID, platform string) *AnalyticsSyncer {
 
 // SyncAnalytics fetches and stores analytics data for the platform
 func (as *AnalyticsSyncer) SyncAnalytics() error {
-	log.Printf("Starting analytics sync for user %s on platform %s", as.UserID, as.Platform)
+	// Starting analytics sync
 
 	// Skip Twitter analytics completely - disabled for now
 	if as.Platform == "twitter" {
-		log.Printf("Skipping twitter analytics sync for user %s - Twitter analytics disabled", as.UserID)
+		// Twitter analytics disabled
 		return nil
 	}
 
-	// Get social account info for the user and platform
-	var accountID, accessToken string
+	// Get all social accounts for the user and platform
 	query := `
-		SELECT social_id, access_token 
+		SELECT id, social_id, access_token, display_name, profile_name
 		FROM social_accounts 
-		WHERE user_id = $1 AND platform = $2
+		WHERE user_id = $1 AND platform = $2 AND status = 'active'
 	`
-	err := lib.DB.QueryRow(query, as.UserID, as.Platform).Scan(&accountID, &accessToken)
+	rows, err := lib.DB.Query(query, as.UserID, as.Platform)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			log.Printf("No social account found for user %s on platform %s", as.UserID, as.Platform)
-			return nil
+		return fmt.Errorf("error fetching social accounts: %v", err)
+	}
+	defer rows.Close()
+
+	var accounts []struct {
+		ID          uuid.UUID
+		SocialID    string
+		AccessToken string
+		DisplayName string
+		ProfileName string
+	}
+
+	for rows.Next() {
+		var account struct {
+			ID          uuid.UUID
+			SocialID    string
+			AccessToken string
+			DisplayName string
+			ProfileName string
 		}
-		return fmt.Errorf("error fetching social account: %v", err)
+		err := rows.Scan(&account.ID, &account.SocialID, &account.AccessToken, &account.DisplayName, &account.ProfileName)
+		if err != nil {
+			// Error scanning social account
+			continue
+		}
+		accounts = append(accounts, account)
 	}
 
-	log.Printf("Found social account for user %s on platform %s: %s", as.UserID, as.Platform, accountID)
-
-	// Fetch platform-specific data
-	var analytics *models.PostAnalytics
-	switch as.Platform {
-	case "mastodon":
-		analytics, err = as.fetchMastodonAnalytics(accountID, accessToken)
-	case "facebook":
-		analytics, err = as.fetchFacebookAnalytics(accountID, accessToken)
-	case "instagram":
-		analytics, err = as.fetchInstagramAnalytics(accountID, accessToken)
-	case "twitter":
-		analytics, err = as.fetchTwitterAnalytics(accountID, accessToken)
-	case "youtube":
-		analytics, err = as.fetchYouTubeAnalytics(accountID, accessToken)
-	case "telegram":
-		analytics, err = as.fetchTelegramAnalytics(accountID, accessToken)
-	default:
-		return fmt.Errorf("unsupported platform: %s", as.Platform)
+	if len(accounts) == 0 {
+		return nil
 	}
 
-	if err != nil {
-		log.Printf("Error fetching %s analytics for user %s: %v", as.Platform, as.UserID, err)
-		// Return the error instead of falling back to mock data
-		return fmt.Errorf("failed to fetch %s analytics: %v", as.Platform, err)
+	// Found social accounts
+
+	// Fetch platform-specific data for each account and store separately
+	for _, account := range accounts {
+		// Fetching analytics for account
+
+		var accountAnalytics *models.PostAnalytics
+		var err error
+
+		switch as.Platform {
+		case "mastodon":
+			accountAnalytics, err = as.fetchMastodonAnalytics(account.SocialID, account.AccessToken)
+		case "facebook":
+			accountAnalytics, err = as.fetchFacebookAnalytics(account.SocialID, account.AccessToken)
+		case "instagram":
+			accountAnalytics, err = as.fetchInstagramAnalytics(account.SocialID, account.AccessToken)
+		case "twitter":
+			accountAnalytics, err = as.fetchTwitterAnalytics(account.SocialID, account.AccessToken)
+		case "youtube":
+			accountAnalytics, err = as.fetchYouTubeAnalytics(account.SocialID, account.AccessToken)
+		case "telegram":
+			accountAnalytics, err = as.fetchTelegramAnalytics(account.SocialID, account.AccessToken)
+		default:
+			// Unsupported platform
+			continue
+		}
+
+		if err != nil {
+			// Error fetching analytics
+			// Continue with other accounts instead of failing completely
+			continue
+		}
+
+		// Set the account ID for this analytics data
+		accountAnalytics.AccountID = &account.ID
+
+		// Store analytics data for this specific account
+		// Storing analytics data
+
+		err = as.storeAnalytics(accountAnalytics)
+		if err != nil {
+			// Error storing analytics
+			// Continue with other accounts instead of failing completely
+			continue
+		}
+
+		// Successfully stored analytics data
 	}
 
-	// Store analytics data
-	log.Printf("Storing analytics data for user %s on platform %s: %d posts, %d likes, %d comments",
-		as.UserID, as.Platform, analytics.TotalPosts, analytics.TotalLikes, analytics.TotalComments)
-
-	err = as.storeAnalytics(analytics)
-	if err != nil {
-		log.Printf("Error storing analytics: %v", err)
-		return fmt.Errorf("failed to store analytics data: %v", err)
-	}
-
-	log.Printf("Successfully stored analytics data for user %s on platform %s", as.UserID, as.Platform)
+	// All accounts have been processed individually
+	// Completed analytics sync
 	return nil
 }
 
@@ -148,26 +184,9 @@ func (as *AnalyticsSyncer) fetchMastodonAnalytics(accountID, accessToken string)
 
 	domain := domainAndID[0]
 	userID := domainAndID[1]
-	url := fmt.Sprintf("https://%s/api/v1/accounts/%s/statuses?limit=40", domain, userID)
 
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("error creating mastodon request: %v", err)
-	}
-	req.Header.Add("Authorization", "Bearer "+accessToken)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("error fetching mastodon data: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("mastodon API returned status %d: %s", resp.StatusCode, string(body))
-	}
-
-	var mastodonResponse []struct {
+	// Fetch ALL posts with pagination
+	var allPosts []struct {
 		ID              string `json:"id"`
 		Content         string `json:"content"`
 		CreatedAt       string `json:"created_at"`
@@ -176,15 +195,80 @@ func (as *AnalyticsSyncer) fetchMastodonAnalytics(accountID, accessToken string)
 		ReblogsCount    int    `json:"reblogs_count"`
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&mastodonResponse); err != nil {
-		return nil, fmt.Errorf("error decoding mastodon response: %v", err)
+	// Start with initial request
+	nextURL := fmt.Sprintf("https://%s/api/v1/accounts/%s/statuses?limit=40", domain, userID)
+
+	// Making Mastodon API request
+
+	// Fetch all pages of posts
+	for nextURL != "" {
+		req, err := http.NewRequest("GET", nextURL, nil)
+		if err != nil {
+			return nil, fmt.Errorf("error creating mastodon request: %v", err)
+		}
+		req.Header.Add("Authorization", "Bearer "+accessToken)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("error fetching mastodon data: %v", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == 401 || resp.StatusCode == 403 {
+			return nil, fmt.Errorf("mastodon token expired or invalid permissions")
+		}
+		if resp.StatusCode != 200 {
+			return nil, fmt.Errorf("mastodon API returned status %d", resp.StatusCode)
+		}
+
+		var mastodonResponse []struct {
+			ID              string `json:"id"`
+			Content         string `json:"content"`
+			CreatedAt       string `json:"created_at"`
+			FavouritesCount int    `json:"favourites_count"`
+			RepliesCount    int    `json:"replies_count"`
+			ReblogsCount    int    `json:"reblogs_count"`
+		}
+
+		if err := json.NewDecoder(resp.Body).Decode(&mastodonResponse); err != nil {
+			return nil, fmt.Errorf("error decoding mastodon response: %v", err)
+		}
+
+		// Add posts from this page
+		allPosts = append(allPosts, mastodonResponse...)
+
+		// Check for next page in Link header
+		linkHeader := resp.Header.Get("Link")
+		nextURL = ""
+		if linkHeader != "" {
+			// Parse Link header to find next page
+			// Format: <https://mastodon.social/api/v1/accounts/123/statuses?max_id=456>; rel="next"
+			if strings.Contains(linkHeader, `rel="next"`) {
+				start := strings.Index(linkHeader, "<")
+				end := strings.Index(linkHeader[start:], ">")
+				if start != -1 && end != -1 {
+					nextURL = linkHeader[start+1 : start+end]
+				}
+			}
+		}
+
+		// Safety limit to prevent infinite loops
+		if len(allPosts) > 2000 {
+			// Reached safety limit
+			break
+		}
 	}
 
-	// Calculate totals from real data
+	// Fetched posts
+
+	// Calculate totals from all posts
 	var totalPosts, totalLikes, totalComments, totalShares int
 	var topPosts []map[string]interface{}
 
-	for _, post := range mastodonResponse {
+	// Debug: Log first few posts to see data
+	// Analyzing posts
+
+	for _, post := range allPosts {
 		totalPosts++
 		totalLikes += post.FavouritesCount
 		totalComments += post.RepliesCount
@@ -206,6 +290,8 @@ func (as *AnalyticsSyncer) fetchMastodonAnalytics(accountID, accessToken string)
 			})
 		}
 	}
+
+	// Calculated totals
 
 	// Convert top posts to JSON
 	topPostsJSON, _ := json.Marshal(topPosts)
@@ -258,7 +344,7 @@ func (as *AnalyticsSyncer) fetchFacebookAnalytics(accountID, accessToken string)
 	// Also try fetching comments with a different approach
 	nextURL := fmt.Sprintf("https://graph.facebook.com/v18.0/%s/posts?fields=message,created_time,full_picture,permalink_url,likes.summary(true),comments.summary(true),shares&limit=100&access_token=%s", accountID, accessToken)
 
-	log.Printf("Facebook analytics: Making request to %s", nextURL)
+	// Making Facebook API request
 
 	// Fetch all pages of posts
 	for nextURL != "" {
@@ -274,14 +360,12 @@ func (as *AnalyticsSyncer) fetchFacebookAnalytics(accountID, accessToken string)
 
 		// Handle authentication errors
 		if resp.StatusCode == 401 || resp.StatusCode == 403 {
-			body, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
-			return nil, fmt.Errorf("facebook token expired or invalid permissions: %s", string(body))
+			return nil, fmt.Errorf("facebook token expired or invalid permissions")
 		}
 		if resp.StatusCode != 200 {
-			body, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
-			return nil, fmt.Errorf("facebook API returned status %d: %s", resp.StatusCode, string(body))
+			return nil, fmt.Errorf("facebook API returned status %d", resp.StatusCode)
 		}
 
 		var fbResponse struct {
@@ -318,11 +402,7 @@ func (as *AnalyticsSyncer) fetchFacebookAnalytics(accountID, accessToken string)
 
 		// Debug: Log raw response for first page to see what Facebook is returning
 		if len(allPosts) == 0 && len(fbResponse.Data) > 0 {
-			log.Printf("Facebook API response sample - First post: ID=%s, Likes=%d, Comments=%d, Shares=%d",
-				fbResponse.Data[0].ID,
-				fbResponse.Data[0].Likes.Summary.TotalCount,
-				fbResponse.Data[0].Comments.Summary.TotalCount,
-				fbResponse.Data[0].Shares.Count)
+			// Facebook API response received
 		}
 
 		// Add posts from this page
@@ -333,25 +413,19 @@ func (as *AnalyticsSyncer) fetchFacebookAnalytics(accountID, accessToken string)
 
 		// Safety limit to prevent infinite loops
 		if len(allPosts) > 1000 {
-			log.Printf("Facebook analytics: Reached safety limit of 1000 posts for user %s", as.UserID)
+			// Reached safety limit
 			break
 		}
 	}
 
-	log.Printf("Facebook analytics: Fetched %d total posts for user %s", len(allPosts), as.UserID)
+	// Fetched posts
 
 	// Calculate totals from all posts
 	var totalPosts, totalLikes, totalComments, totalShares int
 	var topPosts []map[string]interface{}
 
 	// Debug: Log first few posts to see comment data
-	log.Printf("Facebook analytics: Analyzing %d posts for user %s", len(allPosts), as.UserID)
-	for i, post := range allPosts {
-		if i < 3 { // Log first 3 posts for debugging
-			log.Printf("Facebook post %d: ID=%s, Likes=%d, Comments=%d, Shares=%d",
-				i+1, post.ID, post.Likes.Summary.TotalCount, post.Comments.Summary.TotalCount, post.Shares.Count)
-		}
-	}
+	// Analyzing posts
 
 	for _, post := range allPosts {
 		totalPosts++
@@ -375,12 +449,11 @@ func (as *AnalyticsSyncer) fetchFacebookAnalytics(accountID, accessToken string)
 		}
 	}
 
-	log.Printf("Facebook analytics totals: %d posts, %d likes, %d comments, %d shares",
-		totalPosts, totalLikes, totalComments, totalShares)
+	// Calculated totals
 
 	// If comments are still 0, try a different approach - fetch comments separately for a few posts
 	if totalComments == 0 && totalPosts > 0 {
-		log.Printf("Facebook analytics: No comments found with summary approach, trying individual post comments...")
+		// No comments found with summary approach
 
 		// Try to fetch comments for the first 3 posts individually
 		for i, post := range allPosts {
@@ -389,17 +462,17 @@ func (as *AnalyticsSyncer) fetchFacebookAnalytics(accountID, accessToken string)
 			}
 
 			commentsURL := fmt.Sprintf("https://graph.facebook.com/v18.0/%s/comments?summary=true&access_token=%s", post.ID, accessToken)
-			log.Printf("Facebook analytics: Checking comments for post %s: %s", post.ID, commentsURL)
+			// Checking comments for post
 
 			req, err := http.NewRequest("GET", commentsURL, nil)
 			if err != nil {
-				log.Printf("Facebook analytics: Error creating comments request for post %s: %v", post.ID, err)
+				// Error creating comments request
 				continue
 			}
 
 			resp, err := client.Do(req)
 			if err != nil {
-				log.Printf("Facebook analytics: Error fetching comments for post %s: %v", post.ID, err)
+				// Error fetching comments
 				continue
 			}
 			defer resp.Body.Close()
@@ -412,11 +485,11 @@ func (as *AnalyticsSyncer) fetchFacebookAnalytics(accountID, accessToken string)
 				}
 
 				if err := json.NewDecoder(resp.Body).Decode(&commentsResponse); err == nil {
-					log.Printf("Facebook analytics: Post %s has %d comments (individual fetch)", post.ID, commentsResponse.Summary.TotalCount)
+					// Post has comments
 				}
 			} else {
-				body, _ := io.ReadAll(resp.Body)
-				log.Printf("Facebook analytics: Comments API returned status %d for post %s: %s", resp.StatusCode, post.ID, string(body))
+				_, _ = io.ReadAll(resp.Body)
+				// Comments API returned error
 			}
 		}
 	}
@@ -441,55 +514,117 @@ func (as *AnalyticsSyncer) fetchFacebookAnalytics(accountID, accessToken string)
 	}, nil
 }
 
-// fetchInstagramAnalytics fetches analytics data from Instagram API
+// fetchInstagramAnalytics fetches analytics data from Instagram Business API
 func (as *AnalyticsSyncer) fetchInstagramAnalytics(accountID, accessToken string) (*models.PostAnalytics, error) {
 	// Use proper HTTP client like your working social account syncer
 	client := &http.Client{Timeout: 10 * time.Second}
-	url := fmt.Sprintf("https://graph.instagram.com/%s/media?fields=id,caption,media_type,media_url,permalink,timestamp,like_count,comments_count&limit=40", accountID)
 
-	req, err := http.NewRequest("GET", url, nil)
+	// For Instagram Business accounts, we need to use Facebook Page access token
+	// and Instagram Graph API endpoints, not Instagram Basic Display API
+
+	// First, check if this is an Instagram Business account connected to a Facebook Page
+	// We need to find the Facebook Page that has this Instagram Business account
+	instagramBusinessID, pageAccessToken, err := as.getInstagramBusinessAccount(accountID, accessToken)
 	if err != nil {
-		return nil, fmt.Errorf("error creating instagram request: %v", err)
-	}
-	req.Header.Add("Authorization", "Bearer "+accessToken)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("error fetching instagram data: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == 401 || resp.StatusCode == 403 {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("instagram token expired or invalid permissions: %s", string(body))
-	}
-	if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("instagram API returned status %d: %s", resp.StatusCode, string(body))
+		// Error getting Instagram Business account
+		return nil, fmt.Errorf("failed to get Instagram Business account: %v", err)
 	}
 
-	var igResponse struct {
-		Data []struct {
-			ID            string `json:"id"`
-			Caption       string `json:"caption"`
-			MediaType     string `json:"media_type"`
-			MediaURL      string `json:"media_url"`
-			Permalink     string `json:"permalink"`
-			Timestamp     string `json:"timestamp"`
-			LikeCount     int    `json:"like_count"`
-			CommentsCount int    `json:"comments_count"`
-		} `json:"data"`
+	if instagramBusinessID == "" {
+		return nil, fmt.Errorf("no Instagram Business account found for Instagram account %s", accountID)
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&igResponse); err != nil {
-		return nil, fmt.Errorf("error decoding instagram response: %v", err)
+	// Using Instagram Business Account
+
+	// Fetch ALL Instagram Business posts with pagination
+	var allPosts []struct {
+		ID            string `json:"id"`
+		Caption       string `json:"caption"`
+		MediaType     string `json:"media_type"`
+		MediaURL      string `json:"media_url"`
+		Permalink     string `json:"permalink"`
+		Timestamp     string `json:"timestamp"`
+		LikeCount     int    `json:"like_count"`
+		CommentsCount int    `json:"comments_count"`
 	}
 
-	// Calculate totals from real data
+	// Start with initial request using Instagram Graph API
+	nextURL := fmt.Sprintf("https://graph.facebook.com/v18.0/%s/media?fields=id,caption,media_type,media_url,permalink,timestamp,like_count,comments_count&limit=40&access_token=%s", instagramBusinessID, pageAccessToken)
+
+	// Making Instagram API request
+
+	// Fetch all pages of posts
+	for nextURL != "" {
+		req, err := http.NewRequest("GET", nextURL, nil)
+		if err != nil {
+			return nil, fmt.Errorf("error creating instagram request: %v", err)
+		}
+
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("error fetching instagram data: %v", err)
+		}
+		defer resp.Body.Close()
+
+		// Log response status for debugging
+		// Instagram API response status
+
+		if resp.StatusCode == 401 || resp.StatusCode == 403 {
+			// Instagram authentication error
+			return nil, fmt.Errorf("instagram token expired or invalid permissions")
+		}
+		if resp.StatusCode != 200 {
+			// Instagram API error response
+			return nil, fmt.Errorf("instagram API returned status %d", resp.StatusCode)
+		}
+
+		var igResponse struct {
+			Data []struct {
+				ID            string `json:"id"`
+				Caption       string `json:"caption"`
+				MediaType     string `json:"media_type"`
+				MediaURL      string `json:"media_url"`
+				Permalink     string `json:"permalink"`
+				Timestamp     string `json:"timestamp"`
+				LikeCount     int    `json:"like_count"`
+				CommentsCount int    `json:"comments_count"`
+			} `json:"data"`
+			Paging struct {
+				Next string `json:"next"`
+			} `json:"paging"`
+		}
+
+		if err := json.NewDecoder(resp.Body).Decode(&igResponse); err != nil {
+			return nil, fmt.Errorf("error decoding instagram response: %v", err)
+		}
+
+		// Add posts from this page
+		allPosts = append(allPosts, igResponse.Data...)
+
+		// Check for next page
+		nextURL = igResponse.Paging.Next
+
+		// Safety limit to prevent infinite loops
+		if len(allPosts) > 2000 {
+			// Reached safety limit
+			break
+		}
+	}
+
+	// Fetched posts
+
+	// Calculate totals from all posts
 	var totalPosts, totalLikes, totalComments int
 	var topPosts []map[string]interface{}
 
-	for _, post := range igResponse.Data {
+	// Debug: Log first few posts to see data
+	log.Printf("Instagram analytics: Analyzing %d posts for user %s", len(allPosts), as.UserID)
+	for i, post := range allPosts {
+		if i < 3 { // Log first 3 posts for debugging
+			log.Printf("Instagram post %d: ID=%s, Likes=%d, Comments=%d",
+				i+1, post.ID, post.LikeCount, post.CommentsCount)
+		}
+
 		totalPosts++
 		totalLikes += post.LikeCount
 		totalComments += post.CommentsCount
@@ -509,6 +644,8 @@ func (as *AnalyticsSyncer) fetchInstagramAnalytics(accountID, accessToken string
 			})
 		}
 	}
+
+	// Calculated totals
 
 	// Convert top posts to JSON
 	topPostsJSON, _ := json.Marshal(topPosts)
@@ -530,13 +667,77 @@ func (as *AnalyticsSyncer) fetchInstagramAnalytics(accountID, accessToken string
 	}, nil
 }
 
+// getInstagramBusinessAccount finds the Instagram Business account connected to a Facebook Page
+func (as *AnalyticsSyncer) getInstagramBusinessAccount(instagramAccountID, instagramAccessToken string) (string, string, error) {
+	// We need to find which Facebook Page has this Instagram Business account
+	// Since we can't directly query from Instagram account to Facebook Page,
+	// we'll check all Facebook Pages for this user to find the one with this Instagram Business account
+
+	// Get all Facebook accounts for this user
+	query := `
+		SELECT id, social_id, access_token 
+		FROM social_accounts 
+		WHERE user_id = $1 AND platform = 'facebook'
+	`
+
+	rows, err := lib.DB.Query(query, as.UserID)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to query Facebook accounts: %v", err)
+	}
+	defer rows.Close()
+
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	for rows.Next() {
+		var fbAccountID, fbPageID, fbAccessToken string
+		err := rows.Scan(&fbAccountID, &fbPageID, &fbAccessToken)
+		if err != nil {
+			// Error scanning Facebook account
+			continue
+		}
+
+		// Check if this Facebook Page has the Instagram Business account we're looking for
+		url := fmt.Sprintf("https://graph.facebook.com/v18.0/%s?fields=instagram_business_account&access_token=%s", fbPageID, fbAccessToken)
+
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			// Error creating Facebook Page request
+			continue
+		}
+
+		resp, err := client.Do(req)
+		if err != nil {
+			// Error checking Facebook Page
+			continue
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == 200 {
+			var response struct {
+				InstagramBusinessAccount struct {
+					ID string `json:"id"`
+				} `json:"instagram_business_account"`
+			}
+
+			if err := json.NewDecoder(resp.Body).Decode(&response); err == nil {
+				if response.InstagramBusinessAccount.ID == instagramAccountID {
+					// Found Instagram Business account
+					return instagramAccountID, fbAccessToken, nil
+				}
+			}
+		}
+	}
+
+	return "", "", fmt.Errorf("no Facebook Page found with Instagram Business account %s", instagramAccountID)
+}
+
 // fetchTwitterAnalytics fetches analytics data from Twitter API
 func (as *AnalyticsSyncer) fetchTwitterAnalytics(accountID, accessToken string) (*models.PostAnalytics, error) {
 	// Use proper HTTP client
 	client := &http.Client{Timeout: 10 * time.Second}
 
 	// Get user's tweets from Twitter API v2
-	url := fmt.Sprintf("https://api.twitter.com/2/users/%s/tweets?tweet.fields=public_metrics,created_at&max_results=40", accountID)
+	url := fmt.Sprintf("https://api.twitter.com/2/users/%s/tweets?tweet.fields=public_metrics,created_at&max_results=100", accountID)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -551,8 +752,7 @@ func (as *AnalyticsSyncer) fetchTwitterAnalytics(accountID, accessToken string) 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("twitter API returned status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("twitter API returned status %d", resp.StatusCode)
 	}
 
 	var twitterResponse struct {
@@ -631,7 +831,7 @@ func (as *AnalyticsSyncer) fetchYouTubeAnalytics(_, accessToken string) (*models
 	}
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 
-	log.Printf("Making YouTube API request to: %s", channelsURL)
+	// Making YouTube API request
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -641,9 +841,9 @@ func (as *AnalyticsSyncer) fetchYouTubeAnalytics(_, accessToken string) (*models
 
 	if resp.StatusCode == 401 {
 		// Try to refresh the token
-		log.Printf("YouTube token expired, attempting refresh...")
-		body, _ := io.ReadAll(resp.Body)
-		log.Printf("YouTube API returned status %d for channel info: %s", resp.StatusCode, string(body))
+		// YouTube token expired, attempting refresh
+		_, _ = io.ReadAll(resp.Body)
+		// YouTube API returned error
 
 		// Get refresh token from database
 		var refreshToken string
@@ -663,7 +863,7 @@ func (as *AnalyticsSyncer) fetchYouTubeAnalytics(_, accessToken string) (*models
 		updateQuery := `UPDATE social_accounts SET access_token = $1 WHERE user_id = $2 AND platform = 'youtube'`
 		_, err = lib.DB.Exec(updateQuery, newAccessToken, as.UserID)
 		if err != nil {
-			log.Printf("Failed to update YouTube token: %v", err)
+			// Failed to update YouTube token
 		}
 
 		// Retry the request with new token
@@ -675,15 +875,13 @@ func (as *AnalyticsSyncer) fetchYouTubeAnalytics(_, accessToken string) (*models
 		defer resp.Body.Close()
 
 		if resp.StatusCode != 200 {
-			body, _ := io.ReadAll(resp.Body)
-			return nil, fmt.Errorf("youtube API still returned status %d after refresh: %s", resp.StatusCode, string(body))
+			return nil, fmt.Errorf("youtube API still returned status %d after refresh", resp.StatusCode)
 		}
 	} else if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("youtube API returned status %d for channel info: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("youtube API returned status %d for channel info", resp.StatusCode)
 	}
 
-	log.Printf("YouTube API channel request successful, status: %d", resp.StatusCode)
+	// YouTube API channel request successful
 
 	var channelsResp struct {
 		Items []struct {
@@ -704,7 +902,7 @@ func (as *AnalyticsSyncer) fetchYouTubeAnalytics(_, accessToken string) (*models
 		return nil, fmt.Errorf("no youtube channel found")
 	}
 	channelID := channelsResp.Items[0].ID
-	log.Printf("Found YouTube channel: %s", channelID)
+	// Found YouTube channel
 
 	// Step 2: Get the user's uploads playlist (like your working code)
 	playlistURL := fmt.Sprintf("https://www.googleapis.com/youtube/v3/channels?part=contentDetails&id=%s", channelID)
@@ -721,8 +919,7 @@ func (as *AnalyticsSyncer) fetchYouTubeAnalytics(_, accessToken string) (*models
 	defer resp2.Body.Close()
 
 	if resp2.StatusCode != 200 {
-		body, _ := io.ReadAll(resp2.Body)
-		return nil, fmt.Errorf("youtube API returned status %d for playlist info: %s", resp2.StatusCode, string(body))
+		return nil, fmt.Errorf("youtube API returned status %d for playlist info", resp2.StatusCode)
 	}
 
 	var playlistResp struct {
@@ -736,36 +933,35 @@ func (as *AnalyticsSyncer) fetchYouTubeAnalytics(_, accessToken string) (*models
 	}
 
 	if err := json.NewDecoder(resp2.Body).Decode(&playlistResp); err != nil {
-		log.Printf("Error decoding YouTube playlist response: %v", err)
+		// Error decoding YouTube playlist response
 		return nil, fmt.Errorf("YouTube API error")
 	}
 
 	if len(playlistResp.Items) == 0 {
-		log.Printf("No uploads playlist found")
+		// No uploads playlist found
 		return nil, fmt.Errorf("YouTube API error")
 	}
 	uploadsPlaylistID := playlistResp.Items[0].ContentDetails.RelatedPlaylists.Uploads
-	log.Printf("Found uploads playlist: %s", uploadsPlaylistID)
+	// Found uploads playlist
 
 	// Step 3: Get videos from uploads playlist (like your working code)
-	videosURL := fmt.Sprintf("https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&maxResults=20&playlistId=%s", uploadsPlaylistID)
+	videosURL := fmt.Sprintf("https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&maxResults=50&playlistId=%s", uploadsPlaylistID)
 	req3, err := http.NewRequest("GET", videosURL, nil)
 	if err != nil {
-		log.Printf("Error creating YouTube videos request: %v", err)
+		// Error creating YouTube videos request
 		return nil, fmt.Errorf("YouTube API error")
 	}
 	req3.Header.Set("Authorization", "Bearer "+accessToken)
 
 	resp3, err := client.Do(req3)
 	if err != nil {
-		log.Printf("Error fetching YouTube videos: %v", err)
+		// Error fetching YouTube videos
 		return nil, fmt.Errorf("YouTube API error")
 	}
 	defer resp3.Body.Close()
 
 	if resp3.StatusCode != 200 {
-		body, _ := io.ReadAll(resp3.Body)
-		log.Printf("YouTube API returned status %d for videos: %s", resp3.StatusCode, string(body))
+		// YouTube API returned error
 		return nil, fmt.Errorf("YouTube API error")
 	}
 
@@ -783,11 +979,11 @@ func (as *AnalyticsSyncer) fetchYouTubeAnalytics(_, accessToken string) (*models
 	}
 
 	if err := json.NewDecoder(resp3.Body).Decode(&videosResponse); err != nil {
-		log.Printf("Error decoding YouTube videos response: %v", err)
+		// Error decoding YouTube videos response
 		return nil, fmt.Errorf("YouTube API error")
 	}
 
-	log.Printf("Found %d YouTube videos", len(videosResponse.Items))
+	// Found YouTube videos
 
 	// Step 4: Get video statistics for all videos (like your working code)
 	videoIDs := []string{}
@@ -796,31 +992,30 @@ func (as *AnalyticsSyncer) fetchYouTubeAnalytics(_, accessToken string) (*models
 	}
 
 	if len(videoIDs) == 0 {
-		log.Printf("No videos found")
+		// No videos found
 		return nil, fmt.Errorf("YouTube API error")
 	}
 
-	log.Printf("Getting statistics for %d videos", len(videoIDs))
+	// Getting statistics for videos
 
 	// Get stats for all videos at once (like your working code)
 	statsURL := fmt.Sprintf("https://www.googleapis.com/youtube/v3/videos?part=statistics,snippet&id=%s", strings.Join(videoIDs, ","))
 	req4, err := http.NewRequest("GET", statsURL, nil)
 	if err != nil {
-		log.Printf("Error creating YouTube stats request: %v", err)
+		// Error creating YouTube stats request
 		return nil, fmt.Errorf("YouTube API error")
 	}
 	req4.Header.Set("Authorization", "Bearer "+accessToken)
 
 	statsResp, err := client.Do(req4)
 	if err != nil {
-		log.Printf("Error fetching YouTube video stats: %v", err)
+		// Error fetching YouTube video stats
 		return nil, fmt.Errorf("YouTube API error")
 	}
 	defer statsResp.Body.Close()
 
 	if statsResp.StatusCode != 200 {
-		body, _ := io.ReadAll(statsResp.Body)
-		log.Printf("YouTube API returned status %d for video stats: %s", statsResp.StatusCode, string(body))
+		// YouTube API returned error
 		return nil, fmt.Errorf("YouTube API error")
 	}
 
@@ -841,11 +1036,11 @@ func (as *AnalyticsSyncer) fetchYouTubeAnalytics(_, accessToken string) (*models
 	}
 
 	if err := json.NewDecoder(statsResp.Body).Decode(&statsResponse); err != nil {
-		log.Printf("Error decoding YouTube video stats: %v", err)
+		// Error decoding YouTube video stats
 		return nil, fmt.Errorf("YouTube API error")
 	}
 
-	log.Printf("Successfully fetched statistics for %d videos", len(statsResponse.Items))
+	// Successfully fetched statistics
 
 	// Calculate totals from real data
 	var totalPosts, totalLikes, totalComments, totalViews int
@@ -929,8 +1124,7 @@ func (as *AnalyticsSyncer) fetchTelegramAnalytics(accountID, accessToken string)
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("telegram API returned status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("telegram API returned status %d", resp.StatusCode)
 	}
 
 	var telegramResponse struct {
@@ -1023,20 +1217,24 @@ func (as *AnalyticsSyncer) fetchTelegramAnalytics(accountID, accessToken string)
 
 // storeAnalytics stores analytics data in the database
 func (as *AnalyticsSyncer) storeAnalytics(analytics *models.PostAnalytics) error {
-	// Check if we already have recent data for this user/platform (within 2 hours to be more conservative)
+	// First, ensure the table exists
+	if err := as.ensureAnalyticsTable(); err != nil {
+		return fmt.Errorf("failed to ensure analytics table exists: %v", err)
+	}
+
+	// Check if we already have recent data for this user/platform/account (within 2 hours to be more conservative)
 	var existingID int
 	var existingPosts int
 	query := `
 		SELECT id, total_posts FROM post_analytics 
-		WHERE user_id = $1 AND platform = $2 
+		WHERE user_id = $1 AND platform = $2 AND account_id = $3
 		AND snapshot_at > NOW() - INTERVAL '2 hours'
 		ORDER BY snapshot_at DESC LIMIT 1
 	`
-	err := lib.DB.QueryRow(query, analytics.UserID, analytics.Platform).Scan(&existingID, &existingPosts)
+	err := lib.DB.QueryRow(query, analytics.UserID, analytics.Platform, analytics.AccountID).Scan(&existingID, &existingPosts)
 	if err == nil {
 		// Update existing record
-		log.Printf("Updating existing analytics record (ID: %d) for user %s on platform %s: %d -> %d posts",
-			existingID, analytics.UserID, analytics.Platform, existingPosts, analytics.TotalPosts)
+		// Updating existing analytics record
 
 		updateQuery := `
 			UPDATE post_analytics 
@@ -1052,37 +1250,144 @@ func (as *AnalyticsSyncer) storeAnalytics(analytics *models.PostAnalytics) error
 	}
 
 	// Insert new record
-	log.Printf("Creating new analytics record for user %s on platform %s: %d posts",
-		analytics.UserID, analytics.Platform, analytics.TotalPosts)
+	// Creating new analytics record
 
 	insertQuery := `
-		INSERT INTO post_analytics (user_id, platform, total_posts, total_likes, 
+		INSERT INTO post_analytics (user_id, platform, account_id, total_posts, total_likes, 
 			total_comments, total_shares, total_views, engagement, top_posts, snapshot_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`
-	_, err = lib.DB.Exec(insertQuery, analytics.UserID, analytics.Platform,
+	_, err = lib.DB.Exec(insertQuery, analytics.UserID, analytics.Platform, analytics.AccountID,
 		analytics.TotalPosts, analytics.TotalLikes, analytics.TotalComments,
 		analytics.TotalShares, analytics.TotalViews, analytics.Engagement,
 		analytics.TopPosts, analytics.SnapshotAt)
 	return err
 }
 
+// ensureAnalyticsTable creates the post_analytics table if it doesn't exist
+func (as *AnalyticsSyncer) ensureAnalyticsTable() error {
+	// First, check if the table exists and what columns it has
+	var tableExists bool
+	err := lib.DB.QueryRow(`
+		SELECT EXISTS (
+			SELECT FROM information_schema.tables 
+			WHERE table_schema = 'public' 
+			AND table_name = 'post_analytics'
+		)
+	`).Scan(&tableExists)
+
+	if err != nil {
+		return fmt.Errorf("failed to check if post_analytics table exists: %v", err)
+	}
+
+	if !tableExists {
+		// Create the table with correct schema
+		createTableSQL := `
+			CREATE TABLE post_analytics (
+				id SERIAL PRIMARY KEY,
+				user_id UUID NOT NULL,
+				platform TEXT NOT NULL,
+				snapshot_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+				total_posts INTEGER DEFAULT 0,
+				total_likes INTEGER DEFAULT 0,
+				total_comments INTEGER DEFAULT 0,
+				total_shares INTEGER DEFAULT 0,
+				total_views INTEGER DEFAULT 0,
+				engagement INTEGER DEFAULT 0,
+				top_posts JSONB DEFAULT '[]'::jsonb,
+				created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+				updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+			)
+		`
+
+		_, err = lib.DB.Exec(createTableSQL)
+		if err != nil {
+			return fmt.Errorf("failed to create post_analytics table: %v", err)
+		}
+		// Created post_analytics table
+	} else {
+		// Check if the table has the correct columns
+		var hasCorrectColumns bool
+		err = lib.DB.QueryRow(`
+			SELECT EXISTS (
+				SELECT 1 FROM information_schema.columns 
+				WHERE table_name = 'post_analytics' 
+				AND column_name = 'total_posts'
+			)
+		`).Scan(&hasCorrectColumns)
+
+		if err != nil {
+			return fmt.Errorf("failed to check table columns: %v", err)
+		}
+
+		if !hasCorrectColumns {
+			// Drop and recreate the table with correct schema
+			// Dropping and recreating table
+			_, err = lib.DB.Exec("DROP TABLE IF EXISTS post_analytics CASCADE")
+			if err != nil {
+				return fmt.Errorf("failed to drop post_analytics table: %v", err)
+			}
+
+			createTableSQL := `
+				CREATE TABLE post_analytics (
+					id SERIAL PRIMARY KEY,
+					user_id UUID NOT NULL,
+					platform TEXT NOT NULL,
+					snapshot_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+					total_posts INTEGER DEFAULT 0,
+					total_likes INTEGER DEFAULT 0,
+					total_comments INTEGER DEFAULT 0,
+					total_shares INTEGER DEFAULT 0,
+					total_views INTEGER DEFAULT 0,
+					engagement INTEGER DEFAULT 0,
+					top_posts JSONB DEFAULT '[]'::jsonb,
+					created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+					updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+				)
+			`
+
+			_, err = lib.DB.Exec(createTableSQL)
+			if err != nil {
+				return fmt.Errorf("failed to recreate post_analytics table: %v", err)
+			}
+			// Recreated table
+		}
+	}
+
+	// Create indexes
+	indexes := []string{
+		"CREATE INDEX IF NOT EXISTS idx_post_analytics_user_id ON post_analytics(user_id)",
+		"CREATE INDEX IF NOT EXISTS idx_post_analytics_platform ON post_analytics(platform)",
+		"CREATE INDEX IF NOT EXISTS idx_post_analytics_snapshot_at ON post_analytics(snapshot_at)",
+		"CREATE INDEX IF NOT EXISTS idx_post_analytics_user_platform ON post_analytics(user_id, platform)",
+		"CREATE INDEX IF NOT EXISTS idx_post_analytics_user_snapshot ON post_analytics(user_id, snapshot_at)",
+	}
+
+	for _, indexSQL := range indexes {
+		if _, err := lib.DB.Exec(indexSQL); err != nil {
+			// Warning: Failed to create index
+		}
+	}
+
+	return nil
+}
+
 // SyncAllUserAnalytics syncs analytics for all platforms for a specific user
 func SyncAllUserAnalytics(userID uuid.UUID) error {
-	log.Printf("Starting analytics sync for all platforms for user %s", userID)
+	// Starting analytics sync for all platforms
 
 	// First, let's check if there are ANY social accounts for this user
 	checkQuery := `SELECT COUNT(*) FROM social_accounts WHERE user_id = $1`
 	var totalAccounts int
 	err := lib.DB.QueryRow(checkQuery, userID).Scan(&totalAccounts)
 	if err != nil {
-		log.Printf("Error checking social accounts count: %v", err)
+		// Error checking social accounts count
 		return fmt.Errorf("error checking social accounts: %v", err)
 	}
-	log.Printf("Total social accounts for user %s: %d", userID, totalAccounts)
+	// Total social accounts
 
 	if totalAccounts == 0 {
-		log.Printf("No social accounts found for user %s", userID)
+		// No social accounts found
 		return nil
 	}
 
@@ -1103,15 +1408,15 @@ func SyncAllUserAnalytics(userID uuid.UUID) error {
 		platforms = append(platforms, platform)
 	}
 
-	log.Printf("Found %d connected platforms for user %s: %v", len(platforms), userID, platforms)
+	// Found connected platforms
 
 	// Sync each platform
 	var syncErrors []string
 	for _, platform := range platforms {
-		log.Printf("Syncing analytics for platform %s", platform)
+		// Syncing analytics for platform
 		syncer := NewAnalyticsSyncer(userID, platform)
 		if err := syncer.SyncAnalytics(); err != nil {
-			log.Printf("Error syncing %s analytics for user %s: %v", platform, userID, err)
+			// Error syncing analytics
 			syncErrors = append(syncErrors, fmt.Sprintf("%s: %v", platform, err))
 			// Continue with other platforms even if one fails
 		}
@@ -1124,10 +1429,10 @@ func SyncAllUserAnalytics(userID uuid.UUID) error {
 
 	// If some platforms failed, log warnings but don't fail completely
 	if len(syncErrors) > 0 {
-		log.Printf("Some platforms failed to sync: %s", strings.Join(syncErrors, "; "))
+		// Some platforms failed to sync
 	}
 
-	log.Printf("Completed analytics sync for user %s", userID)
+	// Completed analytics sync
 
 	return nil
 }

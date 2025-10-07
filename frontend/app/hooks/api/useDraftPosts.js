@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://socialsync-j7ih.onrender.com';
 
 export function useDraftPosts(workspaceId) {
   const [drafts, setDrafts] = useState([]);
@@ -33,13 +33,24 @@ export function useDraftPosts(workspaceId) {
 
   const createDraft = async (data) => {
     const token = getAuthToken();
-    const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/drafts`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify(data)
-    });
-    if (res.ok) fetchDrafts();
-    return res.ok;
+    
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/drafts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(data)
+      });
+      if (res.ok) {
+        fetchDrafts();
+      } else {
+        const errorText = await res.text();
+        console.error('Create draft failed:', res.status, errorText);
+      }
+      return res.ok;
+    } catch (error) {
+      console.error('Create draft error:', error);
+      return false;
+    }
   };
 
   const updateDraft = async (draftId, data) => {
@@ -76,21 +87,6 @@ export function useDraftPosts(workspaceId) {
   useEffect(() => {
     if (workspaceId) {
       fetchDrafts();
-      const wsUrl = API_BASE_URL.replace(/^http/, 'ws').replace(/^https/, 'wss');
-      const ws = new window.WebSocket(`${wsUrl}/ws/${workspaceId}`);
-      ws.onmessage = (event) => {
-        try {
-          const msg = JSON.parse(event.data);
-          if (msg.type === 'draft_created' && msg.draft) {
-            setDrafts(prev => [msg.draft, ...prev.filter(d => d.id !== msg.draft.id)]);
-          } else if ((msg.type === 'draft_updated' || msg.type === 'draft_published') && msg.draft) {
-            fetchDrafts(); // Refetch for update/publish
-          } else if (msg.type === 'draft_deleted' && msg.draftId) {
-            setDrafts(prev => prev.filter(d => d.id !== msg.draftId));
-          }
-        } catch (e) { /* ignore */ }
-      };
-      return () => ws.close();
     }
   }, [workspaceId]);
 

@@ -24,17 +24,18 @@ import (
 //
 // );
 type PostAnalytics struct {
-	ID            int       `json:"id" db:"id"`
-	UserID        uuid.UUID `json:"user_id" db:"user_id"`
-	Platform      string    `json:"platform" db:"platform"`
-	SnapshotAt    time.Time `json:"snapshot_at" db:"snapshot_at"`
-	TotalPosts    int       `json:"total_posts" db:"total_posts"`
-	TotalLikes    int       `json:"total_likes" db:"total_likes"`
-	TotalComments int       `json:"total_comments" db:"total_comments"`
-	TotalShares   int       `json:"total_shares" db:"total_shares"`
-	TotalViews    int       `json:"total_views" db:"total_views"`
-	Engagement    int       `json:"engagement" db:"engagement"`
-	TopPosts      string    `json:"top_posts" db:"top_posts"` // JSONB stored as string
+	ID            int        `json:"id" db:"id"`
+	UserID        uuid.UUID  `json:"user_id" db:"user_id"`
+	Platform      string     `json:"platform" db:"platform"`
+	AccountID     *uuid.UUID `json:"account_id" db:"account_id"` // Optional account ID for account-specific analytics
+	SnapshotAt    time.Time  `json:"snapshot_at" db:"snapshot_at"`
+	TotalPosts    int        `json:"total_posts" db:"total_posts"`
+	TotalLikes    int        `json:"total_likes" db:"total_likes"`
+	TotalComments int        `json:"total_comments" db:"total_comments"`
+	TotalShares   int        `json:"total_shares" db:"total_shares"`
+	TotalViews    int        `json:"total_views" db:"total_views"`
+	Engagement    int        `json:"engagement" db:"engagement"`
+	TopPosts      string     `json:"top_posts" db:"top_posts"` // JSONB stored as string
 }
 
 // TopPost represents a single top post stored in JSONB

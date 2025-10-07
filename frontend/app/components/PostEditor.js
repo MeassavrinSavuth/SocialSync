@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { uploadToCloudinary } from '../hooks/api/uploadToCloudinary';
 import {
   FaFacebookF,
@@ -153,6 +153,8 @@ export default function PostEditor({
   handlePublish,
   isPublishing,
   status,
+  accountsByProvider = {},
+  setAccountsByProvider,
   // New scheduling props
   isScheduled,
   setIsScheduled,
@@ -163,6 +165,7 @@ export default function PostEditor({
   handleSchedule,
   isScheduling,
 }) {
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://socialsync-j7ih.onrender.com';
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState([]);
   const [uploadControllers, setUploadControllers] = useState([]);
@@ -191,6 +194,9 @@ export default function PostEditor({
     if (!limit) return null;
     return limit - message.length;
   };
+
+  // If only YouTube is selected, streamline UI for video-only workflow
+  const youtubeOnly = selectedPlatforms.length === 1 && selectedPlatforms[0] === 'youtube';
 
   // Apply template
   const applyTemplate = (template) => {
@@ -373,6 +379,52 @@ export default function PostEditor({
   const twitterHasMediaWarning = selectedPlatforms.includes('twitter') && (hasImage || hasVideo);
   const twitterWarningMessage = 'Our platform is currently using an unpaid API tier — this imposes stricter rate and size limits when forwarding media to Twitter/X; oversized or unsupported files may be rejected. Contact the platform admin to upgrade the plan for larger media uploads.';
 
+  // Helpers to store selected accounts per provider
+  const setProviderAccounts = (provider, ids) => {
+    if (!setAccountsByProvider) return;
+    setAccountsByProvider((prev) => ({
+      ...(prev || {}),
+      [provider]: { ...(prev?.[provider] || {}), ids, all: false },
+    }));
+  };
+  const setProviderAll = (provider, all) => {
+    if (!setAccountsByProvider) return;
+    setAccountsByProvider((prev) => ({
+      ...(prev || {}),
+      [provider]: { ...(prev?.[provider] || {}), all, ids: all ? [] : (prev?.[provider]?.ids || []) },
+    }));
+  };
+
+  // Fetch connected social accounts for account selection UI
+  const [availableAccounts, setAvailableAccounts] = useState({}); // { provider: [ {id, displayName, avatar} ] }
+  useEffect(() => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    if (!token) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/social-accounts`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const grouped = (data || []).reduce((acc, a) => {
+          const key = (a.provider || a.platform || '').toLowerCase();
+          if (!acc[key]) acc[key] = [];
+          acc[key].push({ id: a.id, name: a.displayName || a.profileName || a.externalId, avatar: a.avatar || a.profilePictureUrl });
+          return acc;
+        }, {});
+        if (!cancelled) {
+          console.log('DEBUG: Available accounts loaded:', grouped);
+          setAvailableAccounts(grouped);
+        }
+      } catch (e) {
+        // ignore
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   return (
     <section className="flex flex-col h-full">
       <h2 className="text-lg md:text-xl lg:text-2xl font-semibold mb-3 md:mb-4 lg:mb-6 text-gray-900">Compose Your Post</h2>
@@ -428,6 +480,231 @@ export default function PostEditor({
           })}
         </div>
 
+        {/* Account selection per platform */}
+        {selectedPlatforms.includes('facebook') && (
+          <div className="mt-2 p-2 bg-gray-50 border rounded">
+            <div className="text-xs font-medium text-gray-700 mb-1">Facebook Pages</div>
+            <div className="flex items-center gap-2 mb-2">
+              <label className="text-xs text-gray-700 flex items-center gap-1">
+                <input type="checkbox" checked={!!accountsByProvider?.facebook?.all} onChange={(e) => setProviderAll('facebook', e.target.checked)} />
+                Post to all connected Facebook Pages
+              </label>
+            </div>
+            {!accountsByProvider?.facebook?.all && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {(availableAccounts.facebook || []).map((acc) => {
+                  const selectedIds = accountsByProvider?.facebook?.ids || [];
+                  const selected = selectedIds.includes(acc.id);
+                  console.log('DEBUG: Rendering Facebook account:', { acc, selectedIds, selected, accountsByProvider });
+                  const toggle = () => {
+                    const next = selected
+                      ? selectedIds.filter((x) => x !== acc.id)
+                      : [...selectedIds, acc.id];
+                    console.log('DEBUG: Facebook account selection changed:', { selected, accId: acc.id, next });
+                    setProviderAccounts('facebook', next);
+                  };
+                  return (
+                    <button
+                      key={acc.id}
+                      type="button"
+                      onClick={toggle}
+                      aria-pressed={selected}
+                      className={`flex items-center gap-3 border rounded-lg p-2 w-full text-left ${selected ? 'ring-2 ring-blue-500 bg-blue-50' : 'hover:bg-gray-50'}`}
+                    >
+                      <img src={acc.avatar || '/default-avatar.png'} alt={acc.name} className="w-8 h-8 rounded-full" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-gray-900 truncate">{acc.name}</div>
+                      </div>
+                      <span className={`inline-block w-4 h-4 rounded border ${selected ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}></span>
+                    </button>
+                  );
+                })}
+                {(availableAccounts.facebook || []).length === 0 && (
+                  <div className="text-xs text-gray-500">No Facebook Pages connected.</div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {selectedPlatforms.includes('instagram') && (
+          <div className="mt-2 p-2 bg-gray-50 border rounded">
+            <div className="text-xs font-medium text-gray-700 mb-1">Instagram Accounts</div>
+            <div className="flex items-center gap-2 mb-2">
+              <label className="text-xs text-gray-700 flex items-center gap-1">
+                <input type="checkbox" checked={!!accountsByProvider?.instagram?.all} onChange={(e) => setProviderAll('instagram', e.target.checked)} />
+                Post to all connected Instagram accounts
+              </label>
+            </div>
+            {!accountsByProvider?.instagram?.all && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {(availableAccounts.instagram || []).map((acc) => {
+                  const selectedIds = accountsByProvider?.instagram?.ids || [];
+                  const selected = selectedIds.includes(acc.id);
+                  console.log('DEBUG: Rendering Instagram account:', { acc, selectedIds, selected, accountsByProvider });
+                  const toggle = () => {
+                    const next = selected
+                      ? selectedIds.filter((x) => x !== acc.id)
+                      : [...selectedIds, acc.id];
+                    console.log('DEBUG: Instagram account selection changed:', { selected, accId: acc.id, next });
+                    setProviderAccounts('instagram', next);
+                  };
+                  return (
+                    <button
+                      key={acc.id}
+                      type="button"
+                      onClick={toggle}
+                      aria-pressed={selected}
+                      className={`flex items-center gap-3 border rounded-lg p-2 w-full text-left ${selected ? 'ring-2 ring-pink-500 bg-pink-50' : 'hover:bg-gray-50'}`}
+                    >
+                      <img src={acc.avatar || '/default-avatar.png'} alt={acc.name} className="w-8 h-8 rounded-full" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-gray-900 truncate">{acc.name}</div>
+                      </div>
+                      <span className={`inline-block w-4 h-4 rounded border ${selected ? 'bg-pink-600 border-pink-600' : 'border-gray-300'}`}></span>
+                    </button>
+                  );
+                })}
+                {(availableAccounts.instagram || []).length === 0 && (
+                  <div className="text-xs text-gray-500">No Instagram accounts connected.</div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {selectedPlatforms.includes('mastodon') && (
+          <div className="mt-2 p-2 bg-gray-50 border rounded">
+            <div className="text-xs font-medium text-gray-700 mb-1">Mastodon accounts</div>
+            <div className="flex items-center gap-2 mb-2">
+              <label className="text-xs text-gray-700 flex items-center gap-1">
+                <input type="checkbox" checked={!!accountsByProvider?.mastodon?.all} onChange={(e) => setProviderAll('mastodon', e.target.checked)} />
+                Post to all connected Mastodon accounts
+              </label>
+            </div>
+            {!accountsByProvider?.mastodon?.all && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {(availableAccounts.mastodon || []).map((acc) => {
+                  const selectedIds = accountsByProvider?.mastodon?.ids || [];
+                  const selected = selectedIds.includes(acc.id);
+                  const toggle = () => {
+                    const next = selected
+                      ? selectedIds.filter((x) => x !== acc.id)
+                      : [...selectedIds, acc.id];
+                    setProviderAccounts('mastodon', next);
+                  };
+                  return (
+                    <button
+                      key={acc.id}
+                      type="button"
+                      onClick={toggle}
+                      aria-pressed={selected}
+                      className={`flex items-center gap-3 border rounded-lg p-2 w-full text-left ${selected ? 'ring-2 ring-blue-500 bg-blue-50' : 'hover:bg-gray-50'}`}
+                    >
+                      <img src={acc.avatar || '/default-avatar.png'} alt={acc.name} className="w-8 h-8 rounded-full" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-gray-900 truncate">{acc.name}</div>
+                      </div>
+                      <span className={`inline-block w-4 h-4 rounded border ${selected ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}></span>
+                    </button>
+                  );
+                })}
+                {(availableAccounts.mastodon || []).length === 0 && (
+                  <div className="text-xs text-gray-500">No Mastodon accounts connected.</div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {selectedPlatforms.includes('twitter') && (
+          <div className="mt-2 p-2 bg-gray-50 border rounded">
+            <div className="text-xs font-medium text-gray-700 mb-1">Twitter accounts</div>
+            <div className="flex items-center gap-2 mb-2">
+              <label className="text-xs text-gray-700 flex items-center gap-1">
+                <input type="checkbox" checked={!!accountsByProvider?.twitter?.all} onChange={(e) => setProviderAll('twitter', e.target.checked)} />
+                Post to all connected Twitter accounts
+              </label>
+            </div>
+            {!accountsByProvider?.twitter?.all && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {(availableAccounts.twitter || []).map((acc) => {
+                  const selectedIds = accountsByProvider?.twitter?.ids || [];
+                  const selected = selectedIds.includes(acc.id);
+                  const toggle = () => {
+                    const next = selected
+                      ? selectedIds.filter((x) => x !== acc.id)
+                      : [...selectedIds, acc.id];
+                    setProviderAccounts('twitter', next);
+                  };
+                  return (
+                    <button
+                      key={acc.id}
+                      type="button"
+                      onClick={toggle}
+                      aria-pressed={selected}
+                      className={`flex items-center gap-3 border rounded-lg p-2 w-full text-left ${selected ? 'ring-2 ring-blue-500 bg-blue-50' : 'hover:bg-gray-50'}`}
+                    >
+                      <img src={acc.avatar || '/default-avatar.png'} alt={acc.name} className="w-8 h-8 rounded-full" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-gray-900 truncate">{acc.name}</div>
+                      </div>
+                      <span className={`inline-block w-4 h-4 rounded border ${selected ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}></span>
+                    </button>
+                  );
+                })}
+                {(availableAccounts.twitter || []).length === 0 && (
+                  <div className="text-xs text-gray-500">No Twitter accounts connected.</div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {selectedPlatforms.includes('telegram') && (
+          <div className="mt-2 p-2 bg-gray-50 border rounded">
+            <div className="text-xs font-medium text-gray-700 mb-1">Telegram channels</div>
+            <div className="flex items-center gap-2 mb-2">
+              <label className="text-xs text-gray-700 flex items-center gap-1">
+                <input type="checkbox" checked={!!accountsByProvider?.telegram?.all} onChange={(e) => setProviderAll('telegram', e.target.checked)} />
+                Post to all connected Telegram channels
+              </label>
+            </div>
+            {!accountsByProvider?.telegram?.all && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {(availableAccounts.telegram || []).map((acc) => {
+                  const selectedIds = accountsByProvider?.telegram?.ids || [];
+                  const selected = selectedIds.includes(acc.id);
+                  const toggle = () => {
+                    const next = selected
+                      ? selectedIds.filter((x) => x !== acc.id)
+                      : [...selectedIds, acc.id];
+                    setProviderAccounts('telegram', next);
+                  };
+                  return (
+                    <button
+                      key={acc.id}
+                      type="button"
+                      onClick={toggle}
+                      aria-pressed={selected}
+                      className={`flex items-center gap-3 border rounded-lg p-2 w-full text-left ${selected ? 'ring-2 ring-blue-500 bg-blue-50' : 'hover:bg-gray-50'}`}
+                    >
+                      <img src={acc.avatar || '/default-avatar.png'} alt={acc.name} className="w-8 h-8 rounded-full" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-gray-900 truncate">{acc.name}</div>
+                      </div>
+                      <span className={`inline-block w-4 h-4 rounded border ${selected ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}></span>
+                    </button>
+                  );
+                })}
+                {(availableAccounts.telegram || []).length === 0 && (
+                  <div className="text-xs text-gray-500">No Telegram channels connected.</div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Platform-specific capabilities (shows what each selected platform supports and important notes) */}
         {showPlatformTips && selectedPlatforms.length > 0 && (
           <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
@@ -457,7 +734,8 @@ export default function PostEditor({
 
   {/* Quick Templates removed per user request */}
 
-      {/* Message Textarea - Compact and Adaptive */}
+      {/* Message Textarea - hide when only YouTube is selected */}
+      {!youtubeOnly && (
       <div className="mb-3 md:mb-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-1 md:mb-2 space-y-1 sm:space-y-0">
           <label htmlFor="post-message" className="block text-sm font-medium text-gray-700">
@@ -526,6 +804,7 @@ export default function PostEditor({
           return null;
         })()}
       </div>
+      )}
 
       {/* Enhanced Media Previews with Drag & Drop Reordering */}
       {mediaFiles && mediaFiles.length > 0 && (
@@ -689,6 +968,47 @@ export default function PostEditor({
       {selectedPlatforms.includes('youtube') && (
         <div className="mt-4 md:mt-6 space-y-3 md:space-y-4 border-t pt-3 md:pt-4 border-gray-300">
           <h3 className="text-base md:text-lg font-medium text-gray-700">YouTube Details</h3>
+            <div className="p-2 bg-gray-50 border rounded">
+              <div className="text-xs font-medium text-gray-700 mb-1">YouTube channels</div>
+              <div className="flex items-center gap-2 mb-2">
+                <label className="text-xs text-gray-700 flex items-center gap-1">
+                  <input type="checkbox" checked={!!accountsByProvider?.youtube?.all} onChange={(e) => setProviderAll('youtube', e.target.checked)} />
+                  Upload to all connected YouTube channels
+                </label>
+              </div>
+              {!accountsByProvider?.youtube?.all && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {(availableAccounts.youtube || []).map((acc) => {
+                    const selectedIds = accountsByProvider?.youtube?.ids || [];
+                    const selected = selectedIds.includes(acc.id);
+                    const toggle = () => {
+                      const next = selected
+                        ? selectedIds.filter((x) => x !== acc.id)
+                        : [...selectedIds, acc.id];
+                      setProviderAccounts('youtube', next);
+                    };
+                    return (
+                      <button
+                        key={acc.id}
+                        type="button"
+                        onClick={toggle}
+                        aria-pressed={selected}
+                        className={`flex items-center gap-3 border rounded-lg p-2 w-full text-left ${selected ? 'ring-2 ring-blue-500 bg-blue-50' : 'hover:bg-gray-50'}`}
+                      >
+                        <img src={acc.avatar || '/default-avatar.png'} alt={acc.name} className="w-8 h-8 rounded-full" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-gray-900 truncate">{acc.name}</div>
+                        </div>
+                        <span className={`inline-block w-4 h-4 rounded border ${selected ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}></span>
+                      </button>
+                    );
+                  })}
+                  {(availableAccounts.youtube || []).length === 0 && (
+                    <div className="text-xs text-gray-500">No YouTube channels connected.</div>
+                  )}
+                </div>
+              )}
+            </div>
           <div>
             <label htmlFor="yt-title" className="block font-medium mb-1 text-gray-800 text-sm md:text-base">
               YouTube Video Title <span className="text-red-600">*</span>
@@ -879,10 +1199,10 @@ export default function PostEditor({
             type="button"
             onClick={handlePublish}
               disabled={
-                isPublishing || uploading || selectedPlatforms.length === 0 || !message.trim() || blockedPlatforms.length > 0
+                isPublishing || uploading || selectedPlatforms.length === 0 || (youtubeOnly ? false : !message.trim()) || blockedPlatforms.length > 0
               }
             className={`w-full px-3 md:px-4 lg:px-6 py-2.5 md:py-3 lg:py-4 rounded-lg font-medium text-white transition-all duration-200 flex items-center justify-center space-x-2 text-xs md:text-sm lg:text-base min-h-[44px] md:min-h-[48px] lg:min-h-[52px]
-              ${isPublishing || uploading || selectedPlatforms.length === 0 || !message.trim() || blockedPlatforms.length > 0
+              ${isPublishing || uploading || selectedPlatforms.length === 0 || (youtubeOnly ? false : !message.trim()) || blockedPlatforms.length > 0
                 ? 'bg-gray-400 cursor-not-allowed'
                 : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
               }`}
@@ -897,10 +1217,10 @@ export default function PostEditor({
             type="button"
             onClick={handleSchedule}
             disabled={
-              isScheduling || uploading || selectedPlatforms.length === 0 || !message.trim() || !scheduledDate || !scheduledTime || blockedPlatforms.length > 0
+              isScheduling || uploading || selectedPlatforms.length === 0 || (youtubeOnly ? false : !message.trim()) || !scheduledDate || !scheduledTime || blockedPlatforms.length > 0
             }
             className={`w-full px-3 md:px-4 lg:px-6 py-2.5 md:py-3 lg:py-4 rounded-lg font-medium text-white transition-all duration-200 flex items-center justify-center space-x-2 text-xs md:text-sm lg:text-base min-h-[44px] md:min-h-[48px] lg:min-h-[52px]
-              ${isScheduling || uploading || selectedPlatforms.length === 0 || !message.trim() || !scheduledDate || !scheduledTime || blockedPlatforms.length > 0
+              ${isScheduling || uploading || selectedPlatforms.length === 0 || (youtubeOnly ? false : !message.trim()) || !scheduledDate || !scheduledTime || blockedPlatforms.length > 0
                 ? 'bg-gray-400 cursor-not-allowed'
                 : 'bg-purple-600 hover:bg-purple-700 active:bg-purple-800'
               }`}

@@ -1,8 +1,8 @@
 'use client';
 
-import { useRegisterForm } from '@/app/hooks/auth/useRegisterForm';
-import { useOAuthLogin } from '@/app/hooks/auth/useOAuthLogin';
-import { useToggle } from '@/app/hooks/ui/useToggle';
+import { useRegisterForm } from '../hooks/auth/useRegisterForm';
+import { useOAuthLogin } from '../hooks/auth/useOAuthLogin';
+import { useToggle } from '../hooks/ui/useToggle';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Eye, EyeOff } from 'lucide-react';

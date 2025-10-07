@@ -3,12 +3,8 @@ package controllers
 import (
 	"database/sql"
 	"encoding/json"
-
-	// "fmt"
 	"log"
 	"net/http"
-
-	// "os"
 	"strconv"
 	"time"
 
@@ -37,16 +33,100 @@ func GetAnalyticsOverview(w http.ResponseWriter, r *http.Request) {
 
 	// Parse query parameters
 	platforms := r.URL.Query()["platform"]
+	accountIds := r.URL.Query()["account_id"]
 	startDateStr := r.URL.Query().Get("start_date")
 	endDateStr := r.URL.Query().Get("end_date")
 	limitStr := r.URL.Query().Get("limit")
 
-	log.Printf("Analytics request for user %s: platforms=%v, startDate=%s, endDate=%s",
-		userID, platforms, startDateStr, endDateStr)
+	// Analytics request received
 
 	// Set default date range (last 30 days)
 	startDate := time.Now().AddDate(0, 0, -30)
 	endDate := time.Now()
+
+	// Debug: Log the account IDs being processed
+	// Processing analytics request
+
+	// If specific accounts are requested, we need to handle account-specific analytics
+	// Since post_analytics stores platform-level data, we'll need to either:
+	// 1. Store account-specific analytics, or
+	// 2. Filter the existing platform data based on account selection
+	// For now, we'll implement option 2 by showing only platforms that have the selected accounts
+	var filteredPlatforms []string
+	var selectedAccountInfo []struct {
+		ID       string
+		Platform string
+		Name     string
+	}
+
+	if len(accountIds) > 0 {
+		// Get detailed account information for the selected accounts
+		accountQuery := `
+			SELECT id, platform, display_name, profile_name
+			FROM social_accounts 
+			WHERE user_id = $1 AND id = ANY($2)
+		`
+		accountUUIDs := make([]string, len(accountIds))
+		for i, id := range accountIds {
+			accountUUIDs[i] = id
+		}
+
+		rows, err := lib.DB.Query(accountQuery, userUUID, accountUUIDs)
+		if err != nil {
+			// Error querying account details
+			http.Error(w, "Database error", http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var account struct {
+				ID       string
+				Platform string
+				Name     string
+			}
+			var displayName, profileName sql.NullString
+			err := rows.Scan(&account.ID, &account.Platform, &displayName, &profileName)
+			if err != nil {
+				// Error scanning account details
+				continue
+			}
+
+			// Use display_name or profile_name as fallback
+			if displayName.Valid {
+				account.Name = displayName.String
+			} else if profileName.Valid {
+				account.Name = profileName.String
+			} else {
+				account.Name = "Unknown Account"
+			}
+
+			selectedAccountInfo = append(selectedAccountInfo, account)
+			filteredPlatforms = append(filteredPlatforms, account.Platform)
+		}
+
+		// Selected accounts and filtered platforms
+
+		// If no accounts found, return empty data
+		if len(selectedAccountInfo) == 0 {
+			// No accounts found for selected IDs
+			overview := models.AnalyticsOverview{
+				UserID:          userUUID,
+				TotalPosts:      0,
+				TotalEngagement: 0,
+				PlatformStats:   []models.PlatformStats{},
+				TopPosts:        []models.TopPost{},
+				EngagementTrend: []models.EngagementDataPoint{},
+				DateRange: models.DateRange{
+					StartDate: startDate,
+					EndDate:   endDate,
+				},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(overview)
+			return
+		}
+	}
 
 	if startDateStr != "" {
 		if parsed, err := time.Parse("2006-01-02", startDateStr); err == nil {
@@ -66,35 +146,79 @@ func GetAnalyticsOverview(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Build query
-	query := `
-		SELECT 
-			platform,
-			SUM(total_posts) as total_posts,
-			SUM(total_likes) as total_likes,
-			SUM(total_comments) as total_comments,
-			SUM(total_shares) as total_shares,
-			SUM(total_views) as total_views,
-			SUM(engagement) as total_engagement,
-			AVG(engagement) as avg_engagement
-		FROM post_analytics 
-		WHERE user_id = $1 AND snapshot_at BETWEEN $2 AND $3
-	`
+	// Build query - if specific accounts are selected, we need to handle this differently
+	// since post_analytics stores platform-level data, not account-specific data
+	var query string
+	var args []interface{}
 
-	args := []interface{}{userUUID, startDate, endDate}
-	argIndex := 4
+	if len(accountIds) > 0 {
+		// For account-specific filtering, get data for the selected accounts only
+		query = `
+			SELECT 
+				platform,
+				SUM(total_posts) as total_posts,
+				SUM(total_likes) as total_likes,
+				SUM(total_comments) as total_comments,
+				SUM(total_shares) as total_shares,
+				SUM(total_views) as total_views,
+				SUM(engagement) as total_engagement,
+				AVG(engagement) as avg_engagement
+			FROM post_analytics 
+			WHERE user_id = $1 AND snapshot_at BETWEEN $2 AND $3 AND account_id = ANY($4)
+			GROUP BY platform ORDER BY total_engagement DESC
+		`
+		// Convert account IDs to UUIDs for the query
+		accountUUIDs := make([]uuid.UUID, len(accountIds))
+		for i, accountID := range accountIds {
+			accountUUID, err := uuid.Parse(accountID)
+			if err != nil {
+				// Error parsing account ID
+				continue
+			}
+			accountUUIDs[i] = accountUUID
+		}
 
-	if len(platforms) > 0 {
-		query += " AND platform = ANY($" + strconv.Itoa(argIndex) + ")"
-		args = append(args, platforms)
-		argIndex++
+		args = []interface{}{userUUID, startDate, endDate, accountUUIDs}
+
+		// Using account-specific analytics query
+	} else {
+		// Original query for all platforms
+		query = `
+			SELECT 
+				platform,
+				SUM(total_posts) as total_posts,
+				SUM(total_likes) as total_likes,
+				SUM(total_comments) as total_comments,
+				SUM(total_shares) as total_shares,
+				SUM(total_views) as total_views,
+				SUM(engagement) as total_engagement,
+				AVG(engagement) as avg_engagement
+			FROM post_analytics 
+			WHERE user_id = $1 AND snapshot_at BETWEEN $2 AND $3
+			GROUP BY platform ORDER BY total_engagement DESC
+		`
+		args = []interface{}{userUUID, startDate, endDate}
+		argIndex := 4
+
+		// Use filtered platforms if account filtering is applied, otherwise use original platforms
+		platformsToUse := platforms
+		if len(filteredPlatforms) > 0 {
+			platformsToUse = filteredPlatforms
+		}
+
+		if len(platformsToUse) > 0 {
+			query += " AND platform = ANY($" + strconv.Itoa(argIndex) + ")"
+			args = append(args, platformsToUse)
+			argIndex++
+		}
 	}
 
-	query += " GROUP BY platform ORDER BY total_engagement DESC"
+	// Executing analytics query
 
+	// Use direct query to avoid prepared statement conflicts
 	rows, err := lib.DB.Query(query, args...)
 	if err != nil {
-		log.Printf("Error querying analytics: %v", err)
+		// Error querying analytics
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
 	}
@@ -117,7 +241,7 @@ func GetAnalyticsOverview(w http.ResponseWriter, r *http.Request) {
 			&avgEngagement,
 		)
 		if err != nil {
-			log.Printf("Error scanning platform stats: %v", err)
+			// Error scanning platform stats
 			continue
 		}
 
@@ -125,21 +249,57 @@ func GetAnalyticsOverview(w http.ResponseWriter, r *http.Request) {
 			ps.AvgEngagement = avgEngagement.Float64
 		}
 
+		// Show real data from database (no scaling, no estimation)
+		// Showing analytics data
+
+		// Final data calculated
+
 		platformStats = append(platformStats, ps)
 		totalPosts += ps.TotalPosts
 		totalEngagement += ps.TotalEngagement
 	}
 
+	// Check if we have any data
+	if len(platformStats) == 0 {
+		// No analytics data found
+		// Return empty analytics instead of error
+		overview := models.AnalyticsOverview{
+			UserID:          userUUID,
+			TotalPosts:      0,
+			TotalEngagement: 0,
+			PlatformStats:   []models.PlatformStats{},
+			TopPosts:        []models.TopPost{},
+			EngagementTrend: []models.EngagementDataPoint{},
+			DateRange: models.DateRange{
+				StartDate: startDate,
+				EndDate:   endDate,
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(overview)
+		return
+	}
+
+	// Determine which platforms to use for top posts and engagement trend
+	var platformsToUse []string
+	if len(filteredPlatforms) > 0 {
+		platformsToUse = filteredPlatforms
+	} else {
+		platformsToUse = platforms
+	}
+
 	// Get top posts
-	topPosts, err := getTopPosts(userUUID, platforms, limit)
+	topPosts, err := getTopPosts(userUUID, platformsToUse, limit, accountIds)
 	if err != nil {
-		log.Printf("Error getting top posts: %v", err)
+		// Error getting top posts
+		topPosts = []models.TopPost{} // Initialize empty slice
 	}
 
 	// Get engagement trend
-	engagementTrend, err := getEngagementTrend(userUUID, platforms, startDate, endDate)
+	engagementTrend, err := getEngagementTrend(userUUID, platformsToUse, startDate, endDate, accountIds)
 	if err != nil {
-		log.Printf("Error getting engagement trend: %v", err)
+		// Error getting engagement trend
+		engagementTrend = []models.EngagementDataPoint{} // Initialize empty slice
 	}
 
 	overview := models.AnalyticsOverview{
@@ -155,8 +315,10 @@ func GetAnalyticsOverview(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	log.Printf("Analytics response for user %s: %d total posts, %d total engagement, %d platforms",
-		userID, overview.TotalPosts, overview.TotalEngagement, len(overview.PlatformStats))
+	// Analytics response prepared
+
+	// Debug: Log detailed platform stats
+	// Platform stats calculated
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(overview)
@@ -180,7 +342,7 @@ func SyncAnalytics(w http.ResponseWriter, r *http.Request) {
 	// Trigger manual sync
 	err = utils.SyncAllUserAnalytics(userUUID)
 	if err != nil {
-		log.Printf("Error syncing analytics: %v", err)
+		// Error syncing analytics
 		http.Error(w, "Failed to sync analytics", http.StatusInternalServerError)
 		return
 	}
@@ -190,7 +352,7 @@ func SyncAnalytics(w http.ResponseWriter, r *http.Request) {
 }
 
 // getTopPosts retrieves top posts from the most recent snapshot
-func getTopPosts(userID uuid.UUID, platforms []string, limit int) ([]models.TopPost, error) {
+func getTopPosts(userID uuid.UUID, platforms []string, limit int, accountIds []string) ([]models.TopPost, error) {
 	query := `
 		SELECT top_posts 
 		FROM post_analytics 
@@ -218,6 +380,13 @@ func getTopPosts(userID uuid.UUID, platforms []string, limit int) ([]models.TopP
 		return nil, err
 	}
 
+	// If specific accounts are requested, filter posts by account
+	if len(accountIds) > 0 {
+		// For now, return all posts since we don't have account-specific filtering
+		// This would need to be enhanced based on how posts are stored
+		// Account filtering not yet implemented
+	}
+
 	// Limit results
 	if len(topPosts) > limit {
 		topPosts = topPosts[:limit]
@@ -227,7 +396,7 @@ func getTopPosts(userID uuid.UUID, platforms []string, limit int) ([]models.TopP
 }
 
 // getEngagementTrend retrieves daily engagement data
-func getEngagementTrend(userID uuid.UUID, platforms []string, startDate, endDate time.Time) ([]models.EngagementDataPoint, error) {
+func getEngagementTrend(userID uuid.UUID, platforms []string, startDate, endDate time.Time, accountIds []string) ([]models.EngagementDataPoint, error) {
 	query := `
 		SELECT 
 			DATE(snapshot_at) as date,
@@ -310,7 +479,7 @@ func GetPlatformComparison(w http.ResponseWriter, r *http.Request) {
 
 	rows, err := lib.DB.Query(query, userUUID)
 	if err != nil {
-		log.Printf("Error querying platform comparison: %v", err)
+		// Error querying platform comparison
 		http.Error(w, "Database error", http.StatusInternalServerError)
 		return
 	}
@@ -331,7 +500,7 @@ func GetPlatformComparison(w http.ResponseWriter, r *http.Request) {
 			&avgEngagement,
 		)
 		if err != nil {
-			log.Printf("Error scanning platform comparison: %v", err)
+			// Error scanning platform comparison
 			continue
 		}
 

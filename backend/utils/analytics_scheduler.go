@@ -23,7 +23,7 @@ func NewAnalyticsScheduler() *AnalyticsScheduler {
 
 // Start begins the analytics scheduling process
 func (as *AnalyticsScheduler) Start() {
-	log.Println("Starting analytics scheduler...")
+	// Starting analytics scheduler
 
 	// Start platform-specific tickers
 	go as.startMastodonTicker()
@@ -35,12 +35,12 @@ func (as *AnalyticsScheduler) Start() {
 	// Start user-specific sync job
 	go as.startUserSyncJob()
 
-	log.Println("Analytics scheduler started successfully")
+	// Analytics scheduler started
 }
 
 // Stop stops the analytics scheduler
 func (as *AnalyticsScheduler) Stop() {
-	log.Println("Stopping analytics scheduler...")
+	// Stopping analytics scheduler
 	close(as.stopChan)
 }
 
@@ -50,13 +50,13 @@ func (as *AnalyticsScheduler) startMastodonTicker() {
 	defer ticker.Stop()
 
 	// Run immediately on start
-	log.Println("Starting initial Mastodon analytics sync...")
+	// Starting initial Mastodon analytics sync
 	as.syncPlatformAnalytics("mastodon")
 
 	for {
 		select {
 		case <-ticker.C:
-			log.Println("Starting Mastodon analytics sync...")
+			// Starting Mastodon analytics sync
 			as.syncPlatformAnalytics("mastodon")
 		case <-as.stopChan:
 			return
@@ -70,13 +70,13 @@ func (as *AnalyticsScheduler) startFacebookTicker() {
 	defer ticker.Stop()
 
 	// Run immediately on start
-	log.Println("Starting initial Facebook analytics sync...")
+	// Starting initial Facebook analytics sync
 	as.syncPlatformAnalytics("facebook")
 
 	for {
 		select {
 		case <-ticker.C:
-			log.Println("Starting Facebook analytics sync...")
+			// Starting Facebook analytics sync
 			as.syncPlatformAnalytics("facebook")
 		case <-as.stopChan:
 			return
@@ -90,13 +90,13 @@ func (as *AnalyticsScheduler) startInstagramTicker() {
 	defer ticker.Stop()
 
 	// Run immediately on start
-	log.Println("Starting initial Instagram analytics sync...")
+	// Starting initial Instagram analytics sync
 	as.syncPlatformAnalytics("instagram")
 
 	for {
 		select {
 		case <-ticker.C:
-			log.Println("Starting Instagram analytics sync...")
+			// Starting Instagram analytics sync
 			as.syncPlatformAnalytics("instagram")
 		case <-as.stopChan:
 			return
@@ -110,13 +110,13 @@ func (as *AnalyticsScheduler) startTwitterTicker() {
 	defer ticker.Stop()
 
 	// Run immediately on start
-	log.Println("Starting initial Twitter analytics sync...")
+	// Starting initial Twitter analytics sync
 	as.syncPlatformAnalytics("twitter")
 
 	for {
 		select {
 		case <-ticker.C:
-			log.Println("Starting Twitter analytics sync...")
+			// Starting Twitter analytics sync
 			as.syncPlatformAnalytics("twitter")
 		case <-as.stopChan:
 			return
@@ -130,13 +130,13 @@ func (as *AnalyticsScheduler) startYouTubeTicker() {
 	defer ticker.Stop()
 
 	// Run immediately on start
-	log.Println("Starting initial YouTube analytics sync...")
+	// Starting initial YouTube analytics sync
 	as.syncPlatformAnalytics("youtube")
 
 	for {
 		select {
 		case <-ticker.C:
-			log.Println("Starting YouTube analytics sync...")
+			// Starting YouTube analytics sync
 			as.syncPlatformAnalytics("youtube")
 		case <-as.stopChan:
 			return
@@ -161,13 +161,13 @@ func (as *AnalyticsScheduler) startUserSyncJob() {
 
 // syncPlatformAnalytics syncs analytics for all users on a specific platform
 func (as *AnalyticsScheduler) syncPlatformAnalytics(platform string) {
-	log.Printf("Starting %s analytics sync...", platform)
+	// Starting platform analytics sync
 
 	// Get all users with this platform connected
 	query := `SELECT DISTINCT user_id FROM social_accounts WHERE platform = $1`
 	rows, err := lib.DB.Query(query, platform)
 	if err != nil {
-		log.Printf("Error fetching users for %s: %v", platform, err)
+		// Error fetching users
 		return
 	}
 	defer rows.Close()
@@ -187,22 +187,22 @@ func (as *AnalyticsScheduler) syncPlatformAnalytics(platform string) {
 	for _, userID := range userIDs {
 		syncer := NewAnalyticsSyncer(userID, platform)
 		if err := syncer.SyncAnalytics(); err != nil {
-			log.Printf("Error syncing %s analytics for user %s: %v", platform, userID, err)
+			// Error syncing analytics
 		}
 	}
 
-	log.Printf("Completed %s analytics sync for %d users", platform, len(userIDs))
+	// Completed platform analytics sync
 }
 
 // syncAllUsers syncs analytics for all users across all platforms
 func (as *AnalyticsScheduler) syncAllUsers() {
-	log.Println("Starting full user analytics sync...")
+	// Starting full user analytics sync
 
 	// Get all users with connected social accounts
 	query := `SELECT DISTINCT user_id FROM social_accounts`
 	rows, err := lib.DB.Query(query)
 	if err != nil {
-		log.Printf("Error fetching users: %v", err)
+		// Error fetching users
 		return
 	}
 	defer rows.Close()
@@ -225,18 +225,18 @@ func (as *AnalyticsScheduler) syncAllUsers() {
 		}
 	}
 
-	log.Printf("Completed full analytics sync for %d users", len(userIDs))
+	// Completed full analytics sync
 }
 
 // TriggerManualSync manually triggers analytics sync for a specific user
 func TriggerManualSync(userID uuid.UUID) error {
-	log.Printf("Manual analytics sync triggered for user %s", userID)
+	// Manual analytics sync triggered
 	return SyncAllUserAnalytics(userID)
 }
 
 // TriggerPlatformSync manually triggers analytics sync for a specific platform
 func TriggerPlatformSync(platform string) error {
-	log.Printf("Manual %s analytics sync triggered", platform)
+	// Manual platform analytics sync triggered
 
 	// Get all users with this platform
 	query := `SELECT DISTINCT user_id FROM social_accounts WHERE platform = $1`
@@ -261,7 +261,7 @@ func TriggerPlatformSync(platform string) error {
 	for _, userID := range userIDs {
 		syncer := NewAnalyticsSyncer(userID, platform)
 		if err := syncer.SyncAnalytics(); err != nil {
-			log.Printf("Error syncing %s analytics for user %s: %v", platform, userID, err)
+			// Error syncing analytics
 		}
 	}
 

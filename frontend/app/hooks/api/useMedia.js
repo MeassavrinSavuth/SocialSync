@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://socialsync-j7ih.onrender.com';
 
 export function useMedia(workspaceId) {
   const [media, setMedia] = useState([]);
@@ -275,31 +275,11 @@ export function useMedia(workspaceId) {
   useEffect(() => {
     if (workspaceId) {
       fetchMedia();
-      const wsUrl = API_BASE_URL.replace(/^http/, 'ws').replace(/^https/, 'wss').replace('/api', '');
-      const ws = new window.WebSocket(`${wsUrl}/ws/${workspaceId}`);
-      ws.onmessage = (event) => {
-        try {
-          const msg = JSON.parse(event.data);
-          if (msg.type === 'media_uploaded' && msg.media) {
-            setMedia(prev => {
-              // Remove any existing media with the same id before adding
-              const filtered = prev.filter(m => m.id !== msg.media.id);
-              return [msg.media, ...filtered];
-            });
-            setTotal(prev => prev + 1);
-          } else if (msg.type === 'media_deleted' && msg.mediaId) {
-            setMedia(prev => prev.filter(m => m.id !== msg.mediaId));
-            setTotal(prev => Math.max(0, prev - 1));
-          } else if (msg.type === 'media_updated' && msg.media) {
-            setMedia(prev => prev.map(m => 
-              m.id === msg.media.id ? { ...m, ...msg.media } : m
-            ));
-          }
-        } catch (e) { /* ignore */ }
-      };
-      return () => ws.close();
     }
   }, [workspaceId]);
+
+  // Note: Real-time updates are now handled by the shared WebSocket context
+  // in the components that use this hook, rather than creating individual connections
 
   return {
     media,

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useUser } from '../auth/useUser';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://socialsync-j7ih.onrender.com';
 
 export const useInvitations = () => {
   const [invitations, setInvitations] = useState([]);
@@ -200,21 +200,8 @@ export const useInvitations = () => {
     }
   }, [currentUser?.email]);
 
-  // Real-time WebSocket for invitations
-  useEffect(() => {
-    if (!currentUser?.email) return;
-    const wsUrl = API_BASE_URL.replace(/^http/, 'ws');
-    const ws = new window.WebSocket(`${wsUrl}/ws/invitations/${encodeURIComponent(currentUser.email)}`);
-    ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.type === 'invitation_created') {
-          fetchInvitations();
-        }
-      } catch (e) { /* ignore */ }
-    };
-    return () => ws.close();
-  }, [currentUser?.email]);
+  // Note: Real-time updates are now handled by the shared WebSocket context
+  // in the components that use this hook, rather than creating individual connections
 
   return {
     invitations,

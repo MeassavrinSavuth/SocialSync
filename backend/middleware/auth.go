@@ -63,6 +63,9 @@ func JWTMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		// Debug: Log the user ID from JWT token
+		fmt.Printf("[JWT DEBUG] User ID from token: %s\n", userID)
+
 		ctx := context.WithValue(r.Context(), UserIDKey, userID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

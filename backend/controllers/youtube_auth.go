@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -80,8 +80,14 @@ type YouTubeChannelInfo struct {
 func YouTubeCallbackHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		code := r.URL.Query().Get("code")
-		if code == "" {
-			http.Error(w, "Missing code", http.StatusBadRequest)
+		// Gracefully handle user cancellation or provider error
+		if code == "" || r.URL.Query().Get("error") != "" {
+			log.Printf("DEBUG: YouTube OAuth callback missing code or error present. Treating as cancelled.")
+			frontendURL := os.Getenv("FRONTEND_URL")
+			if frontendURL == "" {
+				frontendURL = "http://localhost:3000"
+			}
+			http.Redirect(w, r, frontendURL+"/home/manage-accounts?oauth=youtube&status=cancelled", http.StatusSeeOther)
 			return
 		}
 
@@ -135,49 +141,57 @@ func YouTubeCallbackHandler(db *sql.DB) http.HandlerFunc {
 
 		channel := channelInfo.Items[0]
 
-		var existingAccountID string
-		err = db.QueryRow(`
-			SELECT id FROM social_accounts 
-			WHERE user_id = $1 AND platform = 'youtube'
-		`, userID).Scan(&existingAccountID)
-
 		var expiresAt *time.Time
 		if token.Expiry != (time.Time{}) {
 			expiresAt = &token.Expiry
 		}
 
-		if err == sql.ErrNoRows {
-			accountID := uuid.New()
-			_, err = db.Exec(`
-				INSERT INTO social_accounts (
-					id, user_id, platform, social_id, access_token, 
-					access_token_expires_at, refresh_token, profile_picture_url, 
-					profile_name, connected_at, last_synced_at
-				) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-			`, accountID, userID, "youtube", channel.ID, token.AccessToken,
-				expiresAt, token.RefreshToken, channel.Snippet.Thumbnails.Default.URL,
-				channel.Snippet.Title, time.Now(), time.Now())
-
-			if err != nil {
-				http.Error(w, "Failed to save YouTube account", http.StatusInternalServerError)
-				return
-			}
-		} else if err != nil {
-			http.Error(w, "DB error", http.StatusInternalServerError)
+		// Upsert using new multi-account key (separate placeholders for legacy columns)
+		_, err = db.Exec(`
+            INSERT INTO social_accounts (
+                user_id, provider, external_account_id, access_token_enc, refresh_token_enc, expires_at, avatar, display_name,
+                platform, social_id, access_token, refresh_token, access_token_expires_at, profile_picture_url, profile_name,
+                created_at, updated_at, connected_at, last_synced_at
+            ) VALUES (
+                $1, 'youtube', $2, $3, $4, $5, $6, $7,
+                'youtube', $8, $9, $10, $11, $12, $13,
+                NOW(), NOW(), NOW(), NOW()
+            )
+            ON CONFLICT (user_id, provider, external_account_id) DO UPDATE SET
+                access_token_enc = EXCLUDED.access_token_enc,
+                refresh_token_enc = EXCLUDED.refresh_token_enc,
+                expires_at = EXCLUDED.expires_at,
+                avatar = EXCLUDED.avatar,
+                display_name = EXCLUDED.display_name,
+                -- legacy sync
+                access_token = EXCLUDED.access_token_enc,
+                refresh_token = EXCLUDED.refresh_token_enc,
+                access_token_expires_at = EXCLUDED.expires_at,
+                profile_picture_url = EXCLUDED.avatar,
+                profile_name = EXCLUDED.display_name,
+                social_id = EXCLUDED.external_account_id,
+                platform = EXCLUDED.provider,
+                updated_at = NOW(),
+                last_synced_at = NOW()
+        `,
+			userID,
+			channel.ID,                             // $2 external_account_id
+			token.AccessToken,                      // $3 access_token_enc
+			token.RefreshToken,                     // $4 refresh_token_enc
+			expiresAt,                              // $5 expires_at
+			channel.Snippet.Thumbnails.Default.URL, // $6 avatar
+			channel.Snippet.Title,                  // $7 display_name
+			channel.ID,                             // $8 social_id (legacy)
+			token.AccessToken,                      // $9 access_token (legacy)
+			token.RefreshToken,                     // $10 refresh_token (legacy)
+			expiresAt,                              // $11 access_token_expires_at (legacy)
+			channel.Snippet.Thumbnails.Default.URL, // $12 profile_picture_url (legacy)
+			channel.Snippet.Title,                  // $13 profile_name (legacy)
+		)
+		if err != nil {
+			log.Printf("YouTube upsert error: %v", err)
+			http.Error(w, "Failed to save YouTube account", http.StatusInternalServerError)
 			return
-		} else {
-			_, err = db.Exec(`
-				UPDATE social_accounts 
-				SET access_token = $1, access_token_expires_at = $2, refresh_token = $3,
-					profile_picture_url = $4, profile_name = $5, last_synced_at = $6
-				WHERE id = $7
-			`, token.AccessToken, expiresAt, token.RefreshToken,
-				channel.Snippet.Thumbnails.Default.URL, channel.Snippet.Title, time.Now(), existingAccountID)
-
-			if err != nil {
-				http.Error(w, "Failed to update YouTube account", http.StatusInternalServerError)
-				return
-			}
 		}
 
 		frontendURL := os.Getenv("FRONTEND_URL")

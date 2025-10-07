@@ -14,7 +14,7 @@ import {
   FaLock
 } from 'react-icons/fa';
 
-export default function TelegramPosts({ posts, channelInfo, loading, error, searchQuery, setSearchQuery }) {
+export default function TelegramPosts({ posts, channelInfo, loading, error, searchQuery, setSearchQuery, selectedAccounts = [] }) {
   // Use real channel data if available, otherwise fallback
   const channelName = channelInfo?.name || 'Telegram Channel';
   const channelAvatar = channelInfo?.avatar || '/default-avatar.png';
@@ -39,7 +39,7 @@ export default function TelegramPosts({ posts, channelInfo, loading, error, sear
         <div className="mb-4 md:mb-6 flex justify-center">
           <input
             type="text"
-            placeholder="Search Telegram messages..."
+            placeholder="Search messages..."
             value={searchQuery || ''}
             onChange={e => setSearchQuery && setSearchQuery(e.target.value)}
             className="border rounded-lg px-3 md:px-4 py-2 md:py-3 w-full max-w-md text-sm md:text-base text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none shadow-sm bg-gray-50"
@@ -82,7 +82,7 @@ export default function TelegramPosts({ posts, channelInfo, loading, error, sear
         <div className="mb-4 md:mb-6 flex justify-center">
           <input
             type="text"
-            placeholder="Search Telegram messages..."
+            placeholder="Search messages..."
             value={searchQuery || ''}
             onChange={e => setSearchQuery && setSearchQuery(e.target.value)}
             className="border rounded-lg px-3 md:px-4 py-2 md:py-3 w-full max-w-md text-sm md:text-base text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none shadow-sm bg-gray-50"
@@ -104,7 +104,7 @@ export default function TelegramPosts({ posts, channelInfo, loading, error, sear
         <div className="mb-4 md:mb-6 flex justify-center">
           <input
             type="text"
-            placeholder="Search Telegram messages..."
+            placeholder="Search messages..."
             value={searchQuery || ''}
             onChange={e => setSearchQuery && setSearchQuery(e.target.value)}
             className="border rounded-lg px-3 md:px-4 py-2 md:py-3 w-full max-w-md text-sm md:text-base text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none shadow-sm bg-gray-50"
@@ -127,7 +127,7 @@ export default function TelegramPosts({ posts, channelInfo, loading, error, sear
       <div className="mb-4 md:mb-6 flex justify-center">
         <input
           type="text"
-          placeholder="Search Telegram messages..."
+          placeholder="Search messages..."
           value={searchQuery || ''}
           onChange={e => setSearchQuery && setSearchQuery(e.target.value)}
           className="border rounded-lg px-3 md:px-4 py-2 md:py-3 w-full max-w-md text-sm md:text-base text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none shadow-sm bg-gray-50"
@@ -136,6 +136,11 @@ export default function TelegramPosts({ posts, channelInfo, loading, error, sear
       
       <div className="space-y-3 md:space-y-4">
         {posts.map((post) => {
+          // Use account-specific metadata if available (for multi-account posts)
+          const postChannelName = post._accountName || channelName;
+          const postChannelAvatar = post._accountAvatar || channelAvatar;
+          const postChannelUsername = post._accountUsername || channelUsername;
+          
           const message = post.text || post.message || '';
           const media = post.photo || post.video || post.document;
           const views = post.views || 0;
@@ -144,15 +149,16 @@ export default function TelegramPosts({ posts, channelInfo, loading, error, sear
           const date = post.date || post.created_at;
           
           return (
-            <div key={post.id || post.message_id} className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 overflow-hidden">
+            <div key={`${post.id || post.message_id}-${post._accountId || 'default'}`} className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 overflow-hidden">
               {/* Header */}
               <div className="flex items-center justify-between px-3 md:px-4 pt-3 md:pt-4 pb-2 md:pb-3">
                 <div className="flex items-center space-x-2 md:space-x-3">
                   <div className="relative">
                     <img
-                      src={channelAvatar}
-                      alt={channelName}
+                      src={postChannelAvatar}
+                      alt={postChannelName}
                       className="w-10 h-10 md:w-12 md:h-12 rounded-full border-2 border-gray-100"
+                      onError={(e) => { e.target.src = '/default-avatar.png'; }}
                     />
                     <div className="absolute -bottom-1 -right-1 w-4 h-4 md:w-5 md:h-5 bg-blue-500 rounded-full flex items-center justify-center">
                       <FaTelegramPlane className="text-white text-xs" />
@@ -161,10 +167,10 @@ export default function TelegramPosts({ posts, channelInfo, loading, error, sear
                   <div>
                     <div className="flex items-center space-x-1">
                       <h3 className="font-semibold text-gray-900 hover:underline cursor-pointer text-sm md:text-base">
-                        {channelName}
+                        {postChannelName}
                       </h3>
-                      {channelUsername && (
-                        <span className="text-blue-500 text-xs md:text-sm">@{channelUsername}</span>
+                      {postChannelUsername && (
+                        <span className="text-blue-500 text-xs md:text-sm">@{postChannelUsername}</span>
                       )}
                     </div>
                     <div className="flex items-center space-x-1 text-xs text-gray-500">

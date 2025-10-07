@@ -38,6 +38,9 @@ func AuthRoutes(r *mux.Router) {
 	r.Handle("/connect/instagram", middleware.JWTMiddleware(
 		http.HandlerFunc(controllers.ConnectInstagramHandler(lib.DB)),
 	)).Methods("POST")
+	r.Handle("/api/facebook/pages-for-instagram", middleware.JWTMiddleware(
+		http.HandlerFunc(controllers.GetFacebookPagesForInstagramHandler(lib.DB)),
+	)).Methods("GET")
 	r.Handle("/api/instagram/post", middleware.JWTMiddleware(
 		http.HandlerFunc(controllers.PostToInstagramHandler(lib.DB)),
 	)).Methods("POST")
@@ -111,7 +114,18 @@ func AuthRoutes(r *mux.Router) {
 	r.Handle("/api/social-accounts", middleware.EnableCORS(middleware.JWTMiddleware(
 		http.HandlerFunc(controllers.GetSocialAccountsHandler(lib.DB)),
 	))).Methods("GET")
-	r.Handle("/api/social-accounts/{platform}", middleware.EnableCORS(middleware.JWTMiddleware(
+	r.Handle("/api/social-accounts/{accountId}", middleware.EnableCORS(middleware.JWTMiddleware(
 		http.HandlerFunc(controllers.DisconnectSocialAccountHandler(lib.DB)),
 	))).Methods("DELETE")
+	r.Handle("/api/social-accounts/{accountId}/default", middleware.EnableCORS(middleware.JWTMiddleware(
+		http.HandlerFunc(controllers.SetDefaultSocialAccountHandler(lib.DB)),
+	))).Methods("PUT")
+
+	// ----------- Facebook Page Selection ----------- //
+	r.Handle("/api/facebook/select-pages", middleware.EnableCORS(middleware.JWTMiddleware(
+		http.HandlerFunc(controllers.HandleFacebookPageSelection(lib.DB)),
+	))).Methods("POST")
+	r.Handle("/api/facebook/pages-data", middleware.EnableCORS(middleware.JWTMiddleware(
+		http.HandlerFunc(controllers.GetFacebookPagesData(lib.DB)),
+	))).Methods("GET")
 }

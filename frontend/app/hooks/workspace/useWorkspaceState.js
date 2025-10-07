@@ -40,7 +40,7 @@ export function useWorkspaceState() {
   const [kickMemberName, setKickMemberName] = useState('');
 
   // Use workspace members hook
-  const { members, loading: membersLoading, error: membersError, leaveWorkspace, removeMember, changeMemberRole } = useWorkspaceMembers(selectedWorkspace?.id);
+  const { members, loading: membersLoading, error: membersError, refetch: fetchMembers, leaveWorkspace, removeMember, changeMemberRole } = useWorkspaceMembers(selectedWorkspace?.id);
 
   // Handlers
   const handleEnterWorkspace = (ws) => {
@@ -221,6 +221,7 @@ export function useWorkspaceState() {
     // API functions
     acceptInvitation,
     declineInvitation,
+    fetchMembers,
     showKickModal,
     kickMemberId,
     kickMemberName,

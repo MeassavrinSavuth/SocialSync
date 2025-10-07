@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import MentionInput from '../common/MentionInput';
 
-const TaskForm = ({ onSubmit, onCancel, teamMembers = [], initialData = null }) => {
+const TaskForm = ({ onSubmit, onCancel, teamMembers = [], mediaFiles = [], initialData = null }) => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -65,6 +66,11 @@ const TaskForm = ({ onSubmit, onCancel, teamMembers = [], initialData = null }) 
     }
   };
 
+  // Handle description change with mentions
+  const handleDescriptionChange = (value) => {
+    setFormData(prev => ({ ...prev, description: value }));
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">
@@ -96,15 +102,16 @@ const TaskForm = ({ onSubmit, onCancel, teamMembers = [], initialData = null }) 
           <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
             Description
           </label>
-          <textarea
-            id="description"
-            name="description"
+          <MentionInput
             value={formData.description}
-            onChange={handleChange}
-            rows="3"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
-            placeholder="Enter task description (optional)"
+            onChange={handleDescriptionChange}
+            placeholder="Enter task description (optional) - Use @ to mention tags"
+            mediaFiles={mediaFiles}
+            rows={3}
           />
+          <p className="mt-1 text-xs text-gray-500">
+            Tip: Type @ to mention tags from uploaded media
+          </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

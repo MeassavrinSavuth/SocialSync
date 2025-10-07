@@ -80,6 +80,7 @@ func TwitterRedirectHandler() http.HandlerFunc {
 		authURL := config.AuthCodeURL(state,
 			oauth2.SetAuthURLParam("code_challenge", codeChallenge),
 			oauth2.SetAuthURLParam("code_challenge_method", "S256"),
+			oauth2.SetAuthURLParam("prompt", "login"), // force account picker/login
 		)
 
 		http.Redirect(w, r, authURL, http.StatusTemporaryRedirect)
@@ -107,9 +108,25 @@ func TwitterCallbackHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		// Handle cancel/error case gracefully
+		if errParam := r.URL.Query().Get("error"); errParam != "" {
+			log.Printf("Twitter OAuth cancelled or errored: %s", errParam)
+			frontendURL := os.Getenv("FRONTEND_URL")
+			if frontendURL == "" {
+				frontendURL = "http://localhost:3000"
+			}
+			http.Redirect(w, r, frontendURL+"/home/manage-accounts?oauth=twitter&status=cancelled", http.StatusSeeOther)
+			return
+		}
+
 		code := r.URL.Query().Get("code")
 		if code == "" {
-			http.Error(w, "Missing code parameter", http.StatusBadRequest)
+			// No code and no explicit error -> treat as cancelled
+			frontendURL := os.Getenv("FRONTEND_URL")
+			if frontendURL == "" {
+				frontendURL = "http://localhost:3000"
+			}
+			http.Redirect(w, r, frontendURL+"/home/manage-accounts?oauth=twitter&status=cancelled", http.StatusSeeOther)
 			return
 		}
 
@@ -170,27 +187,44 @@ func TwitterCallbackHandler(db *sql.DB) http.HandlerFunc {
 		profileName := fmt.Sprintf("%s (@%s)", userData.Data.Name, userData.Data.Username)
 
 		_, err = db.Exec(`
-			INSERT INTO social_accounts (
-				user_id, platform, social_id, access_token, access_token_expires_at,
-				refresh_token, profile_picture_url, profile_name, connected_at
-			) VALUES (
-				$1, 'twitter', $2, $3, $4, $5, $6, $7, NOW()
-			)
-			ON CONFLICT (user_id, platform) DO UPDATE SET
-				access_token = EXCLUDED.access_token,
-				access_token_expires_at = EXCLUDED.access_token_expires_at,
-				refresh_token = EXCLUDED.refresh_token,
-				social_id = EXCLUDED.social_id,
-				profile_picture_url = EXCLUDED.profile_picture_url,
-				profile_name = EXCLUDED.profile_name,
-				connected_at = NOW()
+            INSERT INTO social_accounts (
+                user_id, provider, external_account_id, access_token_enc, refresh_token_enc, expires_at, avatar, display_name,
+                platform, social_id, access_token, refresh_token, access_token_expires_at, profile_picture_url, profile_name,
+                created_at, updated_at, connected_at, last_synced_at
+            ) VALUES (
+				$1, 'twitter', $2, $3, $4, $5, $6, $7,
+				'twitter', $8, $9, $10, $11, $12, $13,
+                NOW(), NOW(), NOW(), NOW()
+            )
+            ON CONFLICT (user_id, provider, external_account_id) DO UPDATE SET
+                access_token_enc = EXCLUDED.access_token_enc,
+                refresh_token_enc = EXCLUDED.refresh_token_enc,
+                expires_at = EXCLUDED.expires_at,
+                avatar = EXCLUDED.avatar,
+                display_name = EXCLUDED.display_name,
+                -- legacy sync for backward compatibility
+                access_token = EXCLUDED.access_token_enc,
+                refresh_token = EXCLUDED.refresh_token_enc,
+                access_token_expires_at = EXCLUDED.expires_at,
+                profile_picture_url = EXCLUDED.avatar,
+                profile_name = EXCLUDED.display_name,
+                social_id = EXCLUDED.external_account_id,
+                platform = EXCLUDED.provider,
+                updated_at = NOW(),
+                last_synced_at = NOW()
 		`,
 			appUserIDStr,
 			userData.Data.ID,
 			token.AccessToken,
-			expiresAt,
 			token.RefreshToken,
-			profileImageURL, // Use improved quality URL here
+			expiresAt,
+			profileImageURL,
+			profileName,
+			userData.Data.ID,
+			token.AccessToken,
+			token.RefreshToken,
+			expiresAt,
+			profileImageURL,
 			profileName,
 		)
 		if err != nil {

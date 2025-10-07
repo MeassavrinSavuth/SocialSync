@@ -3,7 +3,7 @@ import { useProtectedFetch } from '../auth/useProtectedFetch';
 export function useScheduledPosts() {
   const protectedFetch = useProtectedFetch();
 
-  const createScheduledPost = async ({ content, mediaFiles, platforms, scheduledTime }) => {
+  const createScheduledPost = async ({ content, mediaFiles, platforms, scheduledTime, targets }) => {
     try {
       const res = await protectedFetch('/scheduled-posts', {
         method: 'POST',
@@ -15,6 +15,7 @@ export function useScheduledPosts() {
           media_urls: mediaFiles,
           platforms,
           scheduled_time: scheduledTime,
+          targets,
         }),
       });
 

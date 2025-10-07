@@ -2,12 +2,15 @@ package controllers
 
 import (
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"social-sync-backend/lib"
 	"social-sync-backend/middleware"
 	"social-sync-backend/models"
+	"social-sync-backend/utils"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -42,6 +45,10 @@ func CreateTask(w http.ResponseWriter, r *http.Request) {
 
 	taskID := uuid.NewString()
 	now := time.Now()
+
+	// Parse mentions from description
+	mentionedTags := utils.ExtractMentionedMedia(req.Description)
+	log.Printf("[DEBUG] Task tag mentions: %v", mentionedTags)
 
 	// Debug log
 	log.Printf("[DEBUG] Creating task in workspace: %s, assigned_to: %v, created_by: %s, title: %s", workspaceID, req.AssignedTo, userID, req.Title)
@@ -105,17 +112,23 @@ func ListTasks(w http.ResponseWriter, r *http.Request) {
 
 	type TaskWithCreator struct {
 		models.Task
-		CreatorName   *string `json:"creator_name"`
-		CreatorAvatar *string `json:"creator_avatar"`
+		CreatorName         *string `json:"creator_name"`
+		CreatorAvatar       *string `json:"creator_avatar"`
+		LastUpdatedByName   *string `json:"last_updated_by_name"`
+		LastUpdatedByAvatar *string `json:"last_updated_by_avatar"`
 	}
 
 	rows, err := lib.DB.Query(`
-		SELECT t.id, t.workspace_id, t.title, t.description, t.status, t.assigned_to, t.created_by, t.due_date, t.created_at, t.updated_at,
-		       u.name as creator_name, u.profile_picture as creator_avatar
+		SELECT t.id, t.workspace_id, t.title, t.description, t.status, t.assigned_to, t.created_by, t.last_updated_by, t.due_date, t.created_at, t.updated_at,
+		       u.name as creator_name, u.profile_picture as creator_avatar,
+		       lu.name as last_updated_by_name, lu.profile_picture as last_updated_by_avatar
 		FROM tasks t
 		LEFT JOIN users u ON t.created_by = u.id
+		LEFT JOIN users lu ON t.last_updated_by = lu.id
 		WHERE t.workspace_id = $1 ORDER BY t.created_at DESC
 	`, workspaceID)
+
+	log.Printf("[DEBUG] Fetching tasks for workspace %s", workspaceID)
 	if err != nil {
 		http.Error(w, "Failed to fetch tasks", http.StatusInternalServerError)
 		return
@@ -127,14 +140,40 @@ func ListTasks(w http.ResponseWriter, r *http.Request) {
 		var t models.Task
 		var creatorName *string
 		var creatorAvatar *string
-		err := rows.Scan(&t.ID, &t.WorkspaceID, &t.Title, &t.Description, &t.Status, &t.AssignedTo, &t.CreatedBy, &t.DueDate, &t.CreatedAt, &t.UpdatedAt, &creatorName, &creatorAvatar)
+		var lastUpdatedByName *string
+		var lastUpdatedByAvatar *string
+		err := rows.Scan(&t.ID, &t.WorkspaceID, &t.Title, &t.Description, &t.Status, &t.AssignedTo, &t.CreatedBy, &t.LastUpdatedBy, &t.DueDate, &t.CreatedAt, &t.UpdatedAt, &creatorName, &creatorAvatar, &lastUpdatedByName, &lastUpdatedByAvatar)
 		if err != nil {
 			continue
 		}
+
+		log.Printf("[DEBUG] Task %s: creator_name=%s, last_updated_by=%s, last_updated_by_name=%s",
+			t.ID,
+			func() string {
+				if creatorName != nil {
+					return *creatorName
+				}
+				return "nil"
+			}(),
+			func() string {
+				if t.LastUpdatedBy != nil {
+					return *t.LastUpdatedBy
+				}
+				return "nil"
+			}(),
+			func() string {
+				if lastUpdatedByName != nil {
+					return *lastUpdatedByName
+				}
+				return "nil"
+			}())
+
 		tasks = append(tasks, TaskWithCreator{
-			Task:          t,
-			CreatorName:   creatorName,
-			CreatorAvatar: creatorAvatar,
+			Task:                t,
+			CreatorName:         creatorName,
+			CreatorAvatar:       creatorAvatar,
+			LastUpdatedByName:   lastUpdatedByName,
+			LastUpdatedByAvatar: lastUpdatedByAvatar,
 		})
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -143,18 +182,37 @@ func ListTasks(w http.ResponseWriter, r *http.Request) {
 
 // UpdateTask updates a task by ID
 func UpdateTask(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(middleware.UserIDKey).(string)
 	vars := mux.Vars(r)
 	workspaceID := vars["workspaceId"]
 	taskID := vars["taskId"]
 
+	log.Printf("[DEBUG] UpdateTask called with userID: %s", userID)
+
+	// Check if user has permission to update tasks
+	hasPermission, err := middleware.CheckUserPermission(userID, workspaceID, models.PermPostUpdate)
+	if err != nil {
+		http.Error(w, "Failed to verify permissions", http.StatusInternalServerError)
+		return
+	}
+	if !hasPermission {
+		http.Error(w, "You don't have permission to update tasks", http.StatusForbidden)
+		return
+	}
+
+	var reqBody []byte
+	reqBody, _ = io.ReadAll(r.Body)
+	r.Body = io.NopCloser(strings.NewReader(string(reqBody)))
+
 	var req struct {
-		Title       *string    `json:"title"`
-		Description *string    `json:"description"`
-		Status      *string    `json:"status"`
-		AssignedTo  *string    `json:"assigned_to"`
-		DueDate     *time.Time `json:"due_date"`
+		Title       *string `json:"title"`
+		Description *string `json:"description"`
+		Status      *string `json:"status"`
+		AssignedTo  *string `json:"assigned_to"`
+		DueDate     *string `json:"due_date"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("[DEBUG] UpdateTask decode error: %v; body=%s", err, string(reqBody))
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
@@ -165,12 +223,21 @@ func UpdateTask(w http.ResponseWriter, r *http.Request) {
 	argIdx := 1
 	if req.Title != nil {
 		setClauses = append(setClauses, "title = $"+itoa(argIdx))
-		args = append(args, *req.Title)
+		title := strings.TrimSpace(*req.Title)
+		args = append(args, title)
 		argIdx++
 	}
 	if req.Description != nil {
 		setClauses = append(setClauses, "description = $"+itoa(argIdx))
-		args = append(args, *req.Description)
+		desc := strings.TrimSpace(*req.Description)
+		if desc == "" {
+			args = append(args, nil)
+		} else {
+			// Parse mentions from description
+			mentionedTags := utils.ExtractMentionedMedia(desc)
+			log.Printf("[DEBUG] Task update tag mentions: %v", mentionedTags)
+			args = append(args, desc)
+		}
 		argIdx++
 	}
 	if req.Status != nil {
@@ -180,25 +247,66 @@ func UpdateTask(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.AssignedTo != nil {
 		setClauses = append(setClauses, "assigned_to = $"+itoa(argIdx))
-		args = append(args, *req.AssignedTo)
+		if strings.TrimSpace(*req.AssignedTo) == "" {
+			args = append(args, nil)
+		} else {
+			args = append(args, *req.AssignedTo)
+		}
 		argIdx++
 	}
 	if req.DueDate != nil {
+		parsed, perr := time.Parse(time.RFC3339, *req.DueDate)
+		if perr != nil {
+			// Try date-only format
+			if d, perr2 := time.Parse("2006-01-02", *req.DueDate); perr2 == nil {
+				parsed = d
+			} else {
+				log.Printf("[DEBUG] due_date parse failed: %v; value=%s", perr, *req.DueDate)
+			}
+		}
 		setClauses = append(setClauses, "due_date = $"+itoa(argIdx))
-		args = append(args, *req.DueDate)
+		if parsed.IsZero() {
+			args = append(args, nil)
+		} else {
+			args = append(args, parsed)
+		}
 		argIdx++
 	}
 	setClauses = append(setClauses, "updated_at = $"+itoa(argIdx))
 	args = append(args, time.Now())
 	argIdx++
+	setClauses = append(setClauses, "last_updated_by = $"+itoa(argIdx))
+	args = append(args, userID)
+	argIdx++
+
+	log.Printf("[DEBUG] Updating task %s with last_updated_by = %s", taskID, userID)
+
+	// Get the user's name for debugging
+	var userName string
+	userNameErr := lib.DB.QueryRow("SELECT name FROM users WHERE id = $1", userID).Scan(&userName)
+	if userNameErr != nil {
+		log.Printf("[DEBUG] Could not fetch user name for ID %s: %v", userID, userNameErr)
+	} else {
+		log.Printf("[DEBUG] User ID %s corresponds to name: %s", userID, userName)
+	}
+
+	// Also check what the current task creator is
+	var currentCreatorID, currentCreatorName string
+	creatorErr := lib.DB.QueryRow("SELECT created_by FROM tasks WHERE id = $1", taskID).Scan(&currentCreatorID)
+	if creatorErr != nil {
+		log.Printf("[DEBUG] Could not fetch task creator: %v", creatorErr)
+	} else {
+		lib.DB.QueryRow("SELECT name FROM users WHERE id = $1", currentCreatorID).Scan(&currentCreatorName)
+		log.Printf("[DEBUG] Task creator ID: %s, name: %s", currentCreatorID, currentCreatorName)
+	}
 	if len(setClauses) == 0 {
 		http.Error(w, "No fields to update", http.StatusBadRequest)
 		return
 	}
 	args = append(args, taskID)
 	query := "UPDATE tasks SET " + joinClauses(setClauses, ", ") + " WHERE id = $" + itoa(argIdx)
-	_, err := lib.DB.Exec(query, args...)
-	if err != nil {
+	_, dbErr := lib.DB.Exec(query, args...)
+	if dbErr != nil {
 		http.Error(w, "Failed to update task", http.StatusInternalServerError)
 		return
 	}

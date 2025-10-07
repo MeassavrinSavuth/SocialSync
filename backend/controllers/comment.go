@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -17,8 +18,13 @@ func AddComment(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(middleware.UserIDKey).(string)
 	vars := mux.Vars(r)
 	taskID := vars["taskId"]
+	workspaceID := vars["workspaceId"]
 
-	log.Printf("[DEBUG] Adding comment - userID: %s, taskID: %s", userID, taskID)
+	log.Printf("[DEBUG] Adding comment - userID: %s, taskID: %s, workspaceID: %s", userID, taskID, workspaceID)
+	log.Printf("[DEBUG] All route vars: %+v", vars)
+
+	// Comments can be created by all workspace members - no permission check needed
+	log.Printf("[DEBUG] Allowing comment creation for all workspace members")
 
 	var req struct {
 		Content string `json:"content"`
@@ -41,20 +47,20 @@ func AddComment(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("[DEBUG] Inserting comment with ID: %s", commentID)
 
-	_, err := lib.DB.Exec(`
+	_, dbErr := lib.DB.Exec(`
 		INSERT INTO comments (id, task_id, user_id, content, created_at)
 		VALUES ($1, $2, $3, $4, $5)
 	`, commentID, taskID, userID, req.Content, now)
-	if err != nil {
-		log.Printf("[ERROR] Failed to add comment to database: %v", err)
+	if dbErr != nil {
+		log.Printf("[ERROR] Failed to add comment to database: %v", dbErr)
 		http.Error(w, "Failed to add comment", http.StatusInternalServerError)
 		return
 	}
 
 	// Fetch user name and email for response
 	var userName, userEmail string
-	err = lib.DB.QueryRow("SELECT name, email FROM users WHERE id = $1", userID).Scan(&userName, &userEmail)
-	if err != nil {
+	userErr := lib.DB.QueryRow("SELECT name, email FROM users WHERE id = $1", userID).Scan(&userName, &userEmail)
+	if userErr != nil {
 		userName = ""
 		userEmail = ""
 	}
@@ -83,8 +89,13 @@ func AddComment(w http.ResponseWriter, r *http.Request) {
 func ListComments(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	taskID := vars["taskId"]
+	workspaceID := vars["workspaceId"]
 
-	log.Printf("[DEBUG] Listing comments for taskID: %s", taskID)
+	log.Printf("[DEBUG] Listing comments for taskID: %s, workspaceID: %s", taskID, workspaceID)
+	log.Printf("[DEBUG] All route vars: %+v", vars)
+
+	// Comments are readable by all workspace members - no permission check needed
+	log.Printf("[DEBUG] Allowing comment read for all workspace members")
 
 	// Get user name and email
 	rows, err := lib.DB.Query(`
@@ -139,11 +150,34 @@ func ListComments(w http.ResponseWriter, r *http.Request) {
 
 // DeleteComment deletes a comment by ID
 func DeleteComment(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(middleware.UserIDKey).(string)
 	vars := mux.Vars(r)
 	commentID := vars["commentId"]
+	workspaceID := vars["workspaceId"]
 
-	_, err := lib.DB.Exec(`DELETE FROM comments WHERE id = $1`, commentID)
-	if err != nil {
+	log.Printf("[DEBUG] Deleting comment - userID: %s, commentID: %s, workspaceID: %s", userID, commentID, workspaceID)
+
+	// Check if user is the author of the comment or has admin permission
+	var commentAuthorID string
+	queryErr := lib.DB.QueryRow("SELECT user_id FROM comments WHERE id = $1", commentID).Scan(&commentAuthorID)
+	if queryErr != nil {
+		if queryErr == sql.ErrNoRows {
+			http.Error(w, "Comment not found", http.StatusNotFound)
+		} else {
+			http.Error(w, "Failed to find comment", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Only allow deletion if user is the comment author
+	if userID != commentAuthorID {
+		log.Printf("[ERROR] User %s is not the comment author (author: %s)", userID, commentAuthorID)
+		http.Error(w, "You can only delete your own comments", http.StatusForbidden)
+		return
+	}
+
+	_, deleteErr := lib.DB.Exec(`DELETE FROM comments WHERE id = $1`, commentID)
+	if deleteErr != nil {
 		http.Error(w, "Failed to delete comment", http.StatusInternalServerError)
 		return
 	}

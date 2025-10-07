@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { useProtectedFetch } from '../../hooks/auth/useProtectedFetch';
+import { useSocialAccounts } from '../../hooks/api/useSocialAccounts';
 import { FaFacebook, FaInstagram, FaYoutube, FaTwitter } from 'react-icons/fa';
 import { SiMastodon } from 'react-icons/si';
 
@@ -25,6 +26,7 @@ const platformColors = {
 export default function DashboardPage() {
   const router = useRouter();
   const protectedFetch = useProtectedFetch();
+  const { getAccountName } = useSocialAccounts();
   const [scheduledPosts, setScheduledPosts] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -174,9 +176,32 @@ export default function DashboardPage() {
                                     {post.platforms?.map((platform, i) => {
                                       const Icon = platformIcons[platform];
                                       const colorClass = platformColors[platform];
+                                      
+                                      // Get account names for this platform
+                                      const getAccountNames = (platform) => {
+                                        if (!post.targets || !post.targets[platform]) {
+                                          return ['Default']; // Default account
+                                        }
+                                        
+                                        const target = post.targets[platform];
+                                        if (target.all === true) {
+                                          return ['All']; // All accounts
+                                        } else if (target.ids && Array.isArray(target.ids)) {
+                                          return target.ids.map(id => getAccountName(id)); // Specific account names
+                                        }
+                                        
+                                        return ['Default']; // Default account
+                                      };
+                                      
+                                      const accountNames = getAccountNames(platform);
+                                      const displayText = accountNames.length > 1 ? `${accountNames.length}` : accountNames[0];
+                                      
                                       return Icon ? (
-                                        <div key={i} className="bg-gray-100 rounded-full p-1">
+                                        <div key={i} className="bg-gray-100 rounded-full p-1 flex items-center gap-1" title={accountNames.join(', ')}>
                                           <Icon className={`text-xs ${colorClass}`} />
+                                          <span className="text-xs text-gray-500">
+                                            {displayText}
+                                          </span>
                                         </div>
                                       ) : null;
                                     })}

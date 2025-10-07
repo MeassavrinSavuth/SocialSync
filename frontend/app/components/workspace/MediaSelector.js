@@ -7,23 +7,23 @@ export default function MediaSelector({ workspaceId, onMediaSelect, selectedMedi
   const [activeTab, setActiveTab] = useState('library'); // 'library' or 'upload'
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [selectedLibraryMedia, setSelectedLibraryMedia] = useState(selectedMedia ? [selectedMedia] : []);
+  const [tags, setTags] = useState('');
   
   const { media, loading, error, uploadMedia, isUploading, uploadProgress, uploadSuccess, uploadError, uploadSpeed } = useMedia(workspaceId);
 
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files);
     setSelectedFiles(files);
-    // auto-start upload for the first selected file
-    if (files && files[0]) {
-      handleUploadNow(files[0]);
-    }
+    // Don't auto-upload, let user add tags first
   };
 
   const handleUploadNow = async (fileParam) => {
     const fileToUpload = fileParam || (selectedFiles && selectedFiles[0]);
     if (!fileToUpload) return null;
     try {
-      const uploaded = await uploadMedia(fileToUpload, []);
+      // Parse tags from comma-separated string
+      const tagsArray = tags.trim() ? tags.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
+      const uploaded = await uploadMedia(fileToUpload, tagsArray);
       if (uploaded && uploaded.id) {
         // select the uploaded media and close
         onMediaSelect(uploaded, 'library');
@@ -55,59 +55,61 @@ export default function MediaSelector({ workspaceId, onMediaSelect, selectedMedi
       onClose();
       return;
     }
-
-    if (activeTab === 'upload' && selectedFiles.length > 0) {
-      // trigger upload and wait for result
-      await handleUploadNow();
-      return;
-    }
+    // Upload tab is handled by the Upload button in the upload section
   };
 
   const isConfirmDisabled = 
-    (activeTab === 'library' && selectedLibraryMedia.length === 0) ||
-    (activeTab === 'upload' && selectedFiles.length === 0);
+    (activeTab === 'library' && selectedLibraryMedia.length === 0);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
-      <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-4xl max-h-[80vh] overflow-hidden flex flex-col pointer-events-auto">
+    <div className="fixed inset-0 z-[100] grid place-items-center bg-black/50 supports-[backdrop-filter]:backdrop-blur-sm supports-[backdrop-filter]:backdrop-saturate-150 transition-opacity duration-200 pointer-events-none">
+      <div className="w-full max-w-3xl rounded-2xl bg-white shadow-xl ring-1 ring-black/5 max-h-[80vh] overflow-hidden flex flex-col pointer-events-auto">
         {/* Header */}
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-semibold">Select Media</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-            <FaTimes />
-          </button>
-        </div>
+        <div className="p-6 md:p-7">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold">Select Media</h3>
+            <button 
+              onClick={onClose} 
+              className="text-gray-500 hover:text-gray-700 focus-visible:ring-2 focus-visible:ring-blue-600 ring-offset-2 rounded"
+            >
+              <FaTimes />
+            </button>
+          </div>
+          <div className="mt-4 border-t border-gray-100"></div>
 
-        {/* Tabs */}
-        <div className="flex mb-4 border-b">
-          <button
-            className={`px-4 py-2 font-medium ${
-              activeTab === 'library'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-            onClick={() => setActiveTab('library')}
-          >
-            <FaImages className="inline mr-2" />
-            Media Library
-          </button>
-          <button
-            className={`px-4 py-2 font-medium ${
-              activeTab === 'upload'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-            onClick={() => setActiveTab('upload')}
-          >
-            <FaUpload className="inline mr-2" />
-            Upload New
-          </button>
+          {/* Tabs */}
+          <div className="mt-6 mb-6">
+            <div className="inline-flex rounded-xl p-1 ring-1 ring-black/5 bg-gray-50">
+              <button
+                className={`px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:text-gray-900 transition ${
+                  activeTab === 'library'
+                    ? 'bg-white text-gray-900 shadow'
+                    : ''
+                }`}
+                onClick={() => setActiveTab('library')}
+              >
+                <FaImages className="inline mr-2" />
+                Media Library
+              </button>
+              <button
+                className={`px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:text-gray-900 transition ${
+                  activeTab === 'upload'
+                    ? 'bg-white text-gray-900 shadow'
+                    : ''
+                }`}
+                onClick={() => setActiveTab('upload')}
+              >
+                <FaUpload className="inline mr-2" />
+                Upload New
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto p-6 md:p-7 pt-0">
           {activeTab === 'library' && (
-            <div>
+            <div className="grid grid-cols-1 place-items-center gap-6">
               {loading && (
                 <div className="text-center py-8 text-gray-500">Loading media...</div>
               )}
@@ -188,60 +190,98 @@ export default function MediaSelector({ workspaceId, onMediaSelect, selectedMedi
           )}
 
           {activeTab === 'upload' && (
-            <div className="py-6">
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center relative">
-                <input
-                  type="file"
-                  accept="image/*,video/*"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                  id="media-upload"
-                />
-                <label htmlFor="media-upload" className="cursor-pointer block">
-                  <FaUpload className="mx-auto text-4xl text-gray-400 mb-3" />
-                  <p className="text-lg font-medium text-gray-700 mb-1">Click to choose a file</p>
-                  <p className="text-sm text-gray-500">Supported: PNG, JPG, GIF, MP4, MOV</p>
-                </label>
-
-                {/* Progress overlay */}
-                {isUploading && selectedFiles[0] && (
-                  <div className="absolute inset-0 bg-black bg-opacity-40 rounded-lg flex flex-col items-center justify-center text-white p-4">
-                    <div className="w-20 h-20 border-4 border-white border-t-transparent rounded-full animate-spin mb-3"></div>
-                    <div className="font-semibold">Uploading {selectedFiles[0].name}</div>
-                    <div className="text-sm mt-1">{uploadProgress}% • {uploadSpeed > 0 ? (uploadSpeed > 1024*1024 ? `${(uploadSpeed/(1024*1024)).toFixed(1)} MB/s` : `${Math.round(uploadSpeed/1024)} KB/s`) : ''}</div>
-                  </div>
-                )}
-
-                {/* Success overlay */}
-                {uploadSuccess && (
-                  <div className="absolute inset-0 bg-green-600 bg-opacity-90 rounded-lg flex flex-col items-center justify-center text-white p-4">
-                    <div className="text-2xl font-bold mb-1">Uploaded</div>
-                    <div className="text-sm">Processing...</div>
-                  </div>
-                )}
-
-                {/* Error overlay */}
-                {uploadError && (
-                  <div className="absolute inset-0 bg-red-50 rounded-lg flex flex-col items-center justify-center text-red-700 p-4">
-                    <div className="font-semibold">Upload failed</div>
-                    <div className="text-sm mt-1">{uploadError}</div>
-                  </div>
-                )}
+            <div className={`grid gap-6 ${selectedFiles.length > 0 ? 'md:grid-cols-[5fr_4fr]' : 'grid-cols-1 place-items-center'}`}>
+              {/* Upload Preview Area */}
+              <div className="w-full max-w-[720px] mx-auto rounded-2xl ring-1 ring-black/5 bg-white overflow-hidden">
+                <div className="w-full aspect-video md:aspect-[4/3] flex items-center justify-center bg-white relative">
+                  {selectedFiles.length > 0 ? (
+                    <>
+                      {/* File Preview */}
+                      <img
+                        src={URL.createObjectURL(selectedFiles[0])}
+                        alt="Selected media preview"
+                        className="max-w-full max-h-[70vh] w-auto h-auto object-contain"
+                        onLoad={(e) => e.target.style.display = 'block'}
+                        style={{ display: 'none' }}
+                      />
+                      {/* Skeleton while loading */}
+                      <div className="w-full h-full bg-gray-50 animate-pulse"></div>
+                      
+                      {/* Progress bar */}
+                      {isUploading && (
+                        <div className="absolute inset-x-0 bottom-0 h-1.5 bg-black/10">
+                          <div 
+                            className="h-full bg-blue-600 transition-[width]"
+                            style={{ width: `${uploadProgress}%` }}
+                          ></div>
+                        </div>
+                      )}
+                      
+                      {/* Small spinner for unknown progress */}
+                      {isUploading && uploadProgress === 0 && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="px-6 py-10 text-center text-sm text-gray-700">
+                      <input
+                        type="file"
+                        accept="image/*,video/*"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                        id="media-upload"
+                      />
+                      <label htmlFor="media-upload" className="cursor-pointer block">
+                        <div className="border-2 border-dashed border-gray-300 rounded-2xl hover:border-gray-400 p-8">
+                          <FaUpload className="mx-auto text-4xl text-gray-500 mb-3" />
+                          <p className="text-lg font-medium text-gray-800 mb-1">Click to choose a file</p>
+                          <p className="text-sm text-gray-600">Supported: PNG, JPG, GIF, MP4, MOV</p>
+                        </div>
+                      </label>
+                    </div>
+                  )}
+                </div>
               </div>
 
+              {/* Error state */}
+              {uploadError && (
+                <div className="mt-3 rounded-xl bg-red-50 text-red-700 ring-1 ring-red-200 px-3 py-2 text-sm">
+                  Upload failed: {uploadError}
+                </div>
+              )}
+
+              {/* Side Panel - File Meta and Tags */}
               {selectedFiles.length > 0 && (
-                <div className="mt-4 flex flex-col items-center gap-3">
-                  <div className="w-full max-w-md">
-                    {selectedFiles.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between bg-gray-50 border border-gray-100 rounded p-3 mb-2">
-                        <div className="text-sm text-gray-700 truncate">{file.name}</div>
-                        <div className="text-xs text-gray-500">{Math.round(file.size/1024)} KB</div>
-                      </div>
-                    ))}
+                <div className="w-full max-w-sm mx-auto md:mx-0 space-y-4">
+                  {/* File Meta Row */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={selectedFiles[0]?.name || ''}
+                      readOnly
+                      className="flex-1 min-w-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 truncate focus:border-blue-600 focus:ring-2 focus:ring-blue-600"
+                    />
+                    <div className="shrink-0 rounded-lg bg-gray-100 text-gray-700 text-xs px-2 py-1 ring-1 ring-gray-200">
+                      {Math.round((selectedFiles[0]?.size || 0) / 1024)} KB
+                    </div>
                   </div>
 
-                  <div className="flex gap-3">
-                    <button onClick={() => setSelectedFiles([])} className="px-4 py-2 bg-gray-100 rounded">Cancel</button>
+                  {/* Tags Input */}
+                  <div>
+                    <label htmlFor="media-tags" className="text-sm font-medium text-gray-800">
+                      Tags (optional)
+                    </label>
+                    <input
+                      type="text"
+                      id="media-tags"
+                      value={tags}
+                      onChange={(e) => setTags(e.target.value)}
+                      placeholder="Enter tags separated by commas (e.g., marketing, social, campaign)"
+                      className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:border-blue-600 focus:ring-2 focus:ring-blue-600 focus-visible:ring-2 focus-visible:ring-blue-600 ring-offset-2"
+                    />
+                    <p className="mt-1 text-xs text-gray-600">Add tags to help organize your media</p>
                   </div>
                 </div>
               )}
@@ -250,24 +290,31 @@ export default function MediaSelector({ workspaceId, onMediaSelect, selectedMedi
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-3 mt-4 pt-4 border-t">
+        <div className="mt-6 -mx-6 border-t border-gray-100 bg-white px-6 pt-4 flex justify-end gap-3 sticky bottom-0">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-gray-600 hover:text-gray-800 transition"
+            className="rounded-xl px-4 py-2 text-sm text-gray-700 ring-1 ring-black/5 bg-white hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-blue-600 ring-offset-2"
           >
             Cancel
           </button>
-          <button
-            onClick={handleConfirm}
-            disabled={isConfirmDisabled}
-            className={`px-6 py-2 rounded font-medium transition ${
-              isConfirmDisabled
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-blue-600 text-white hover:bg-blue-700'
-            }`}
-          >
-            Select
-          </button>
+          {activeTab === 'library' && (
+            <button
+              onClick={handleConfirm}
+              disabled={isConfirmDisabled}
+              className="rounded-xl px-4 py-2 text-sm bg-blue-600 text-white shadow-sm hover:bg-blue-700 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-blue-600 ring-offset-2"
+            >
+              Select
+            </button>
+          )}
+          {activeTab === 'upload' && selectedFiles.length > 0 && (
+            <button 
+              onClick={() => handleUploadNow()} 
+              disabled={isUploading}
+              className="rounded-xl px-4 py-2 text-sm bg-blue-600 text-white shadow-sm hover:bg-blue-700 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-blue-600 ring-offset-2"
+            >
+              {isUploading ? 'Uploading...' : 'Upload'}
+            </button>
+          )}
         </div>
       </div>
     </div>

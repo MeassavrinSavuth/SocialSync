@@ -3,7 +3,7 @@ import { useRouter } from 'next/navigation';
 // Client-side protected fetch helper
 export const useProtectedFetch = () => {
   const router = useRouter();
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://socialsync-j7ih.onrender.com';
 
   const protectedFetch = async (url, options = {}) => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;

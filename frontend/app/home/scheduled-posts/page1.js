@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import { useProtectedFetch } from '../../hooks/auth/useProtectedFetch';
+import { useSocialAccounts } from '../../hooks/api/useSocialAccounts';
 import { FaCalendarAlt, FaClock, FaFacebook, FaInstagram, FaYoutube, FaTwitter, FaEdit, FaTrash, FaExclamationTriangle, FaTelegramPlane } from 'react-icons/fa';
 import { SiMastodon } from 'react-icons/si';
 
@@ -43,6 +44,7 @@ export default function ScheduledPostsPage() {
   const [editDate, setEditDate] = useState('');
   const [editTime, setEditTime] = useState('');
   const protectedFetch = useProtectedFetch();
+  const { getAccountName, getAccountInfo } = useSocialAccounts();
 
   useEffect(() => {
     fetchScheduledPosts();
@@ -596,7 +598,55 @@ export default function ScheduledPostsPage() {
                             {post.platforms?.slice(0,2).map((p) => {
                               const Icon = platformIcons[p];
                               const colorClass = platformColors[p];
-                              return Icon ? <Icon key={p} className={`text-lg ${colorClass}`} /> : null;
+                              
+                              // Get account names for this platform
+                              const getAccountNames = (platform) => {
+                                if (!post.targets || !post.targets[platform]) {
+                                  return ['Default']; // Default account
+                                }
+                                
+                                const target = post.targets[platform];
+                                if (target.all === true) {
+                                  return ['All']; // All accounts
+                                } else if (target.ids && Array.isArray(target.ids)) {
+                                  return target.ids.map(id => getAccountName(id)); // Specific account names
+                                }
+                                
+                                return ['Default']; // Default account
+                              };
+                              
+                              const accountNames = getAccountNames(p);
+                              const displayText = accountNames.length > 1 ? `${accountNames.length}` : accountNames[0];
+                              
+                              // Get account details for tooltip
+                              const getAccountDetails = (platform) => {
+                                if (!post.targets || !post.targets[platform]) {
+                                  return [];
+                                }
+                                
+                                const target = post.targets[platform];
+                                if (target.all === true) {
+                                  return ['All Accounts'];
+                                } else if (target.ids && Array.isArray(target.ids)) {
+                                  return target.ids.map(id => {
+                                    const accountDetails = getAccountInfo(id);
+                                    return `${accountDetails.name} (${accountDetails.provider})`;
+                                  });
+                                }
+                                
+                                return ['Default Account'];
+                              };
+                              
+                              const accountDetails = getAccountDetails(p);
+                              
+                              return Icon ? (
+                                <div key={p} className="flex items-center space-x-1" title={accountDetails.join(', ')}>
+                                  <Icon className={`text-lg ${colorClass}`} />
+                                  <span className="text-xs text-gray-500 font-medium">
+                                    {displayText}
+                                  </span>
+                                </div>
+                              ) : null;
                             })}
                           </div>
                         </button>
@@ -625,44 +675,69 @@ export default function ScheduledPostsPage() {
                           
         {/* Post Details Modal */}
         {showPostDetails && selectedPost && (
-          <div className="fixed inset-0 z-50 p-4 flex items-end sm:items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.25)' }}>
-            <div className="bg-white w-full sm:max-w-2xl rounded-t-xl sm:rounded-xl shadow-2xl max-h-[90vh] overflow-y-auto">
-              <div className="p-4 sm:p-6">
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="w-full max-w-3xl rounded-2xl bg-white ring-1 ring-black/5 shadow-2xl overflow-hidden">
+              <div className="divide-y divide-gray-100">
                 {/* Modal Header */}
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-2xl font-bold text-gray-900">Post Details</h3>
+                <div className="flex items-center justify-between px-6 py-4">
+                  <h3 className="text-base font-semibold text-gray-900">Post Details</h3>
                               <button
                     onClick={closePostDetails}
-                    className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                    className="p-2 rounded-xl hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 transition-colors"
                   >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                               </button>
                             </div>
 
-                {/* Post Content */}
-                <div className="mb-6">
-                  <h4 className="text-lg font-semibold text-gray-800 mb-3">Content</h4>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-gray-800 whitespace-pre-wrap">{selectedPost.content || 'No content'}</p>
+                {/* Body Content */}
+                <div className="px-6 py-5 space-y-6 max-h-[70vh] overflow-auto">
+                {/* Post Content (platform-aware) */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-900 mb-3">Content</h4>
+                  <div className="rounded-xl bg-gray-50 ring-1 ring-black/5 px-4 py-3">
+                    {/* Show global content if present */}
+                    {selectedPost.content && (
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">General message</p>
+                        <p className="text-sm text-gray-800 whitespace-pre-wrap">{selectedPost.content}</p>
+                      </div>
+                    )}
+                    {/* YouTube specific title/description if scheduled for YouTube */}
+                    {selectedPost.platforms?.includes('youtube') && (
+                      <div className="border-t pt-3 mt-3">
+                        <p className="text-xs text-gray-500 mb-1">YouTube</p>
+                        <div className="text-sm">
+                          <div className="font-semibold text-gray-900">{selectedPost.youtube_title || '—'}</div>
+                          {selectedPost.youtube_description && (
+                            <div className="text-sm text-gray-800 whitespace-pre-wrap mt-1">{selectedPost.youtube_description}</div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {!selectedPost.content && !selectedPost.youtube_title && (
+                      <p className="text-sm text-gray-500">No content</p>
+                    )}
                   </div>
                 </div>
 
                 {/* Post Status */}
-                <div className="mb-6">
-                  <h4 className="text-lg font-semibold text-gray-800 mb-3">Status</h4>
+                <div>
+                  <h4 className="text-sm font-medium text-gray-900 mb-3">Status</h4>
                   <div className="flex items-center space-x-4">
-                    <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                      selectedPost.status === 'posted' ? 'bg-green-100 text-green-800' :
-                      selectedPost.status === 'failed' ? 'bg-red-100 text-red-800' :
-                      'bg-blue-100 text-blue-800'
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
+                      selectedPost.status === 'posted' ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100' :
+                      selectedPost.status === 'failed' ? 'bg-red-50 text-red-700 ring-1 ring-red-100' :
+                      selectedPost.status === 'draft' ? 'bg-gray-100 text-gray-700 ring-1 ring-gray-200' :
+                      'bg-blue-50 text-blue-700 ring-1 ring-blue-100'
                     }`}>
-                      {selectedPost.status === 'posted' ? 'Posted' :
-                       selectedPost.status === 'failed' ? 'Failed' : 'Scheduled'}
+                      {selectedPost.status === 'posted' ? 'Published' :
+                       selectedPost.status === 'failed' ? 'Failed' : 
+                       selectedPost.status === 'draft' ? 'Draft' : 'Scheduled'}
                     </span>
                     {selectedPost.status === 'failed' && selectedPost.error_message && (
-                      <span className="text-red-600 text-sm">
+                      <span className="text-sm text-red-600">
                         <FaExclamationTriangle className="inline mr-1" />
                         {selectedPost.error_message}
                       </span>
@@ -670,29 +745,98 @@ export default function ScheduledPostsPage() {
                   </div>
                 </div>
 
-                {/* Platforms */}
-                <div className="mb-6">
-                  <h4 className="text-lg font-semibold text-gray-800 mb-3">Platforms</h4>
-                  <div className="flex space-x-3">
+                {/* Platforms & Accounts */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-900 mb-3">Platforms & Accounts</h4>
+                  <div className="rounded-2xl ring-1 ring-black/5 p-4">
+                    <div className="flex items-start gap-3">
                     {selectedPost.platforms?.map((platform) => {
                       const Icon = platformIcons[platform];
                       const colorClass = platformColors[platform];
+                        
+                        // Get account information for this platform
+                        const getAccountInfo = (platform) => {
+                          if (!selectedPost.targets || !selectedPost.targets[platform]) {
+                            return { accounts: [], isAll: false };
+                          }
+                          
+                          const target = selectedPost.targets[platform];
+                          if (target.ids && Array.isArray(target.ids)) {
+                            return { accounts: target.ids, isAll: false };
+                          } else if (target.all === true) {
+                            return { accounts: [], isAll: true };
+                          }
+                          
+                          return { accounts: [], isAll: false };
+                        };
+                        
+                        const accountInfo = getAccountInfo(platform);
+                        
                       return Icon ? (
-                        <div key={platform} className="flex items-center space-x-2 bg-gray-50 px-3 py-2 rounded-lg">
-                          <Icon className={`text-xl ${colorClass}`} />
-                          <span className="font-medium capitalize">{platform}</span>
+                          <div key={platform} className="flex items-start gap-3">
+                            {/* Platform Badge */}
+                            <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+                              <Icon className={`text-sm ${colorClass}`} />
+                            </div>
+                            
+                            {/* Account Chips */}
+                            <div className="flex flex-wrap gap-1">
+                              {accountInfo.isAll ? (
+                                <span className="inline-flex items-center rounded-full bg-gray-100 text-gray-700 text-xs px-2.5 py-1">
+                                  All Accounts
+                                </span>
+                              ) : accountInfo.accounts.length > 0 ? (
+                                accountInfo.accounts.map((accountId, index) => {
+                                  const accountName = getAccountName(accountId);
+                                  const accountDetails = getAccountInfo(accountId);
+                                  return (
+                                    <span 
+                                      key={index}
+                                      className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 text-gray-700 text-xs px-2.5 py-1"
+                                      title={`Account ID: ${accountId}`}
+                                    >
+                                      {accountDetails.avatar ? (
+                                        <img 
+                                          src={accountDetails.avatar} 
+                                          alt={accountName}
+                                          className="w-4 h-4 rounded-full object-cover"
+                                          onError={(e) => {
+                                            e.target.style.display = 'none';
+                                          }}
+                                        />
+                                      ) : (
+                                        <div className="w-4 h-4 rounded-full bg-gray-300 flex items-center justify-center">
+                                          <span className="text-[8px] font-medium text-gray-600">
+                                            {accountName.charAt(0).toUpperCase()}
+                                          </span>
+                                        </div>
+                                      )}
+                                      {accountName}
+                                    </span>
+                                  );
+                                })
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 text-gray-700 text-xs px-2.5 py-1">
+                                  <div className="w-4 h-4 rounded-full bg-gray-300 flex items-center justify-center">
+                                    <span className="text-[8px] font-medium text-gray-600">D</span>
+                                  </div>
+                                  Default Account
+                                </span>
+                              )}
+                            </div>
                         </div>
                       ) : null;
                     })}
+                    </div>
                   </div>
                         </div>
 
                 {/* Scheduled Time */}
-                <div className="mb-6">
-                  <h4 className="text-lg font-semibold text-gray-800 mb-3">Scheduled Time</h4>
-                  <div className="flex items-center space-x-2 text-gray-700">
-                    <FaClock className="text-gray-500" />
-                    <span className="font-medium">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-900 mb-3">Scheduled Time</h4>
+                  <div className="flex items-center space-x-2 text-sm text-gray-800">
+                    <FaClock className="text-gray-500 w-4 h-4" />
+                    <span>
                       {new Date(selectedPost.scheduled_time).toLocaleString('en-US', {
                         weekday: 'long',
                         year: 'numeric',
@@ -707,9 +851,9 @@ export default function ScheduledPostsPage() {
 
                 {/* Media */}
                 {selectedPost.media_urls && selectedPost.media_urls.length > 0 && (
-                  <div className="mb-6">
-                    <h4 className="text-lg font-semibold text-gray-800 mb-3">Media ({selectedPost.media_urls.length})</h4>
-                    <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-900 mb-3">Media ({selectedPost.media_urls.length})</h4>
+                    <div className="grid gap-4 sm:grid-cols-2">
                       {selectedPost.media_urls.map((url, index) => {
                         // Check if the media is a video
                         const isVideo = url.includes('video') || 
@@ -720,49 +864,50 @@ export default function ScheduledPostsPage() {
                                       url.includes('cloudinary') && url.includes('video');
                         
                         return (
-                          <div key={index} className="relative">
+                          <div key={index} className="relative w-full aspect-video rounded-xl overflow-hidden ring-1 ring-black/5 bg-gray-100">
                             {isVideo ? (
-                              <div className="relative w-full h-32 bg-black rounded-lg border overflow-hidden">
-                                <video
+                              <>
+                                <img 
                                   src={url}
-                                  className="w-full h-full object-cover"
-                                  controls
-                                  preload="metadata"
-                                >
-                                  Your browser does not support the video tag.
-                                </video>
-                                <div className="absolute top-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded flex items-center space-x-1">
-                                  <span>🎥</span>
-                                  <span>Video</span>
+                                  alt={`Video thumbnail ${index + 1}`}
+                                  className="absolute inset-0 h-full w-full object-cover"
+                                />
+                                <div className="absolute left-2 bottom-2 rounded-md bg-black/70 text-white text-[10px] px-1.5 py-0.5">
+                                  ▶ Play
                                 </div>
-                              </div>
+                              </>
                             ) : (
                               <img
                                 src={url}
                                 alt={`Media ${index + 1}`}
-                                className="w-full h-32 object-cover rounded-lg border"
+                                className="absolute inset-0 h-full w-full object-cover"
                                 onError={(e) => {
                                   e.target.style.display = 'none';
+                                  e.target.nextSibling.style.display = 'flex';
                                 }}
                               />
                             )}
+                            <div className="absolute inset-0 bg-gray-200 flex items-center justify-center" style={{display: 'none'}}>
+                              <span className="text-gray-500 text-sm">Failed to load</span>
+                            </div>
                           </div>
                         );
                       })}
                     </div>
                   </div>
                 )}
+                </div>
 
                 {/* Actions */}
                 {selectedPost.status === 'pending' && (
-                  <div className="flex justify-between pt-4 border-t border-gray-200">
-                    <div className="flex space-x-3">
+                  <div className="px-6 py-4 flex items-center justify-between gap-3">
+                    <div className="flex gap-3">
                       <button
                         onClick={() => {
                           handleEditClick(selectedPost);
                           closePostDetails();
                         }}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        className="h-10 rounded-xl bg-white ring-1 ring-black/5 hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-blue-600 px-4 text-sm font-medium text-gray-700"
                       >
                         Edit Content
                       </button>
@@ -771,7 +916,7 @@ export default function ScheduledPostsPage() {
                           handleReschedule(selectedPost);
                           closePostDetails();
                         }}
-                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                        className="h-10 rounded-xl bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-2 focus-visible:ring-blue-600 px-4 text-sm font-medium"
                       >
                         Reschedule
                       </button>
@@ -782,7 +927,7 @@ export default function ScheduledPostsPage() {
                         closePostDetails();
                       }}
                       disabled={deleteLoading}
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                      className="h-10 rounded-xl bg-red-600 text-white hover:bg-red-700 focus-visible:ring-2 focus-visible:ring-red-600 px-4 text-sm font-medium disabled:opacity-50"
                     >
                       {deleteLoading ? 'Deleting...' : 'Delete Post'}
                     </button>

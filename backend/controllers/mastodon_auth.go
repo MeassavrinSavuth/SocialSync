@@ -11,6 +11,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+
 	// "net/url"
 	"os"
 	"strings"
@@ -50,8 +51,8 @@ func registerMastodonApp(instanceURL string) (*MastodonAppInfo, error) {
 	bodyMap := map[string]string{
 		"client_name":   "SocialSync",
 		"redirect_uris": redirectURI,
-		"scopes":       "read write",
-		"website":      "https://yourdomain.com",
+		"scopes":        "read write",
+		"website":       "https://yourdomain.com",
 	}
 
 	jsonBody, err := json.Marshal(bodyMap)
@@ -244,27 +245,44 @@ func MastodonCallbackHandler(db *sql.DB) http.HandlerFunc {
 
 		_, err = db.Exec(`
 			INSERT INTO social_accounts (
-				user_id, platform, social_id, access_token, access_token_expires_at,
-				refresh_token, profile_picture_url, profile_name, connected_at
+				user_id, provider, external_account_id, access_token_enc, refresh_token_enc, expires_at, avatar, display_name,
+				platform, social_id, access_token, refresh_token, access_token_expires_at, profile_picture_url, profile_name,
+				created_at, updated_at, connected_at, last_synced_at
 			) VALUES (
-				$1, 'mastodon', $2, $3, $4, $5, $6, $7, NOW()
+				$1, 'mastodon', $2, $3, $4, $5, $6, $7,
+				'mastodon', $8, $9, $10, $11, $12, $13,
+				NOW(), NOW(), NOW(), NOW()
 			)
-			ON CONFLICT (user_id, platform) DO UPDATE SET
-				access_token = EXCLUDED.access_token,
-				access_token_expires_at = EXCLUDED.access_token_expires_at,
-				refresh_token = EXCLUDED.refresh_token,
-				social_id = EXCLUDED.social_id,
-				profile_picture_url = EXCLUDED.profile_picture_url,
-				profile_name = EXCLUDED.profile_name,
-				connected_at = NOW()
+			ON CONFLICT (user_id, provider, external_account_id) DO UPDATE SET
+				access_token_enc = EXCLUDED.access_token_enc,
+				refresh_token_enc = EXCLUDED.refresh_token_enc,
+				expires_at = EXCLUDED.expires_at,
+				avatar = EXCLUDED.avatar,
+				display_name = EXCLUDED.display_name,
+				-- keep legacy columns in sync for backward compatibility
+				access_token = EXCLUDED.access_token_enc,
+				refresh_token = EXCLUDED.refresh_token_enc,
+				access_token_expires_at = EXCLUDED.expires_at,
+				profile_picture_url = EXCLUDED.avatar,
+				profile_name = EXCLUDED.display_name,
+				social_id = EXCLUDED.external_account_id,
+				platform = EXCLUDED.provider,
+				updated_at = NOW(),
+				last_synced_at = NOW()
 		`,
 			appUserIDStr,
-			socialID,
-			token.AccessToken,
-			expiresAt,
-			token.RefreshToken,
-			userData.Avatar,
-			profileName,
+			socialID,           // $2 external_account_id
+			token.AccessToken,  // $3 access_token_enc
+			token.RefreshToken, // $4 refresh_token_enc
+			expiresAt,          // $5 expires_at
+			userData.Avatar,    // $6 avatar
+			profileName,        // $7 display_name
+			socialID,           // $8 legacy social_id (separate param to avoid type conflicts)
+			token.AccessToken,  // $9 legacy access_token
+			token.RefreshToken, // $10 legacy refresh_token
+			expiresAt,          // $11 legacy access_token_expires_at
+			userData.Avatar,    // $12 legacy profile_picture_url
+			profileName,        // $13 legacy profile_name
 		)
 		if err != nil {
 			http.Error(w, "Failed to save Mastodon account: "+err.Error(), http.StatusInternalServerError)

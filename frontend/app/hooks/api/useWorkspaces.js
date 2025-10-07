@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useUser } from '../auth/useUser';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://socialsync-j7ih.onrender.com';
 
 export const useWorkspaces = () => {
   const [workspaces, setWorkspaces] = useState([]);
@@ -111,21 +111,8 @@ export const useWorkspaces = () => {
     fetchWorkspaces();
   }, []);
 
-  // Real-time: Remove workspace if kicked or left
-  useEffect(() => {
-    if (!currentUser?.email) return;
-    const wsUrl = API_BASE_URL.replace(/^http/, 'ws').replace(/^https/, 'wss').replace('/api', '');
-    const ws = new window.WebSocket(`${wsUrl}/ws/invitations/${encodeURIComponent(currentUser.email)}`);
-    ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.type === 'removed_from_workspace' && msg.workspace_id) {
-          setWorkspaces(prev => prev.filter(ws => ws.id !== msg.workspace_id));
-        }
-      } catch (e) { /* ignore */ }
-    };
-    return () => ws.close();
-  }, [currentUser?.email]);
+  // Note: Real-time updates are now handled by the shared WebSocket context
+  // in the components that use this hook, rather than creating individual connections
 
   return {
     workspaces,

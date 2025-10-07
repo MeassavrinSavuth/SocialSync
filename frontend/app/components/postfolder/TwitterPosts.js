@@ -3,7 +3,7 @@
 import React from 'react';
 import { FaTwitter, FaHeart, FaRetweet, FaComment } from 'react-icons/fa';
 
-export default function TwitterPosts({ posts, loading, error, searchQuery, setSearchQuery, includes, tweetAuthor }) {
+export default function TwitterPosts({ posts, loading, error, searchQuery, setSearchQuery, selectedAccounts = [] }) {
   const tweets = posts || []; // Accept posts prop but use tweets internally for compatibility
 
   if (loading) {
@@ -131,111 +131,121 @@ export default function TwitterPosts({ posts, loading, error, searchQuery, setSe
         />
       </div>
       <div className="space-y-3 md:space-y-4">
-        {tweets.map((tweet, index) => (
-          <div key={tweet.id || index} className="bg-white border border-gray-200 rounded-2xl shadow-sm p-4 hover:bg-gray-50 transition-colors cursor-pointer">
-            <div className="flex space-x-3">
-              {/* Profile Picture */}
-              <div className="w-12 h-12 rounded-full flex-shrink-0 overflow-hidden">
-                {tweetAuthor?.profile_image_url ? (
-                  <img
-                    src={tweetAuthor.profile_image_url}
-                    alt={tweetAuthor.name || 'Twitter User'}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-bold">
-                    {tweetAuthor?.name ? tweetAuthor.name.charAt(0).toUpperCase() : '🐦'}
-                  </div>
-                )}
-              </div>
-              
-              <div className="flex-1 min-w-0">
-                {/* Header */}
-                <div className="flex items-center space-x-2 mb-2">
-                  <p className="font-bold text-gray-900">
-                    {tweetAuthor?.name || 'Twitter User'}
-                  </p>
-                  {tweetAuthor?.verified && (
-                    <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
+        {tweets.map((tweet, index) => {
+          // Use account-specific metadata if available (for multi-account posts)
+          const tweetAccountName = tweet._accountName || tweet.author?.name || 'Twitter User';
+          const tweetAccountAvatar = tweet._accountAvatar || tweet.author?.profile_image_url || '/default-avatar.png';
+          const tweetAccountHandle = tweet.author?.username || 'username';
+          
+          return (
+            <div key={tweet.id || index} className="bg-white border border-gray-200 rounded-2xl shadow-sm p-4 hover:bg-gray-50 transition-colors cursor-pointer">
+              <div className="flex space-x-3">
+                {/* Profile Picture */}
+                <div className="w-12 h-12 rounded-full flex-shrink-0 overflow-hidden">
+                  {tweetAccountAvatar ? (
+                    <img
+                      src={tweetAccountAvatar}
+                      alt={tweetAccountName}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.src = '/default-avatar.png';
+                      }}
+                    />
+                  ) : (
+                    <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-bold">
+                      {tweetAccountName ? tweetAccountName.charAt(0).toUpperCase() : '🐦'}
+                    </div>
                   )}
-                  <p className="text-gray-500">
-                    @{tweetAuthor?.username || 'username'}
-                  </p>
-                  <span className="text-gray-500">·</span>
-                  <p className="text-gray-500">
-                    {tweet.created_at ? new Date(tweet.created_at).toLocaleDateString() : 'Recently'}
-                  </p>
                 </div>
                 
-                {/* Tweet Content */}
-                <div className="text-gray-900 mb-3 whitespace-pre-line leading-relaxed">
-                  {tweet.text || tweet.full_text || 'Tweet content'}
-                </div>
-                
-                {/* Media (if any) */}
-                {tweet.attachments?.media && tweet.attachments.media.length > 0 && (
-                  <div className="mb-4 rounded-2xl overflow-hidden border border-gray-200">
-                    {tweet.attachments.media.slice(0, 4).map((media, i) => (
-                      <div key={i} className="relative aspect-video bg-gray-100">
-                        {media.type === 'photo' ? (
-                          <img
-                            src={media.url}
-                            alt="Tweet media"
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <video
-                            src={media.url}
-                            className="w-full h-full object-cover"
-                            controls
-                          />
-                        )}
-                      </div>
-                    ))}
+                <div className="flex-1 min-w-0">
+                  {/* Header */}
+                  <div className="flex items-center space-x-2 mb-2">
+                    <p className="font-bold text-gray-900">
+                      {tweetAccountName}
+                    </p>
+                    {tweet.author?.verified && (
+                      <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                    <p className="text-gray-500">
+                      @{tweetAccountHandle}
+                    </p>
+                    <span className="text-gray-500">·</span>
+                    <p className="text-gray-500">
+                      {tweet.created_at ? new Date(tweet.created_at).toLocaleDateString() : 'Recently'}
+                    </p>
                   </div>
-                )}
-                
-                {/* Engagement Actions */}
-                <div className="flex items-center justify-between max-w-md text-gray-500 text-sm">
-                  <button className="flex items-center space-x-2 hover:text-blue-500 transition-colors group">
-                    <div className="p-2 rounded-full group-hover:bg-blue-50 transition-colors">
-                      <FaComment className="text-sm" />
-                    </div>
-                    {tweet.public_metrics?.reply_count > 0 && (
-                      <span>{tweet.public_metrics.reply_count}</span>
-                    )}
-                  </button>
                   
-                  <button className="flex items-center space-x-2 hover:text-green-500 transition-colors group">
-                    <div className="p-2 rounded-full group-hover:bg-green-50 transition-colors">
-                      <FaRetweet className="text-sm" />
-                    </div>
-                    {tweet.public_metrics?.retweet_count > 0 && (
-                      <span>{tweet.public_metrics.retweet_count}</span>
-                    )}
-                  </button>
+                  {/* Tweet Content */}
+                  <div className="text-gray-900 mb-3 whitespace-pre-line leading-relaxed">
+                    {tweet.text || tweet.full_text || 'Tweet content'}
+                  </div>
                   
-                  <button className="flex items-center space-x-2 hover:text-red-500 transition-colors group">
-                    <div className="p-2 rounded-full group-hover:bg-red-50 transition-colors">
-                      <FaHeart className="text-sm" />
+                  {/* Media (if any) */}
+                  {tweet.attachments?.media && tweet.attachments.media.length > 0 && (
+                    <div className="mb-4 rounded-2xl overflow-hidden border border-gray-200">
+                      {tweet.attachments.media.slice(0, 4).map((media, i) => (
+                        <div key={i} className="relative aspect-video bg-gray-100">
+                          {media.type === 'photo' ? (
+                            <img
+                              src={media.url}
+                              alt="Tweet media"
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <video
+                              src={media.url}
+                              className="w-full h-full object-cover"
+                              controls
+                            />
+                          )}
+                        </div>
+                      ))}
                     </div>
-                    {tweet.public_metrics?.like_count > 0 && (
-                      <span>{tweet.public_metrics.like_count}</span>
-                    )}
-                  </button>
+                  )}
                   
-                  <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
-                    </svg>
-                  </button>
+                  {/* Engagement Actions */}
+                  <div className="flex items-center justify-between max-w-md text-gray-500 text-sm">
+                    <button className="flex items-center space-x-2 hover:text-blue-500 transition-colors group">
+                      <div className="p-2 rounded-full group-hover:bg-blue-50 transition-colors">
+                        <FaComment className="text-sm" />
+                      </div>
+                      {tweet.public_metrics?.reply_count > 0 && (
+                        <span>{tweet.public_metrics.reply_count}</span>
+                      )}
+                    </button>
+                    
+                    <button className="flex items-center space-x-2 hover:text-green-500 transition-colors group">
+                      <div className="p-2 rounded-full group-hover:bg-green-50 transition-colors">
+                        <FaRetweet className="text-sm" />
+                      </div>
+                      {tweet.public_metrics?.retweet_count > 0 && (
+                        <span>{tweet.public_metrics.retweet_count}</span>
+                      )}
+                    </button>
+                    
+                    <button className="flex items-center space-x-2 hover:text-red-500 transition-colors group">
+                      <div className="p-2 rounded-full group-hover:bg-red-50 transition-colors">
+                        <FaHeart className="text-sm" />
+                      </div>
+                      {tweet.public_metrics?.like_count > 0 && (
+                        <span>{tweet.public_metrics.like_count}</span>
+                      )}
+                    </button>
+                    
+                    <button className="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

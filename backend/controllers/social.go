@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"strings"
 
 	"social-sync-backend/middleware"
+
 	"github.com/gorilla/mux"
 )
 
@@ -25,10 +25,13 @@ func GetSocialAccountsHandler(db *sql.DB) http.HandlerFunc {
 		}
 
 		rows, err := db.QueryContext(ctx, `
-			SELECT platform, profile_picture_url, profile_name, social_id
-			FROM social_accounts
-			WHERE user_id = $1
-		`, appUserID)
+            SELECT id, COALESCE(provider, platform) AS provider, COALESCE(display_name, profile_name) AS display_name,
+                   COALESCE(avatar, profile_picture_url) AS avatar, COALESCE(external_account_id, social_id) AS external_id,
+                   is_default, status
+            FROM social_accounts
+            WHERE user_id = $1
+            ORDER BY provider, display_name
+        `, appUserID)
 		if err != nil {
 			log.Printf("ERROR: Failed to fetch social accounts for user %s: %v", appUserID, err)
 			http.Error(w, "Internal server error: Could not fetch social accounts.", http.StatusInternalServerError)
@@ -37,6 +40,14 @@ func GetSocialAccountsHandler(db *sql.DB) http.HandlerFunc {
 		defer rows.Close()
 
 		type SocialAccountResponse struct {
+			ID          string  `json:"id"`
+			Provider    string  `json:"provider"`
+			ExternalID  string  `json:"externalId"`
+			DisplayName *string `json:"displayName"`
+			Avatar      *string `json:"avatar"`
+			IsDefault   bool    `json:"isDefault"`
+			Status      *string `json:"status"`
+			// Back-compat fields
 			Platform          string  `json:"platform"`
 			SocialID          string  `json:"socialId"`
 			ProfilePictureURL *string `json:"profilePictureUrl"`
@@ -46,11 +57,16 @@ func GetSocialAccountsHandler(db *sql.DB) http.HandlerFunc {
 
 		for rows.Next() {
 			var acc SocialAccountResponse
-			if err := rows.Scan(&acc.Platform, &acc.ProfilePictureURL, &acc.ProfileName, &acc.SocialID); err != nil {
+			if err := rows.Scan(&acc.ID, &acc.Provider, &acc.DisplayName, &acc.Avatar, &acc.ExternalID, &acc.IsDefault, &acc.Status); err != nil {
 				log.Printf("ERROR: Error scanning social account row for user %s: %v", appUserID, err)
 				http.Error(w, "Internal server error: Error scanning data.", http.StatusInternalServerError)
 				return
 			}
+			// Fill legacy fields for UI back-compat
+			acc.Platform = acc.Provider
+			acc.ProfilePictureURL = acc.Avatar
+			acc.ProfileName = acc.DisplayName
+			acc.SocialID = acc.ExternalID
 			accounts = append(accounts, acc)
 		}
 
@@ -85,28 +101,22 @@ func DisconnectSocialAccountHandler(db *sql.DB) http.HandlerFunc {
 		}
 
 		vars := mux.Vars(r)
-		platform := vars["platform"]
-		if platform == "" {
-			log.Println("ERROR: Platform name missing in request URL.")
-			http.Error(w, "Bad request: Missing platform.", http.StatusBadRequest)
+		accountID := vars["accountId"]
+		if accountID == "" {
+			log.Println("ERROR: accountId missing in request URL.")
+			http.Error(w, "Bad request: Missing accountId.", http.StatusBadRequest)
 			return
 		}
 
-		// Normalize platform name for consistent matching
-		platform = strings.ToLower(platform)
-		if platform == "twitter (x)" {
-			platform = "twitter"
-		}
-
-		log.Printf("DEBUG: Disconnecting platform '%s' for user %s", platform, appUserID)
+		log.Printf("DEBUG: Disconnecting social account '%s' for user %s", accountID, appUserID)
 
 		result, err := db.ExecContext(ctx, `
-			DELETE FROM social_accounts
-			WHERE user_id = $1 AND LOWER(platform) = $2
-		`, appUserID, platform)
+            DELETE FROM social_accounts
+            WHERE user_id = $1 AND id = $2::uuid
+        `, appUserID, accountID)
 
 		if err != nil {
-			log.Printf("ERROR: Failed to disconnect %s for user %s: %v", platform, appUserID, err)
+			log.Printf("ERROR: Failed to disconnect account %s for user %s: %v", accountID, appUserID, err)
 			http.Error(w, "Internal server error: Failed to disconnect.", http.StatusInternalServerError)
 			return
 		}
@@ -119,16 +129,67 @@ func DisconnectSocialAccountHandler(db *sql.DB) http.HandlerFunc {
 		}
 
 		if rowsAffected == 0 {
-			log.Printf("INFO: No %s account found for user %s to disconnect.", platform, appUserID)
+			log.Printf("INFO: No account %s found for user %s to disconnect.", accountID, appUserID)
 			http.Error(w, "No such account connected.", http.StatusNotFound)
 			return
 		}
 
-		log.Printf("INFO: Successfully disconnected %s for user %s.", platform, appUserID)
+		log.Printf("INFO: Successfully disconnected account %s for user %s.", accountID, appUserID)
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]string{
 			"message": "Disconnected successfully",
 		})
+	}
+}
+
+// SetDefaultSocialAccountHandler marks one of the user's accounts as default for its provider
+func SetDefaultSocialAccountHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		appUserIDVal := ctx.Value(middleware.UserIDKey)
+		appUserID, ok := appUserIDVal.(string)
+		if !ok || appUserID == "" {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		vars := mux.Vars(r)
+		accountID := vars["accountId"]
+		if accountID == "" {
+			http.Error(w, "Missing accountId", http.StatusBadRequest)
+			return
+		}
+
+		// Determine provider of the selected account
+		var provider string
+		if err := db.QueryRowContext(ctx, `SELECT COALESCE(provider, platform) FROM social_accounts WHERE id=$1::uuid AND user_id=$2`, accountID, appUserID).Scan(&provider); err != nil {
+			http.Error(w, "Account not found", http.StatusNotFound)
+			return
+		}
+
+		// Clear defaults for this provider, then set this one
+		tx, err := db.BeginTx(ctx, nil)
+		if err != nil {
+			http.Error(w, "Failed to start transaction", http.StatusInternalServerError)
+			return
+		}
+		defer tx.Rollback()
+
+		if _, err := tx.ExecContext(ctx, `UPDATE social_accounts SET is_default=false WHERE user_id=$1 AND COALESCE(provider, platform)=$2`, appUserID, provider); err != nil {
+			http.Error(w, "Failed to clear defaults", http.StatusInternalServerError)
+			return
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE social_accounts SET is_default=true WHERE user_id=$1 AND id=$2::uuid`, appUserID, accountID); err != nil {
+			http.Error(w, "Failed to set default", http.StatusInternalServerError)
+			return
+		}
+		if err := tx.Commit(); err != nil {
+			http.Error(w, "Failed to commit", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]bool{"ok": true})
 	}
 }

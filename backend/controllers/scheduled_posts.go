@@ -30,9 +30,19 @@ func CreateScheduledPostHandler(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Validate required fields
+		// Allow empty content for YouTube-only scheduling (video carries the content)
 		if req.Content == "" {
-			http.Error(w, "Content is required", http.StatusBadRequest)
-			return
+			allowEmpty := false
+			for _, p := range req.Platforms {
+				if p == "youtube" {
+					allowEmpty = true
+					break
+				}
+			}
+			if !allowEmpty {
+				http.Error(w, "Content is required", http.StatusBadRequest)
+				return
+			}
 		}
 
 		if len(req.Platforms) == 0 {
@@ -65,8 +75,8 @@ func CreateScheduledPostHandler(db *sql.DB) http.HandlerFunc {
 
 		// Insert into database
 		query := `
-			INSERT INTO scheduled_posts (user_id, content, media_urls, platforms, scheduled_time, status, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            INSERT INTO scheduled_posts (user_id, content, media_urls, platforms, scheduled_time, status, created_at, updated_at, targets)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 			RETURNING id, created_at, updated_at
 		`
 
@@ -83,6 +93,7 @@ func CreateScheduledPostHandler(db *sql.DB) http.HandlerFunc {
 			models.StatusPending,
 			now,
 			now,
+			req.Targets,
 		).Scan(&scheduledPost.ID, &scheduledPost.CreatedAt, &scheduledPost.UpdatedAt)
 
 		if err != nil {
@@ -97,6 +108,7 @@ func CreateScheduledPostHandler(db *sql.DB) http.HandlerFunc {
 		scheduledPost.Platforms = pq.StringArray(req.Platforms)
 		scheduledPost.ScheduledTime = req.ScheduledTime
 		scheduledPost.Status = models.StatusPending
+		scheduledPost.Targets = req.Targets
 		scheduledPost.RetryCount = 0
 
 		w.Header().Set("Content-Type", "application/json")
@@ -115,11 +127,11 @@ func GetScheduledPostsHandler(db *sql.DB) http.HandlerFunc {
 		}
 
 		query := `
-			SELECT id, user_id, content, media_urls, platforms, scheduled_time, status, retry_count, error_message, created_at, updated_at
-			FROM scheduled_posts
-			WHERE user_id = $1
-			ORDER BY scheduled_time ASC
-		`
+            SELECT id, user_id, content, media_urls, platforms, scheduled_time, status, retry_count, error_message, created_at, updated_at, targets
+            FROM scheduled_posts
+            WHERE user_id = $1
+            ORDER BY scheduled_time ASC
+        `
 
 		rows, err := db.Query(query, userID)
 		if err != nil {
@@ -132,6 +144,7 @@ func GetScheduledPostsHandler(db *sql.DB) http.HandlerFunc {
 
 		for rows.Next() {
 			var post models.ScheduledPost
+			var rawTargets []byte
 			err := rows.Scan(
 				&post.ID,
 				&post.UserID,
@@ -144,10 +157,17 @@ func GetScheduledPostsHandler(db *sql.DB) http.HandlerFunc {
 				&post.ErrorMessage,
 				&post.CreatedAt,
 				&post.UpdatedAt,
+				&rawTargets,
 			)
 			if err != nil {
 				http.Error(w, "Failed to scan scheduled post: "+err.Error(), http.StatusInternalServerError)
 				return
+			}
+			if len(rawTargets) > 0 {
+				var tgt map[string]interface{}
+				if uErr := json.Unmarshal(rawTargets, &tgt); uErr == nil {
+					post.Targets = tgt
+				}
 			}
 			scheduledPosts = append(scheduledPosts, post)
 		}

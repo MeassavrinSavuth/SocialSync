@@ -7,7 +7,7 @@ import EngagementChart from './EngagementChart';
 import PlatformComparison from './PlatformComparison';
 import TopPostsTable from './TopPostsTable';
 import DateRangePicker from './DateRangePicker';
-import PlatformFilter from './PlatformFilter';
+import AccountSelector from './AccountSelector';
 
 export default function AnalyticsOverview() {
   const { analytics, loading, error, fetchAnalytics } = useAnalytics();
@@ -15,32 +15,33 @@ export default function AnalyticsOverview() {
     startDate: '',
     endDate: ''
   });
-  const [selectedPlatforms, setSelectedPlatforms] = useState(['youtube']); // Default to YouTube
+  const [selectedAccounts, setSelectedAccounts] = useState([]); // Selected account IDs
 
   const handleDateRangeChange = (startDate, endDate) => {
     setDateRange({ startDate, endDate });
     fetchAnalytics({
       startDate,
       endDate,
-      platforms: selectedPlatforms
+      accountIds: selectedAccounts
     });
   };
 
-  const handlePlatformFilter = (platforms) => {
-    console.log('Platform filter changed:', platforms);
-    setSelectedPlatforms(platforms);
+  const handleAccountChange = (accountIds) => {
+    console.log('Account selection changed:', accountIds);
+    console.log('Current analytics before change:', analytics);
+    setSelectedAccounts(accountIds);
     fetchAnalytics({
       startDate: dateRange.startDate,
       endDate: dateRange.endDate,
-      platforms
+      accountIds
     });
   };
 
-  // Fetch analytics with default YouTube platform on initial load
+  // Fetch analytics on initial load
   useEffect(() => {
-    console.log('Initial analytics fetch with platforms:', selectedPlatforms);
+    console.log('Initial analytics fetch');
     fetchAnalytics({
-      platforms: selectedPlatforms
+      accountIds: selectedAccounts
     });
   }, []); // Only run on mount
 
@@ -69,6 +70,15 @@ export default function AnalyticsOverview() {
     );
   }
 
+  // Debug: Log analytics data structure
+  console.log('Analytics data received:', analytics);
+  console.log('Platform stats:', analytics.platform_stats);
+  console.log('Engagement trend:', analytics.engagement_trend);
+  console.log('Top posts:', analytics.top_posts);
+  console.log('Selected accounts:', selectedAccounts);
+  console.log('Total posts from analytics:', analytics.total_posts);
+  console.log('Total engagement from analytics:', analytics.total_engagement);
+
   return (
     <div className="space-y-6">
       {/* Header with filters */}
@@ -76,11 +86,16 @@ export default function AnalyticsOverview() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Analytics Overview</h1>
           <p className="text-gray-600">
-            {selectedPlatforms.length === 0 
-              ? 'Track your social media performance across platforms'
-              : `Showing data for: ${selectedPlatforms.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(', ')}`
+            {selectedAccounts.length === 0 
+              ? 'Track your social media performance across accounts'
+              : `Showing data for ${selectedAccounts.length} selected account${selectedAccounts.length !== 1 ? 's' : ''}`
             }
           </p>
+          {selectedAccounts.length > 0 && (
+            <p className="text-sm text-gray-500 mt-1">
+              Select specific accounts to view their analytics
+            </p>
+          )}
         </div>
         
         <div className="flex flex-col sm:flex-row gap-4">
@@ -89,11 +104,15 @@ export default function AnalyticsOverview() {
             startDate={dateRange.startDate}
             endDate={dateRange.endDate}
           />
-          <PlatformFilter
-            onPlatformChange={handlePlatformFilter}
-            selectedPlatforms={selectedPlatforms}
-          />
         </div>
+      </div>
+
+      {/* Account Selector */}
+      <div className="mb-6">
+        <AccountSelector
+          selectedAccounts={selectedAccounts}
+          onAccountChange={handleAccountChange}
+        />
       </div>
 
       {/* Summary Cards */}

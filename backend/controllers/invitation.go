@@ -22,12 +22,12 @@ func SendInvitation(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	workspaceID := vars["workspaceId"]
 
-	// Check if user is admin of the workspace
+	// Check if user is admin of the workspace (support both old and new admin roles)
 	var isAdmin bool
 	err := lib.DB.QueryRow(`
 		SELECT EXISTS(
 			SELECT 1 FROM workspace_members 
-			WHERE workspace_id = $1 AND user_id = $2 AND role = 'Admin'
+			WHERE workspace_id = $1 AND user_id = $2 AND (role = 'Admin' OR role = 'workspace_admin')
 		)
 	`, workspaceID, userID).Scan(&isAdmin)
 
@@ -48,12 +48,32 @@ func SendInvitation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("Error decoding invitation request: %v", err)
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
 
-	// Validate role
-	if req.Role != "Admin" && req.Role != "Editor" && req.Role != "Viewer" {
+	log.Printf("Invitation request - Email: %s, Role: %s", req.Email, req.Role)
+
+	// Validate role - support both old and new role systems
+	validRoles := []string{
+		// Legacy roles
+		"Admin", "Editor", "Viewer",
+		// New role system
+		models.RoleWorkspaceAdmin, models.RoleContentManager, models.RoleSocialManager,
+		models.RoleAnalyst, models.RoleContributor, models.RoleViewer,
+	}
+
+	isValidRole := false
+	for _, validRole := range validRoles {
+		if req.Role == validRole {
+			isValidRole = true
+			break
+		}
+	}
+
+	if !isValidRole {
+		log.Printf("Invalid role provided: %s. Valid roles are: %v", req.Role, validRoles)
 		http.Error(w, "Invalid role", http.StatusBadRequest)
 		return
 	}

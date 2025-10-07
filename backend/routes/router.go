@@ -8,6 +8,7 @@ func InitRoutes() *mux.Router {
 	AuthRoutes(r)
 	RegisterUserRoutes(r)
 	RegisterWorkspaceRoutes(r)
+	RegisterRoleManagementRoutes(r)
 	RegisterInvitationRoutes(r)
 	RegisterTaskRoutes(r)
 	RegisterDraftPostRoutes(r)

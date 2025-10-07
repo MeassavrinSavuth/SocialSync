@@ -26,6 +26,9 @@ export function useAnalytics() {
       if (filters.limit) {
         params.append('limit', filters.limit);
       }
+      if (filters.accountIds && filters.accountIds.length > 0) {
+        filters.accountIds.forEach(accountId => params.append('account_id', accountId));
+      }
       
       // Add cache-busting parameter to prevent caching issues
       params.append('_t', Date.now().toString());
@@ -34,6 +37,7 @@ export function useAnalytics() {
       const endpoint = queryString ? `/analytics/overview?${queryString}` : `/analytics/overview?_t=${Date.now()}`;
 
       console.log('Fetching analytics from:', endpoint);
+      console.log('Filters being sent:', filters);
 
       // useProtectedFetch returns parsed JSON on success (or raw Response for no-content).
       // The backend returns the analytics object directly, so assign the parsed response to state.

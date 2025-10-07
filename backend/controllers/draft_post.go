@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -22,6 +23,15 @@ func CreateDraftPost(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	workspaceID := vars["workspaceId"]
 
+	// Permission: only members with draft:create can create new drafts
+	if ok, err := middleware.CheckUserPermission(userID, workspaceID, models.PermDraftCreate); err != nil {
+		http.Error(w, "Failed to verify permissions", http.StatusInternalServerError)
+		return
+	} else if !ok {
+		http.Error(w, "You don't have permission to create drafts", http.StatusForbidden)
+		return
+	}
+
 	bodyBytes, _ := io.ReadAll(r.Body)
 	r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes)) // Reset body for decoder
 
@@ -41,9 +51,9 @@ func CreateDraftPost(w http.ResponseWriter, r *http.Request) {
 	status := "draft"
 
 	_, err := lib.DB.Exec(`
-		INSERT INTO draft_posts (id, workspace_id, created_by, content, media, platforms, status, scheduled_time, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-	`, draftID, workspaceID, userID, req.Content, pqStringArrayToJSONB(req.Media), pqStringArray(req.Platforms), status, req.ScheduledTime, now, now)
+        INSERT INTO draft_posts (id, workspace_id, created_by, content, media, platforms, status, scheduled_time, created_at, updated_at, last_updated_by)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    `, draftID, workspaceID, userID, req.Content, pqStringArrayToJSONB(req.Media), pqStringArray(req.Platforms), status, req.ScheduledTime, now, now, userID)
 	if err != nil {
 		http.Error(w, "Failed to create draft", http.StatusInternalServerError)
 		return
@@ -78,12 +88,14 @@ func ListDraftPosts(w http.ResponseWriter, r *http.Request) {
 	workspaceID := vars["workspaceId"]
 
 	rows, err := lib.DB.Query(`
-		SELECT d.id, d.workspace_id, d.created_by, d.content, d.media, d.platforms, d.status, d.scheduled_time, d.published_time, d.created_at, d.updated_at,
-		       u.id, u.name, u.email, u.profile_picture
-		FROM draft_posts d
-		LEFT JOIN users u ON d.created_by = u.id
-		WHERE d.workspace_id = $1 ORDER BY d.created_at DESC
-	`, workspaceID)
+        SELECT d.id, d.workspace_id, d.created_by, d.content, d.media, d.platforms, d.status, d.scheduled_time, d.published_time, d.created_at, d.updated_at, d.last_updated_by,
+               u.id, u.name, u.email, u.profile_picture,
+               lu.name as last_updated_by_name, lu.profile_picture as last_updated_by_avatar
+        FROM draft_posts d
+        LEFT JOIN users u ON d.created_by = u.id
+        LEFT JOIN users lu ON d.last_updated_by = lu.id
+        WHERE d.workspace_id = $1 ORDER BY d.created_at DESC
+    `, workspaceID)
 	if err != nil {
 		http.Error(w, "Failed to fetch drafts", http.StatusInternalServerError)
 		return
@@ -103,7 +115,9 @@ func ListDraftPosts(w http.ResponseWriter, r *http.Request) {
 		var mediaJSON []byte
 		var platforms pqStringArray
 		var authorID, authorName, authorEmail, authorAvatar *string
-		if err := rows.Scan(&d.ID, &d.WorkspaceID, &d.CreatedBy, &d.Content, &mediaJSON, &platforms, &d.Status, &d.ScheduledTime, &d.PublishedTime, &d.CreatedAt, &d.UpdatedAt, &authorID, &authorName, &authorEmail, &authorAvatar); err != nil {
+		var lastUpdatedBy *string
+		var lastUpdatedByName, lastUpdatedByAvatar *string
+		if err := rows.Scan(&d.ID, &d.WorkspaceID, &d.CreatedBy, &d.Content, &mediaJSON, &platforms, &d.Status, &d.ScheduledTime, &d.PublishedTime, &d.CreatedAt, &d.UpdatedAt, &lastUpdatedBy, &authorID, &authorName, &authorEmail, &authorAvatar, &lastUpdatedByName, &lastUpdatedByAvatar); err != nil {
 			continue
 		}
 		d.Media = jsonBytesToStringSlice(mediaJSON)
@@ -128,6 +142,12 @@ func ListDraftPosts(w http.ResponseWriter, r *http.Request) {
 				Email:  authorEmailOrEmpty(authorEmail),
 				Avatar: authorAvatarOrDefault(authorAvatar),
 			}
+		}
+		if lastUpdatedByName != nil {
+			m["last_updated_by_name"] = *lastUpdatedByName
+		}
+		if lastUpdatedByAvatar != nil {
+			m["last_updated_by_avatar"] = *lastUpdatedByAvatar
 		}
 		drafts = append(drafts, m)
 	}
@@ -161,8 +181,31 @@ func authorAvatarOrDefault(avatar *string) string {
 
 // UpdateDraftPost updates a draft post
 func UpdateDraftPost(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(middleware.UserIDKey).(string)
 	vars := mux.Vars(r)
 	draftID := vars["draftId"]
+
+	// Find workspace for permission check
+	var workspaceID string
+	if err := lib.DB.QueryRow(`SELECT workspace_id FROM draft_posts WHERE id = $1`, draftID).Scan(&workspaceID); err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Draft not found", http.StatusNotFound)
+		} else {
+			http.Error(w, "Failed to find draft", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Only members with draft:update (admin/editor) can edit drafts
+	hasPermission, permErr := middleware.CheckUserPermission(userID, workspaceID, models.PermDraftUpdate)
+	if permErr != nil {
+		http.Error(w, "Failed to verify permissions", http.StatusInternalServerError)
+		return
+	}
+	if !hasPermission {
+		http.Error(w, "You don't have permission to update drafts", http.StatusForbidden)
+		return
+	}
 
 	var req struct {
 		Content       *string    `json:"content"`
@@ -207,6 +250,10 @@ func UpdateDraftPost(w http.ResponseWriter, r *http.Request) {
 	setClauses = append(setClauses, "updated_at = $"+itoa(argIdx))
 	args = append(args, time.Now())
 	argIdx++
+	// Track who updated
+	setClauses = append(setClauses, "last_updated_by = $"+itoa(argIdx))
+	args = append(args, userID)
+	argIdx++
 	if len(setClauses) == 0 {
 		http.Error(w, "No fields to update", http.StatusBadRequest)
 		return
@@ -221,19 +268,51 @@ func UpdateDraftPost(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Draft updated successfully"})
 
+	// Broadcast with updater info (name + avatar)
+	var updaterName, updaterAvatar *string
+	_ = lib.DB.QueryRow(`SELECT name, profile_picture FROM users WHERE id=$1`, userID).Scan(&updaterName, &updaterAvatar)
 	msg, _ := json.Marshal(map[string]interface{}{
-		"type":  "draft_updated",
-		"draft": req,
+		"type":                   "draft_updated",
+		"draft_id":               draftID,
+		"draft":                  req,
+		"last_updated_by":        userID,
+		"last_updated_by_name":   updaterName,
+		"last_updated_by_avatar": updaterAvatar,
+		"updated_at":             time.Now(),
 	})
-	hub.broadcast(vars["workspaceId"], websocket.TextMessage, msg)
+	hub.broadcast(workspaceID, websocket.TextMessage, msg)
 }
 
 // DeleteDraftPost deletes a draft post
 func DeleteDraftPost(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value(middleware.UserIDKey).(string)
 	vars := mux.Vars(r)
 	draftID := vars["draftId"]
 
-	_, err := lib.DB.Exec(`DELETE FROM draft_posts WHERE id = $1`, draftID)
+	// Get workspace ID for permission check
+	var workspaceID string
+	err := lib.DB.QueryRow(`SELECT workspace_id FROM draft_posts WHERE id = $1`, draftID).Scan(&workspaceID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Draft not found", http.StatusNotFound)
+		} else {
+			http.Error(w, "Failed to find draft", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	// Check if user has permission to delete drafts
+	hasPermission, err := middleware.CheckUserPermission(userID, workspaceID, models.PermDraftDelete)
+	if err != nil {
+		http.Error(w, "Failed to verify permissions", http.StatusInternalServerError)
+		return
+	}
+	if !hasPermission {
+		http.Error(w, "You don't have permission to delete drafts", http.StatusForbidden)
+		return
+	}
+
+	_, err = lib.DB.Exec(`DELETE FROM draft_posts WHERE id = $1`, draftID)
 	if err != nil {
 		http.Error(w, "Failed to delete draft", http.StatusInternalServerError)
 		return

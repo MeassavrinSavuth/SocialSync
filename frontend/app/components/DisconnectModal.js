@@ -8,14 +8,14 @@ export default function DisconnectModal({ show, onClose, onConfirm, platformName
 
   return (
     <div
-      className="fixed inset-0 flex justify-center items-center z-50"
+      className="fixed inset-0 z-[100] grid place-items-center bg-black/50 supports-[backdrop-filter]:backdrop-blur-sm supports-[backdrop-filter]:backdrop-saturate-150 transition-opacity duration-200"
       style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)' }} // Keeping the working RGBA background for the overlay
     >
       {/* Modal content container */}
       <div
         // --- KEY CHANGE HERE ---
         // Changed bg-white to bg-gray-100 for a softer, less white background
-        className="bg-gray-100 rounded-lg shadow-xl p-8 max-w-md w-full mx-4"
+        className="w-full max-w-3xl rounded-2xl bg-white shadow-xl ring-1 ring-black/5 p-8 max-w-md mx-4"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-xl font-bold text-gray-900 mb-4">Confirm Disconnection</h2>

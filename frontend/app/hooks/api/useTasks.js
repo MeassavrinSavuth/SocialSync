@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://socialsync-j7ih.onrender.com';
 
 export const useTasks = (workspaceId) => {
   const [tasks, setTasks] = useState([]);
@@ -36,11 +36,19 @@ export const useTasks = (workspaceId) => {
       }
 
       const data = await response.json();
+      console.log('Fetched tasks data:', data);
       const tasksWithDefaults = data.map(task => ({
         ...task,
         reactions: task.reactions || { thumbsUp: 0, fire: 0, thumbsDown: 0 },
         comments: task.comments || []
       }));
+      console.log('Tasks with last_updated_by info:', tasksWithDefaults.map(t => ({
+        id: t.id,
+        title: t.title,
+        last_updated_by_name: t.last_updated_by_name,
+        last_updated_by_avatar: t.last_updated_by_avatar,
+        updated_at: t.updated_at
+      })));
       setTasks(tasksWithDefaults);
     } catch (err) {
       setError(err.message);
@@ -92,6 +100,7 @@ export const useTasks = (workspaceId) => {
     
     try {
       const token = getAuthToken();
+      console.log('Sending task update:', { taskId, updates, token: token ? 'present' : 'missing' });
       const response = await fetch(`${API_BASE_URL}/api/workspaces/${workspaceId}/tasks/${taskId}`, {
         method: 'PATCH',
         headers: {
@@ -105,9 +114,9 @@ export const useTasks = (workspaceId) => {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      setTasks(prev => prev.map(task => 
-        task.id === taskId ? { ...task, ...updates } : task
-      ));
+      // Force refresh the tasks to get updated data including last_updated_by
+      console.log('Status update completed, refreshing tasks...');
+      fetchTasks();
       return true;
     } catch (err) {
       setError(err.message);
@@ -149,32 +158,10 @@ export const useTasks = (workspaceId) => {
 
   useEffect(() => {
     fetchTasks();
-    if (!workspaceId) return;
-    const wsUrl = API_BASE_URL.replace(/^http/, 'ws').replace(/^https/, 'wss').replace('/api', '');
-    const ws = new window.WebSocket(`${wsUrl}/ws/${workspaceId}`);
-    ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.type === 'task_created' && msg.task) {
-          setTasks(prev => {
-            const exists = prev.some(t => t.id === msg.task.id);
-            if (exists) {
-              // Replace the existing task
-              return prev.map(t => t.id === msg.task.id ? msg.task : t);
-            } else {
-              // Add new task to the top
-              return [msg.task, ...prev];
-            }
-          });
-        } else if (msg.type === 'task_updated' && msg.task_id) {
-          fetchTasks(); // For simplicity, refetch all tasks on update
-        } else if (msg.type === 'task_deleted' && msg.task_id) {
-          setTasks(prev => prev.filter(t => t.id !== msg.task_id));
-        }
-      } catch (e) { /* ignore */ }
-    };
-    return () => ws.close();
   }, [workspaceId]);
+
+  // Note: Real-time updates are now handled by the shared WebSocket context
+  // in the components that use this hook, rather than creating individual connections
 
   return {
     tasks,

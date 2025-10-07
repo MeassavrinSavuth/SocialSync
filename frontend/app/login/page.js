@@ -4,10 +4,10 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Eye, EyeOff } from 'lucide-react';
 
-import { useToggle } from '@/app/hooks/ui/useToggle';
-import { useOAuthLogin } from '@/app/hooks/auth/useOAuthLogin';
-import { useFormInput } from '@/app/hooks/form/useFormInput';
-import { useLogin } from '@/app/hooks/auth/useLogin';
+import { useToggle } from '../hooks/ui/useToggle';
+import { useOAuthLogin } from '../hooks/auth/useOAuthLogin';
+import { useFormInput } from '../hooks/form/useFormInput';
+import { useLogin } from '../hooks/auth/useLogin';
 const Login = () => {
 
   const { loginWithFacebook, loginWithGoogle } = useOAuthLogin();

@@ -479,38 +479,33 @@ func DeleteWorkspace(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"message": "Workspace deleted successfully"})
 }
 
-// ChangeMemberRole allows the admin to change a member's role in the workspace
+// ChangeMemberRole allows users with permission to change a member's role in the workspace
 func ChangeMemberRole(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(middleware.UserIDKey).(string)
 	vars := mux.Vars(r)
 	workspaceID := vars["workspaceId"]
 	memberID := vars["memberId"]
 
-	// Only admin can change roles
-	var isAdmin bool
-	err := lib.DB.QueryRow(`
-		SELECT EXISTS(
-			SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2 AND role = 'Admin'
-		)
-	`, workspaceID, userID).Scan(&isAdmin)
+	// Check if user has permission to change member roles
+	hasPermission, err := middleware.CheckUserPermission(userID, workspaceID, models.PermMemberRoleChange)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to verify permissions"})
 		return
 	}
-	if !isAdmin {
+	if !hasPermission {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusForbidden)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Only workspace admin can change member roles"})
+		json.NewEncoder(w).Encode(map[string]string{"error": "Insufficient permissions to change member roles"})
 		return
 	}
 
-	// Prevent admin from changing their own role
+	// Prevent users from changing their own role
 	if userID == memberID {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusForbidden)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Admin cannot change their own role"})
+		json.NewEncoder(w).Encode(map[string]string{"error": "Cannot change your own role"})
 		return
 	}
 
@@ -519,12 +514,38 @@ func ChangeMemberRole(w http.ResponseWriter, r *http.Request) {
 		Role string `json:"role"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("Error decoding role change request: %v", err)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request"})
 		return
 	}
-	if req.Role != "Admin" && req.Role != "Editor" && req.Role != "Viewer" {
+
+	log.Printf("Role change request - Member: %s, New Role: %s", memberID, req.Role)
+
+	// Validate role - support both old and new role systems
+	validRoles := []string{
+		// Legacy roles
+		"Admin", "Editor", "Viewer",
+		// New role system
+		models.RoleWorkspaceAdmin,
+		models.RoleContentManager,
+		models.RoleSocialManager,
+		models.RoleAnalyst,
+		models.RoleContributor,
+		models.RoleViewer,
+	}
+
+	isValidRole := false
+	for _, validRole := range validRoles {
+		if req.Role == validRole {
+			isValidRole = true
+			break
+		}
+	}
+
+	if !isValidRole {
+		log.Printf("Invalid role provided for role change: %s. Valid roles: %v", req.Role, validRoles)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid role"})

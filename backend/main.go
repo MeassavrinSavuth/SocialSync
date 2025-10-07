@@ -19,7 +19,7 @@ func CORSMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		frontendURL := os.Getenv("FRONTEND_URL")
 		if frontendURL == "" {
-			frontendURL = "http://localhost:3000" // fallback
+			frontendURL = "https://thesocialsync.life" // fallback
 		}
 		w.Header().Set("Access-Control-Allow-Origin", frontendURL)
 		w.Header().Set("Access-Control-Allow-Credentials", "true")

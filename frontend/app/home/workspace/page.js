@@ -1,6 +1,7 @@
 "use client";
 import React from 'react';
 import { useWorkspaceState } from '../../hooks/workspace/useWorkspaceState';
+import { WebSocketProvider } from '../../contexts/WebSocketContext';
 import WorkspaceDashboard from '../../components/workspace/WorkspaceDashboard';
 import WorkspaceHeader from '../../components/workspace/WorkspaceHeader';
 import WorkspaceContent from '../../components/workspace/WorkspaceContent';
@@ -69,6 +70,7 @@ export default function WorkspacePage() {
     acceptInvitation,
     declineInvitation,
     fetchInvitations,
+    fetchMembers,
     showKickModal,
     kickMemberName,
     confirmKickMember,
@@ -117,40 +119,42 @@ export default function WorkspacePage() {
 
   // Show workspace view
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6 lg:p-8">
-      <WorkspaceHeader
-        workspace={selectedWorkspace}
-        currentUser={currentUser}
-        onBack={handleBackToDashboard}
-        onInviteMember={handleInviteMember}
-        inviteLoading={invitationsLoading}
-        inviteError={inviteError}
-        showInviteMemberModal={showInviteMemberModal}
-        setShowInviteMemberModal={setShowInviteMemberModal}
-        onOpenInviteMemberModal={handleOpenInviteMemberModal}
-      />
+    <WebSocketProvider workspaceId={selectedWorkspace?.id}>
+      <div className="min-h-screen bg-gray-50 p-4 md:p-6 lg:p-8">
+        <WorkspaceHeader
+          workspace={selectedWorkspace}
+          currentUser={currentUser}
+          onBack={handleBackToDashboard}
+          onInviteMember={handleInviteMember}
+          inviteLoading={invitationsLoading}
+          inviteError={inviteError}
+          showInviteMemberModal={showInviteMemberModal}
+          setShowInviteMemberModal={setShowInviteMemberModal}
+          onOpenInviteMemberModal={handleOpenInviteMemberModal}
+        />
 
-      <MemberList
-        showMemberList={showMemberList}
-        setShowMemberList={setShowMemberList}
-        members={members}
-        membersLoading={membersLoading}
-        membersError={membersError}
-        currentUser={currentUser}
-        selectedWorkspace={selectedWorkspace}
-        roleChangeLoading={roleChangeLoading}
-        onRoleChange={handleRoleChange}
-        onLeaveWorkspace={handleLeaveWorkspace}
-        onRemoveMember={handleRemoveMember}
-      />
+        <MemberList
+          showMemberList={showMemberList}
+          setShowMemberList={setShowMemberList}
+          members={members}
+          membersLoading={membersLoading}
+          membersError={membersError}
+          currentUser={currentUser}
+          selectedWorkspace={selectedWorkspace}
+          roleChangeLoading={roleChangeLoading}
+          onRoleChange={handleRoleChange}
+          onLeaveWorkspace={handleLeaveWorkspace}
+          onRemoveMember={handleRemoveMember}
+          onRefreshMembers={fetchMembers}
+        />
 
-      <WorkspaceContent
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        selectedWorkspace={selectedWorkspace}
-        members={members}
-        currentUser={currentUser}
-      />
+        <WorkspaceContent
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          selectedWorkspace={selectedWorkspace}
+          members={members}
+          currentUser={currentUser}
+        />
 
       {/* Leave Workspace Confirmation Modal */}
       <ConfirmModal
@@ -170,15 +174,16 @@ export default function WorkspacePage() {
         onCancel={cancelKickMember}
       />
 
-      {/* Invitations Modal */}
-      <InviteModal
-        isOpen={showInvitesModal}
-        onClose={() => setShowInvitesModal(false)}
-        invitations={invitations}
-        onAccept={acceptInvitation}
-        onDecline={declineInvitation}
-        loading={invitationsLoading}
-      />
-    </div>
+        {/* Invitations Modal */}
+        <InviteModal
+          isOpen={showInvitesModal}
+          onClose={() => setShowInvitesModal(false)}
+          invitations={invitations}
+          onAccept={acceptInvitation}
+          onDecline={declineInvitation}
+          loading={invitationsLoading}
+        />
+      </div>
+    </WebSocketProvider>
   );
 }

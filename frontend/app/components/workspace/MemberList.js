@@ -1,6 +1,8 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useRoleBasedUI } from '../../hooks/auth/usePermissions';
+import { useWebSocket } from '../../contexts/WebSocketContext';
 
 export default function MemberList({
   showMemberList,
@@ -13,8 +15,31 @@ export default function MemberList({
   roleChangeLoading,
   onRoleChange,
   onLeaveWorkspace,
-  onRemoveMember
+  onRemoveMember,
+  onRefreshMembers
 }) {
+  // Permission checks
+  const { canManageMembers, loading: permissionsLoading } = useRoleBasedUI(selectedWorkspace?.id);
+  
+  // Use shared WebSocket connection for real-time member updates
+  const { subscribe } = useWebSocket();
+
+  // Subscribe to WebSocket messages for real-time member updates
+  useEffect(() => {
+    const unsubscribe = subscribe((msg) => {
+      console.log('MemberList received WebSocket message:', msg);
+      
+      if (msg.type === 'member_added' || msg.type === 'member_removed' || msg.type === 'member_role_changed') {
+        console.log('Member change detected, refreshing members list...');
+        // Refresh the members list to get the latest data
+        if (onRefreshMembers) {
+          onRefreshMembers();
+        }
+      }
+    });
+
+    return unsubscribe;
+  }, [subscribe, onRefreshMembers]);
   if (!showMemberList) {
     return (
       <div className="mb-3 md:mb-4">
@@ -39,13 +64,19 @@ export default function MemberList({
         <span className="transform transition-transform rotate-90">{'>'}</span>
       </button>
       
-      <div className="mt-2 bg-white rounded-xl md:rounded-2xl shadow-xl p-3 md:p-4 border w-full max-w-2xl overflow-x-auto">
+      <div className="mt-2 rounded-2xl ring-1 ring-black/5 bg-white shadow-sm p-5 md:p-6 w-full max-w-2xl overflow-x-auto">
+        {/* Header Bar */}
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold text-gray-900">Members</h3>
+          <p className="text-sm text-gray-700 mt-1">Manage roles and remove members.</p>
+        </div>
+
         {membersLoading ? (
-          <div className="text-center text-gray-500 py-4 text-sm md:text-base">Loading members...</div>
+          <div className="text-center text-gray-500 py-4 text-sm">Loading members...</div>
         ) : membersError ? (
-          <div className="text-center text-red-500 py-4 text-sm md:text-base">Error loading members: {membersError}</div>
+          <div className="text-center text-red-500 py-4 text-sm">Error loading members: {membersError}</div>
         ) : members.length === 0 ? (
-          <div className="text-center text-gray-500 py-4 text-sm md:text-base">No members found</div>
+          <div className="rounded-xl bg-gray-50 text-gray-500 text-sm px-4 py-8 text-center">No members found</div>
         ) : (
           <>
             {/* Mobile Card View */}
@@ -63,31 +94,33 @@ export default function MemberList({
                       <img 
                         src={m.avatar || '/default-avatar.png'} 
                         alt={m.name} 
-                        className="w-10 h-10 rounded-full border object-cover bg-gray-100" 
+                        className="w-10 h-10 rounded-full ring-1 ring-black/5 object-cover bg-gray-100" 
                       />
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-gray-800 truncate">{m.name}</div>
-                        <div className="flex items-center gap-2">
-                          {isAdmin && !isCurrentUser && !isMemberAdmin ? (
-                            <select
-                              className={`px-2 py-1 rounded border text-xs font-semibold transition-colors duration-200
-                                ${safeRole === 'Admin' ? 'text-blue-700 bg-blue-50' : safeRole === 'Editor' ? 'text-green-700 bg-green-50' : 'text-gray-700 bg-gray-50'}`}
-                              value={safeRole}
-                              onChange={e => onRoleChange(m.id, e.target.value)}
-                              disabled={roleChangeLoading[m.id]}
-                            >
-                              <option value="Admin">Admin</option>
-                              <option value="Editor">Editor</option>
-                              <option value="Viewer">Viewer</option>
-                            </select>
+                        <div className="font-medium text-gray-900 truncate">{m.name}</div>
+                        {m.email && (
+                          <div className="text-sm text-gray-600 truncate">{m.email}</div>
+                        )}
+                        <div className="flex items-center gap-2 mt-1">
+                          {isAdmin && !isCurrentUser && !isMemberAdmin && m.role !== 'Admin' ? (
+                            <div className="relative inline-flex">
+                              <select
+                                className="appearance-none rounded-xl border border-gray-200 bg-white px-3 pr-8 py-1.5 text-sm text-gray-900 shadow-sm hover:border-gray-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-600 focus-visible:ring-2 focus-visible:ring-blue-600 ring-offset-2"
+                                value={safeRole}
+                                onChange={e => onRoleChange(m.id, e.target.value)}
+                                disabled={roleChangeLoading[m.id]}
+                              >
+                                <option value="Editor">Editor</option>
+                                <option value="Viewer">Viewer</option>
+                              </select>
+                              <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </div>
+                            </div>
                           ) : (
-                            <span className={
-                              m.role === 'Admin'
-                                ? 'bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-semibold'
-                                : m.role === 'Editor'
-                                ? 'bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-semibold'
-                                : 'bg-gray-100 text-gray-700 px-2 py-1 rounded-full text-xs font-semibold'
-                            }>
+                            <span className="inline-flex items-center gap-1 rounded-xl bg-blue-50 text-blue-700 ring-1 ring-blue-200 text-xs px-2.5 py-1">
                               {m.role}
                             </span>
                           )}
@@ -98,7 +131,7 @@ export default function MemberList({
                           !isMemberAdmin && (
                             <button
                               onClick={onLeaveWorkspace}
-                              className="px-3 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition min-h-[32px]"
+                              className="rounded-xl bg-red-50 text-red-600 ring-1 ring-red-200 px-3 py-1.5 text-sm hover:bg-red-100 focus-visible:ring-2 focus-visible:ring-red-500 ring-offset-2"
                             >
                               Leave
                             </button>
@@ -107,9 +140,9 @@ export default function MemberList({
                           isAdmin && !isMemberAdmin && (
                             <button
                               onClick={() => onRemoveMember(m.id, m.name)}
-                              className="px-3 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition min-h-[32px]"
+                              className="rounded-xl bg-red-50 text-red-600 ring-1 ring-red-200 px-3 py-1.5 text-sm hover:bg-red-100 focus-visible:ring-2 focus-visible:ring-red-500 ring-offset-2"
                             >
-                              Kick
+                              Remove
                             </button>
                           )
                         )}
@@ -124,11 +157,11 @@ export default function MemberList({
             <div className="hidden md:block">
               <table className="w-full text-left">
                 <thead className="sticky top-0 bg-white z-10">
-                  <tr className="border-b">
-                    <th className="py-2 px-2 font-semibold text-gray-700">Profile</th>
-                    <th className="py-2 px-2 font-semibold text-gray-700">Name</th>
-                    <th className="py-2 px-2 font-semibold text-gray-700">Role</th>
-                    <th className="py-2 px-2 font-semibold text-gray-700">Actions</th>
+                  <tr className="border-b border-gray-100">
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Profile</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Name</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Role</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -142,61 +175,67 @@ export default function MemberList({
                     return (
                       <tr
                         key={m.id}
-                        className={`border-b transition-colors ${i % 2 === 0 ? 'bg-gray-50' : 'bg-white'} hover:bg-blue-50`}
+                        className="border-b border-gray-100 last:border-0 hover:bg-gray-50/70 transition-colors"
                       >
-                        <td className="py-2 px-2">
+                        <td className="px-4 py-4 align-middle">
                           <img 
                             src={m.avatar || '/default-avatar.png'} 
                             alt={m.name} 
-                            className="w-10 h-10 rounded-full border object-cover bg-gray-100" 
+                            className="w-10 h-10 rounded-full ring-1 ring-black/5 object-cover bg-gray-100" 
                           />
                         </td>
-                        <td className="py-2 px-2 text-gray-800 font-medium text-base">{m.name}</td>
-                        <td className="py-2 px-2">
-                          {isAdmin && !isCurrentUser && !isMemberAdmin ? (
-                            <select
-                              className={`px-2 py-1 rounded border text-xs font-semibold transition-colors duration-200
-                                ${safeRole === 'Admin' ? 'text-blue-700 bg-blue-50' : safeRole === 'Editor' ? 'text-green-700 bg-green-50' : 'text-gray-700 bg-gray-50'}`}
-                              value={safeRole}
-                              onChange={e => onRoleChange(m.id, e.target.value)}
-                              disabled={roleChangeLoading[m.id]}
-                            >
-                              <option value="Admin">Admin</option>
-                              <option value="Editor">Editor</option>
-                              <option value="Viewer">Viewer</option>
-                            </select>
+                        <td className="px-4 py-4 align-middle min-w-0">
+                          <div className="font-medium text-gray-900 truncate">{m.name}</div>
+                          {m.email && (
+                            <div className="text-sm text-gray-600 truncate">{m.email}</div>
+                          )}
+                        </td>
+                        <td className="px-4 py-4 align-middle">
+                          {canManageMembers && !isCurrentUser && !isMemberAdmin && m.role !== 'Admin' ? (
+                            <div className="relative inline-flex">
+                              <select
+                                className="appearance-none rounded-xl border border-gray-200 bg-white px-3 pr-8 py-1.5 text-sm text-gray-900 shadow-sm hover:border-gray-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-600 focus-visible:ring-2 focus-visible:ring-blue-600 ring-offset-2"
+                                value={safeRole}
+                                onChange={e => onRoleChange(m.id, e.target.value)}
+                                disabled={roleChangeLoading[m.id]}
+                              >
+                                <option value="Editor">Editor</option>
+                                <option value="Viewer">Viewer</option>
+                              </select>
+                              <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                                <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              </div>
+                            </div>
                           ) : (
-                            <span className={
-                              m.role === 'Admin'
-                                ? 'bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-xs font-semibold'
-                                : m.role === 'Editor'
-                                ? 'bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-semibold'
-                                : 'bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-xs font-semibold'
-                            }>
+                            <span className="inline-flex items-center gap-1 rounded-xl bg-blue-50 text-blue-700 ring-1 ring-blue-200 text-xs px-2.5 py-1">
                               {m.role}
                             </span>
                           )}
                         </td>
-                        <td className="py-2 px-2">
-                          {isCurrentUser ? (
-                            !isMemberAdmin && (
-                              <button
-                                onClick={onLeaveWorkspace}
-                                className="px-3 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition"
-                              >
-                                Leave
-                              </button>
-                            )
-                          ) : (
-                            isAdmin && !isMemberAdmin && (
-                              <button
-                                onClick={() => onRemoveMember(m.id, m.name)}
-                                className="px-3 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition"
-                              >
-                                Kick
-                              </button>
-                            )
-                          )}
+                        <td className="px-4 py-4 align-middle">
+                          <div className="flex justify-end">
+                            {isCurrentUser ? (
+                              !isMemberAdmin && (
+                                <button
+                                  onClick={onLeaveWorkspace}
+                                  className="rounded-xl bg-red-50 text-red-600 ring-1 ring-red-200 px-3 py-1.5 text-sm hover:bg-red-100 focus-visible:ring-2 focus-visible:ring-red-500 ring-offset-2"
+                                >
+                                  Leave
+                                </button>
+                              )
+                            ) : (
+                              canManageMembers && !isMemberAdmin && (
+                                <button
+                                  onClick={() => onRemoveMember(m.id, m.name)}
+                                  className="rounded-xl bg-red-50 text-red-600 ring-1 ring-red-200 px-3 py-1.5 text-sm hover:bg-red-100 focus-visible:ring-2 focus-visible:ring-red-500 ring-offset-2"
+                                >
+                                  Remove
+                                </button>
+                              )
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );

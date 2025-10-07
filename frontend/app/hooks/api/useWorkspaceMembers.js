@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useUser } from '../auth/useUser';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://socialsync-j7ih.onrender.com';
 
 export const useWorkspaceMembers = (workspaceId) => {
   const [members, setMembers] = useState([]);
@@ -127,29 +127,8 @@ export const useWorkspaceMembers = (workspaceId) => {
     fetchMembers();
   }, [workspaceId]);
 
-  // --- Real-time member removal and updates ---
-  useEffect(() => {
-    if (!workspaceId || !currentUser?.id) return;
-    const wsUrl = API_BASE_URL.replace(/^http/, 'ws').replace(/^https/, 'wss').replace('/api', '');
-    const ws = new window.WebSocket(`${wsUrl}/ws/${workspaceId}`);
-    ws.onmessage = (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.type === 'member_removed') {
-          if (msg.user_id === currentUser.id) {
-            // If current user was removed, redirect out
-            window.location.href = '/home/workspace';
-          } else {
-            // Otherwise, refetch members
-            fetchMembers();
-          }
-        } else if (msg.type === 'member_added' || msg.type === 'member_role_changed') {
-          fetchMembers();
-        }
-      } catch (e) { /* ignore */ }
-    };
-    return () => ws.close();
-  }, [workspaceId, currentUser?.id]);
+  // Note: Real-time updates are now handled by the shared WebSocket context
+  // in the components that use this hook, rather than creating individual connections
 
   return {
     members,

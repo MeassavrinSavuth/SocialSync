@@ -1,6 +1,6 @@
 'use client';
  
-import React from 'react';
+import React, { useState } from 'react';
 import {
   FaFacebook,
   FaThumbsUp,
@@ -13,9 +13,46 @@ import {
 } from 'react-icons/fa';
  
 export default function FacebookPosts({ posts, pageInfo, loading, error, searchQuery, setSearchQuery }) {
+  const [imageAspects, setImageAspects] = useState({});
+  
   // Use real page data if available, otherwise fallback
   const pageName = pageInfo?.name || 'Facebook Page';
   const pageAvatar = pageInfo?.avatar || '/default-avatar.png';
+
+  // Helper function to get aspect ratio class based on image dimensions
+  const getAspectClass = (postId, imageUrl) => {
+    if (imageAspects[postId]) {
+      return imageAspects[postId];
+    }
+    
+    // Default to square for unknown dimensions
+    return 'aspect-square md:aspect-[4/5]';
+  };
+
+  // Load image to detect aspect ratio
+  const detectImageAspect = (postId, imageUrl) => {
+    if (imageAspects[postId] || !imageUrl) return;
+    
+    const img = new Image();
+    img.onload = () => {
+      const ratio = img.width / img.height;
+      let aspectClass;
+      
+      if (ratio > 1.2) {
+        aspectClass = 'aspect-video'; // landscape
+      } else if (ratio < 0.9) {
+        aspectClass = 'aspect-[4/5]'; // portrait
+      } else {
+        aspectClass = 'aspect-square'; // square
+      }
+      
+      setImageAspects(prev => ({
+        ...prev,
+        [postId]: aspectClass
+      }));
+    };
+    img.src = imageUrl;
+  };
  
   const timeAgo = (dateString) => {
     const now = new Date();
@@ -139,6 +176,10 @@ export default function FacebookPosts({ posts, pageInfo, loading, error, searchQ
           const shares = (post.shares?.count && post.shares.count > 0) ? post.shares.count : 0;
           const attachments = post.attachments?.data || [];
           
+          // Use account-specific metadata if available (for multi-account posts)
+          const postPageName = post._accountName || pageName;
+          const postPageAvatar = post._accountAvatar || pageAvatar;
+          
           return (
             <div key={post.id} className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200">
               {/* Header */}
@@ -146,8 +187,8 @@ export default function FacebookPosts({ posts, pageInfo, loading, error, searchQ
                 <div className="flex items-center space-x-3">
                   <div className="relative">
                     <img
-                      src={pageAvatar}
-                      alt={pageName}
+                      src={postPageAvatar}
+                      alt={postPageName}
                       className="w-10 h-10 rounded-full border-2 border-gray-100"
                     />
                     <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center">
@@ -157,7 +198,7 @@ export default function FacebookPosts({ posts, pageInfo, loading, error, searchQ
                   <div>
                     <div className="flex items-center space-x-1">
                       <h3 className="font-semibold text-gray-900 hover:underline cursor-pointer">
-                        {pageName}
+                        {postPageName}
                       </h3>
                       <span className="text-blue-500 text-sm">✓</span>
                     </div>
@@ -210,20 +251,19 @@ export default function FacebookPosts({ posts, pageInfo, loading, error, searchQ
                   </div>
                 </div>
               ) : image && (
-                <div className="mb-3">
-                  <div className="relative overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
-                    <img
-                      src={image}
-                      alt="Facebook post"
-                      className="w-full h-80 object-contain bg-gray-100 cursor-pointer hover:opacity-95 transition-opacity"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.nextSibling.style.display = 'flex';
-                      }}
-                    />
-                    <div className="absolute inset-0 bg-gray-100 flex items-center justify-center text-gray-500 hidden">
-                      <span>📷 Image</span>
-                    </div>
+                <div className={`w-full rounded-xl overflow-hidden bg-white ${getAspectClass(post.id, image)}`}>
+                  <img
+                    src={image}
+                    alt="Facebook post"
+                    className="w-full h-full object-cover"
+                    onLoad={() => detectImageAspect(post.id, image)}
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-gray-100 flex items-center justify-center text-gray-500 hidden">
+                    <span>📷 Image</span>
                   </div>
                 </div>
               )}

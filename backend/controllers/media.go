@@ -263,23 +263,16 @@ func DeleteMedia(w http.ResponseWriter, r *http.Request) {
 	workspaceID := vars["workspaceId"]
 	mediaID := vars["mediaId"]
 
-	// Check if user is a member of the workspace (instead of checking if they're the uploader)
-	var isMember bool
-	err := lib.DB.QueryRow(`
-		SELECT EXISTS (
-			SELECT 1 FROM workspace_members 
-			WHERE workspace_id = $1 AND user_id = $2
-		)
-	`, workspaceID, userID).Scan(&isMember)
-
+	// Check if user has permission to delete media
+	hasPermission, err := middleware.CheckUserPermission(userID, workspaceID, models.PermMediaDelete)
 	if err != nil {
-		log.Println("Failed to check workspace membership:", err)
-		http.Error(w, "Failed to check workspace membership: "+err.Error(), http.StatusInternalServerError)
+		log.Println("Failed to check media delete permission:", err)
+		http.Error(w, "Failed to verify permissions", http.StatusInternalServerError)
 		return
 	}
 
-	if !isMember {
-		http.Error(w, "You must be a member of the workspace to delete media", http.StatusForbidden)
+	if !hasPermission {
+		http.Error(w, "You don't have permission to delete media", http.StatusForbidden)
 		return
 	}
 
@@ -329,11 +322,11 @@ func DeleteMedia(w http.ResponseWriter, r *http.Request) {
 
 	// --- WebSocket broadcast for real-time media deletion ---
 	msg, _ := json.Marshal(map[string]interface{}{
-		"type":    "media_deleted",
-		"mediaId": mediaID,
+		"type":        "media_deleted",
+		"mediaId":     mediaID,
 		"workspaceId": workspaceID,
-		"deletedBy": userID,
-		"timestamp": time.Now(),
+		"deletedBy":   userID,
+		"timestamp":   time.Now(),
 	})
 	hub.broadcast(workspaceID, websocket.TextMessage, msg)
 
@@ -428,11 +421,11 @@ func UpdateMediaTags(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// --- WebSocket broadcast for real-time media update ---
 		msg, _ := json.Marshal(map[string]interface{}{
-			"type":      "media_updated",
-			"media":     updatedMedia,
+			"type":        "media_updated",
+			"media":       updatedMedia,
 			"workspaceId": workspaceID,
-			"updatedBy": userID,
-			"timestamp": time.Now(),
+			"updatedBy":   userID,
+			"timestamp":   time.Now(),
 		})
 		hub.broadcast(workspaceID, websocket.TextMessage, msg)
 	}

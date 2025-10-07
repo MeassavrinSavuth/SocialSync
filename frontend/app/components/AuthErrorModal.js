@@ -4,7 +4,7 @@ import React from 'react';
 import { FaExclamationTriangle, FaPlug, FaYoutube, FaFacebook, FaInstagram, FaTwitter } from 'react-icons/fa';
 import { SiMastodon, SiTelegram } from 'react-icons/si';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://socialsync-j7ih.onrender.com';
 
 const platformIcons = {
   youtube: FaYoutube,
@@ -87,8 +87,8 @@ const AuthErrorModal = ({ isOpen, onClose, errors, onReconnect }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-      <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full max-h-96 overflow-y-auto">
+    <div className="fixed inset-0 z-[100] grid place-items-center bg-black/50 supports-[backdrop-filter]:backdrop-blur-sm supports-[backdrop-filter]:backdrop-saturate-150 transition-opacity duration-200 overflow-y-auto h-full w-full p-4">
+      <div className="w-full max-w-3xl rounded-2xl bg-white shadow-xl ring-1 ring-black/5 max-w-md max-h-96 overflow-y-auto relative">
         <div className="p-6">
           {/* Header */}
           <div className="flex items-center mb-4">
