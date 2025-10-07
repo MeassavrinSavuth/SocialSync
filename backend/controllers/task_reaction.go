@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 )
 
 // ToggleReaction toggles a reaction on a task (adds if not exists, removes if exists)
@@ -18,6 +19,7 @@ func ToggleReaction(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value(middleware.UserIDKey).(string)
 	vars := mux.Vars(r)
 	taskID := vars["taskId"]
+	workspaceID := vars["workspaceId"]
 
 	var req struct {
 		ReactionType string `json:"reaction_type"`
@@ -80,6 +82,30 @@ func ToggleReaction(w http.ResponseWriter, r *http.Request) {
 			"reaction": reaction,
 		})
 	}
+
+	// After toggling, compute counts and broadcast change for real-time UI updates
+	var counts = make(map[string]int)
+	rows, qerr := lib.DB.Query(`
+		SELECT reaction_type, COUNT(*) as count
+		FROM task_reactions 
+		WHERE task_id = $1 
+		GROUP BY reaction_type`, taskID)
+	if qerr == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var rt string
+			var c int
+			if scanErr := rows.Scan(&rt, &c); scanErr == nil {
+				counts[rt] = c
+			}
+		}
+	}
+	msg, _ := json.Marshal(map[string]interface{}{
+		"type":      "task_reaction_changed",
+		"task_id":   taskID,
+		"reactions": counts,
+	})
+	hub.broadcast(workspaceID, websocket.TextMessage, msg)
 }
 
 // GetTaskReactions gets all reactions for a task with counts

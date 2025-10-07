@@ -22,7 +22,7 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
   const [openCommentTaskId, setOpenCommentTaskId] = useState(null);
   
   // Backend integration
-  const { tasks, loading, error, createTask, updateTask, deleteTask, fetchTasks } = useTasks(workspaceId);
+  const { tasks, loading, error, createTask, updateTask, deleteTask, fetchTasks, addTaskOptimistically, updateTaskOptimistically, removeTaskOptimistically } = useTasks(workspaceId);
   
   // Media files for @ tagging
   const { media: mediaFiles } = useMedia(workspaceId);
@@ -33,36 +33,78 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
   // Use shared WebSocket connection for real-time updates
   const { subscribe } = useWebSocket();
 
-  // Subscribe to WebSocket messages for real-time task updates
+  // Subscribe to WebSocket messages for real-time task updates (in-place updates like drafts)
   useEffect(() => {
-    // Debounce task refresh to avoid burst reloads on larger screens
-    const refreshTimer = { id: null };
-    const scheduleRefresh = () => {
-      if (refreshTimer.id) clearTimeout(refreshTimer.id);
-      refreshTimer.id = setTimeout(() => {
+    const fallbackTimer = { id: null };
+    const maybeFallbackRefresh = () => {
+      if (fallbackTimer.id) clearTimeout(fallbackTimer.id);
+      // small debounce in case of multiple quick events without payloads
+      fallbackTimer.id = setTimeout(() => {
         fetchTasks();
       }, 150);
     };
 
     const unsubscribe = subscribe((msg) => {
       if (!msg || !msg.type) return;
-      if (
-        (msg.type === 'task_created' && msg.task) ||
-        (msg.type === 'task_updated' && msg.task_id) ||
-        (msg.type === 'task_deleted' && msg.task_id)
-      ) {
-        scheduleRefresh();
+
+      // Normalize task shape to include defaults used by UI
+      const normalizeTask = (t) => {
+        if (!t || typeof t !== 'object') return t;
+        return {
+          reactions: { thumbsUp: 0, fire: 0, thumbsDown: 0, ...(t.reactions || {}) },
+          comments: t.comments || [],
+          ...t,
+        };
+      };
+
+  if (msg.type === 'task_created' && msg.task) {
+        const t = normalizeTask(msg.task);
+        // avoid duplicates
+        const exists = tasks.some((x) => x.id === t.id);
+        if (!exists) addTaskOptimistically(t);
+        else updateTaskOptimistically(t.id, t);
+        return;
       }
+
+      if (msg.type === 'task_updated') {
+        if (msg.task) {
+          const t = normalizeTask(msg.task);
+          updateTaskOptimistically(t.id, t);
+        } else if (msg.task_id) {
+          // Payload missing full task, do a light fallback refresh
+          maybeFallbackRefresh();
+        }
+        return;
+      }
+
+      if (msg.type === 'task_deleted' && msg.task_id) {
+        removeTaskOptimistically(msg.task_id);
+        return;
+      }
+
+      if (msg.type === 'task_reaction_changed' && msg.task_id && msg.reactions) {
+        updateTaskOptimistically(msg.task_id, {
+          reactions: {
+            thumbsUp: 0,
+            fire: 0,
+            thumbsDown: 0,
+            ...msg.reactions,
+          },
+        });
+        return;
+      }
+
       if (msg.type === 'member_role_changed' && msg.user_id && currentUser && msg.user_id === currentUser.id) {
         refetchPermissions();
+        return;
       }
     });
 
     return () => {
-      if (refreshTimer.id) clearTimeout(refreshTimer.id);
+      if (fallbackTimer.id) clearTimeout(fallbackTimer.id);
       unsubscribe();
     };
-  }, [subscribe, fetchTasks, refetchPermissions, currentUser]);
+  }, [subscribe, fetchTasks, refetchPermissions, currentUser, tasks, addTaskOptimistically, updateTaskOptimistically, removeTaskOptimistically]);
 
   const handleOpenModal = () => {
     setShowModal(true);
