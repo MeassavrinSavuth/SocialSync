@@ -18,6 +18,11 @@ export const WebSocketProvider = ({ children, workspaceId }) => {
   const reconnectAttemptsRef = useRef(0);
   const maxReconnectAttempts = 5;
 
+  // Add error boundary to prevent uninitialized variable errors
+  if (!workspaceId) {
+    return <>{children}</>;
+  }
+
   const connect = () => {
     if (!workspaceId) return;
     

@@ -5,10 +5,10 @@ import { useWorkspaceMembers } from '../api/useWorkspaceMembers';
 import { useUser } from '../auth/useUser';
 
 export function useWorkspaceState() {
-  // API hooks
-  const { workspaces, loading, error, createWorkspace, deleteWorkspace } = useWorkspaces();
-  const { invitations, loading: invitationsLoading, error: invitationsError, sendInvitation, acceptInvitation, declineInvitation } = useInvitations();
-  const { profileData: currentUser, isLoading: userLoading } = useUser();
+  // API hooks with error handling
+  const { workspaces, loading, error, createWorkspace, deleteWorkspace } = useWorkspaces() || {};
+  const { invitations, loading: invitationsLoading, error: invitationsError, sendInvitation, acceptInvitation, declineInvitation } = useInvitations() || {};
+  const { profileData: currentUser, isLoading: userLoading } = useUser() || {};
 
   // Workspace selection state
   const [selectedWorkspace, setSelectedWorkspace] = useState(null);
@@ -39,8 +39,8 @@ export function useWorkspaceState() {
   const [kickMemberId, setKickMemberId] = useState(null);
   const [kickMemberName, setKickMemberName] = useState('');
 
-  // Use workspace members hook
-  const { members, loading: membersLoading, error: membersError, refetch: fetchMembers, leaveWorkspace, removeMember, changeMemberRole } = useWorkspaceMembers(selectedWorkspace?.id);
+  // Use workspace members hook with error handling
+  const { members, loading: membersLoading, error: membersError, refetch: fetchMembers, leaveWorkspace, removeMember, changeMemberRole } = useWorkspaceMembers(selectedWorkspace?.id) || {};
 
   // Handlers
   const handleEnterWorkspace = (ws) => {
