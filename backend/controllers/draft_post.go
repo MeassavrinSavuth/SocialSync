@@ -321,8 +321,8 @@ func DeleteDraftPost(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"message": "Draft deleted successfully"})
 
 	msg, _ := json.Marshal(map[string]interface{}{
-		"type":    "draft_deleted",
-		"draftId": draftID,
+		"type":     "draft_deleted",
+		"draft_id": draftID,
 	})
 	hub.broadcast(vars["workspaceId"], websocket.TextMessage, msg)
 }

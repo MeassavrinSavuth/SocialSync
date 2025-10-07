@@ -61,18 +61,50 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
   const menuRef = useRef();
 
   // Use backend-powered drafts
-  const { drafts, loading, error, createDraft, updateDraft, deleteDraft, publishDraft } = useDraftPosts(workspaceId);
+  const { 
+    drafts, 
+    loading, 
+    error, 
+    createDraft, 
+    updateDraft, 
+    deleteDraft, 
+    publishDraft,
+    addDraftOptimistically,
+    updateDraftOptimistically,
+    removeDraftOptimistically
+  } = useDraftPosts(workspaceId);
   const { canEdit, canPublish, refetch: refetchPermissions } = useRoleBasedUI(workspaceId); // includes draft:update via hook
   
-  // Use shared WebSocket connection for real-time permission updates
+  // Debug logging
+  console.log('DraftsSection state:', {
+    workspaceId,
+    showModal,
+    canEdit,
+    canPublish,
+    draftsCount: drafts?.length || 0,
+    loading,
+    error
+  });
+  
+  // Use shared WebSocket connection for real-time updates
   const { subscribe } = useWebSocket();
 
-  // Subscribe to WebSocket messages for real-time permission updates
+  // Subscribe to WebSocket messages for real-time draft updates and permissions
   useEffect(() => {
     const unsubscribe = subscribe((msg) => {
       console.log('DraftsSection received WebSocket message:', msg);
       
-      if (msg.type === 'member_role_changed' && msg.user_id === currentUser?.id) {
+      // Handle draft-related events for instant UI updates
+      if (msg.type === 'draft_created' && msg.draft) {
+        console.log('Draft created via WebSocket - adding to state immediately:', msg.draft);
+        addDraftOptimistically(msg.draft);
+      } else if (msg.type === 'draft_updated' && msg.draft_id && msg.draft) {
+        console.log('Draft updated via WebSocket - updating state immediately:', msg.draft);
+        updateDraftOptimistically(msg.draft_id, msg.draft);
+      } else if (msg.type === 'draft_deleted' && msg.draft_id) {
+        console.log('Draft deleted via WebSocket - removing from state immediately:', msg.draft_id);
+        removeDraftOptimistically(msg.draft_id);
+      } else if (msg.type === 'member_role_changed' && msg.user_id === currentUser?.id) {
         console.log('User role changed, refreshing permissions...');
         // Refresh permissions when current user's role changes
         refetchPermissions();
@@ -80,7 +112,7 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
     });
 
     return unsubscribe;
-  }, [subscribe, refetchPermissions, currentUser?.id]);
+  }, [subscribe, refetchPermissions, currentUser?.id, addDraftOptimistically, updateDraftOptimistically, removeDraftOptimistically]);
 
   // Cleanup timeouts on unmount
   useEffect(() => {
@@ -92,7 +124,9 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
 
   // Note: Don't early-return before hooks; render always and gate controls via permissions
 
-  const handleOpenModal = () => setShowModal(true);
+  const handleOpenModal = () => {
+    setShowModal(true);
+  };
   const handleCloseModal = () => {
     setShowModal(false);
     setSelectedPlatforms([]);

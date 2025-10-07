@@ -5,10 +5,11 @@ import { useWorkspaceMembers } from '../api/useWorkspaceMembers';
 import { useUser } from '../auth/useUser';
 
 export function useWorkspaceState() {
-  // API hooks
-  const { workspaces, loading, error, createWorkspace, deleteWorkspace } = useWorkspaces();
-  const { invitations, loading: invitationsLoading, error: invitationsError, sendInvitation, acceptInvitation, declineInvitation } = useInvitations();
-  const { profileData: currentUser, isLoading: userLoading } = useUser();
+  try {
+    // API hooks
+    const { workspaces, loading, error, createWorkspace, deleteWorkspace } = useWorkspaces();
+    const { invitations, loading: invitationsLoading, error: invitationsError, sendInvitation, acceptInvitation, declineInvitation, fetchInvitations } = useInvitations();
+    const { profileData: currentUser, isLoading: userLoading } = useUser();
 
   // Workspace selection state
   const [selectedWorkspace, setSelectedWorkspace] = useState(null);
@@ -39,9 +40,16 @@ export function useWorkspaceState() {
   const [kickMemberId, setKickMemberId] = useState(null);
   const [kickMemberName, setKickMemberName] = useState('');
 
-  // Use workspace members hook - only call when selectedWorkspace exists
-  const workspaceMembersResult = selectedWorkspace?.id ? useWorkspaceMembers(selectedWorkspace.id) : {};
-  const { members, loading: membersLoading, error: membersError, refetch: fetchMembers, leaveWorkspace, removeMember, changeMemberRole } = workspaceMembersResult;
+  // Use workspace members hook - only when we have a selected workspace
+  const { 
+    members, 
+    loading: membersLoading, 
+    error: membersError, 
+    refetch: fetchMembers, 
+    leaveWorkspace, 
+    removeMember, 
+    changeMemberRole 
+  } = useWorkspaceMembers(selectedWorkspace?.id);
 
   // Handlers
   const handleEnterWorkspace = (ws) => {
@@ -222,6 +230,7 @@ export function useWorkspaceState() {
     // API functions
     acceptInvitation,
     declineInvitation,
+    fetchInvitations,
     fetchMembers,
     showKickModal,
     kickMemberId,
@@ -229,4 +238,64 @@ export function useWorkspaceState() {
     confirmKickMember,
     cancelKickMember
   };
+  } catch (error) {
+    console.error('Error in useWorkspaceState:', error);
+    // Return safe default values
+    return {
+      workspaces: [],
+      loading: false,
+      error: error.message,
+      currentUser: null,
+      userLoading: false,
+      invitations: [],
+      invitationsLoading: false,
+      selectedWorkspace: null,
+      activeTab: 'tasks',
+      members: [],
+      membersLoading: false,
+      membersError: null,
+      showCreateModal: false,
+      setShowCreateModal: () => {},
+      showInvitesModal: false,
+      setShowInvitesModal: () => {},
+      showInviteMemberModal: false,
+      setShowInviteMemberModal: () => {},
+      showLeaveModal: false,
+      setShowLeaveModal: () => {},
+      showMemberList: false,
+      setShowMemberList: () => {},
+      newWorkspaceName: '',
+      setNewWorkspaceName: () => {},
+      newWorkspaceAvatar: '',
+      setNewWorkspaceAvatar: () => {},
+      inviteError: null,
+      setInviteError: () => {},
+      roleChangeLoading: {},
+      deleteWorkspaceId: null,
+      setDeleteWorkspaceId: () => {},
+      deleteLoading: false,
+      leaveLoading: false,
+      handleEnterWorkspace: () => {},
+      handleBackToDashboard: () => {},
+      handleCreateWorkspace: async () => {},
+      handleDeleteWorkspace: () => {},
+      confirmDeleteWorkspace: async () => {},
+      handleInviteMember: async () => {},
+      handleOpenInviteMemberModal: () => {},
+      handleRoleChange: async () => {},
+      handleLeaveWorkspace: () => {},
+      confirmLeaveWorkspace: async () => {},
+      handleRemoveMember: () => {},
+      setActiveTab: () => {},
+      acceptInvitation: async () => {},
+      declineInvitation: async () => {},
+      fetchInvitations: async () => {},
+      fetchMembers: async () => {},
+      showKickModal: false,
+      kickMemberId: null,
+      kickMemberName: '',
+      confirmKickMember: async () => {},
+      cancelKickMember: () => {}
+    };
+  }
 } 

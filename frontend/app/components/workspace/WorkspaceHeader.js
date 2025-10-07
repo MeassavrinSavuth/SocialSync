@@ -28,7 +28,7 @@ export default function WorkspaceHeader({
             <FaArrowLeft className="text-sm md:text-base" />
           </button>
           <Image 
-            src={workspace.avatar || 'https://randomuser.me/api/portraits/lego/1.jpg'} 
+            src={workspace.avatar} 
             alt={workspace.name} 
             width={56}
             height={56}

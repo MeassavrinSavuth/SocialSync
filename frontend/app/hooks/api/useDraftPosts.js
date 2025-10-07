@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://socialsync-j7ih.onrender.com';
 
@@ -41,7 +41,8 @@ export function useDraftPosts(workspaceId) {
         body: JSON.stringify(data)
       });
       if (res.ok) {
-        fetchDrafts();
+        // Don't fetchDrafts() here - WebSocket will handle the real-time update
+        console.log('Draft created successfully - WebSocket will update the UI');
       } else {
         const errorText = await res.text();
         console.error('Create draft failed:', res.status, errorText);
@@ -60,7 +61,10 @@ export function useDraftPosts(workspaceId) {
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
       body: JSON.stringify(data)
     });
-    if (res.ok) fetchDrafts();
+    if (res.ok) {
+      // Don't fetchDrafts() here - WebSocket will handle the real-time update
+      console.log('Draft updated successfully - WebSocket will update the UI');
+    }
     return res.ok;
   };
 
@@ -70,7 +74,10 @@ export function useDraftPosts(workspaceId) {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
     });
-    if (res.ok) fetchDrafts();
+    if (res.ok) {
+      // Don't fetchDrafts() here - WebSocket will handle the real-time update
+      console.log('Draft deleted successfully - WebSocket will update the UI');
+    }
     return res.ok;
   };
 
@@ -80,7 +87,10 @@ export function useDraftPosts(workspaceId) {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` }
     });
-    if (res.ok) fetchDrafts();
+    if (res.ok) {
+      // Don't fetchDrafts() here - WebSocket will handle the real-time update
+      console.log('Draft published successfully - WebSocket will update the UI');
+    }
     return res.ok;
   };
 
@@ -90,5 +100,32 @@ export function useDraftPosts(workspaceId) {
     }
   }, [workspaceId]);
 
-  return { drafts, loading, error, fetchDrafts, createDraft, updateDraft, deleteDraft, publishDraft };
-} 
+  // Optimistic updates for better performance
+  const addDraftOptimistically = useCallback((newDraft) => {
+    setDrafts(prev => [newDraft, ...prev]);
+  }, []);
+
+  const updateDraftOptimistically = useCallback((draftId, updatedDraft) => {
+    setDrafts(prev => prev.map(draft => 
+      draft.id === draftId ? { ...draft, ...updatedDraft } : draft
+    ));
+  }, []);
+
+  const removeDraftOptimistically = useCallback((draftId) => {
+    setDrafts(prev => prev.filter(draft => draft.id !== draftId));
+  }, []);
+
+  return { 
+    drafts, 
+    loading, 
+    error, 
+    fetchDrafts, 
+    createDraft, 
+    updateDraft, 
+    deleteDraft, 
+    publishDraft,
+    addDraftOptimistically,
+    updateDraftOptimistically,
+    removeDraftOptimistically
+  };
+}

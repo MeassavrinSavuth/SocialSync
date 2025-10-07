@@ -36,7 +36,6 @@ export const useTasks = (workspaceId) => {
       }
 
       const data = await response.json();
-      console.log('Fetched tasks data:', data);
       const tasksWithDefaults = data.map(task => ({
         ...task,
         reactions: task.reactions || { thumbsUp: 0, fire: 0, thumbsDown: 0 },
@@ -160,8 +159,14 @@ export const useTasks = (workspaceId) => {
     fetchTasks();
   }, [workspaceId, fetchTasks]);
 
-  // Note: Real-time updates are now handled by the shared WebSocket context
-  // in the components that use this hook, rather than creating individual connections
+  // Optimistic updates for better performance
+  const addTaskOptimistically = useCallback((newTask) => {
+    setTasks(prev => [newTask, ...prev]);
+  }, []);
+
+  const removeTaskOptimistically = useCallback((taskId) => {
+    setTasks(prev => prev.filter(task => task.id !== taskId));
+  }, []);
 
   return {
     tasks,
@@ -171,5 +176,7 @@ export const useTasks = (workspaceId) => {
     createTask,
     updateTask,
     deleteTask,
+    addTaskOptimistically,
+    removeTaskOptimistically,
   };
 }; 

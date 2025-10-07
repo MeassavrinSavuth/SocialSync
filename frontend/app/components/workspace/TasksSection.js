@@ -22,57 +22,49 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
   const [openCommentTaskId, setOpenCommentTaskId] = useState(null);
   
   // Backend integration
-  const { tasks, loading, error, createTask, updateTask, deleteTask, fetchTasks } = useTasks(workspaceId);
+  const { 
+    tasks, 
+    loading, 
+    error, 
+    createTask, 
+    updateTask, 
+    deleteTask, 
+    fetchTasks,
+    addTaskOptimistically,
+    removeTaskOptimistically 
+  } = useTasks(workspaceId);
   
   // Media files for @ tagging
   const { media: mediaFiles } = useMedia(workspaceId);
   
   // Permission checks
-  const { canCreate, loading: permissionsLoading } = useRoleBasedUI(workspaceId);
+  const { canCreateTask, loading: permissionsLoading } = useRoleBasedUI(workspaceId);
 
   // Use shared WebSocket connection for real-time updates
   const { subscribe } = useWebSocket();
 
   // Subscribe to WebSocket messages for real-time task updates
   useEffect(() => {
-    const timeoutRefs = [];
-    
     const unsubscribe = subscribe((msg) => {
       console.log('TasksSection received WebSocket message:', msg);
       
       if (msg.type === 'task_created' && msg.task) {
-        // Add the new task to the list immediately
-        console.log('Task created via WebSocket:', msg.task);
-        // The useTasks hook should handle this, but let's trigger a refresh to be sure
-        const timeout = setTimeout(() => {
-          fetchTasks();
-        }, 100);
-        timeoutRefs.push(timeout);
+        // Immediately add the new task to the list for instant feedback
+        console.log('Task created via WebSocket - adding to state immediately:', msg.task);
+        addTaskOptimistically(msg.task);
       } else if (msg.type === 'task_updated' && msg.task_id) {
-        // Refetch all tasks to get updated data including last_updated_by
-        console.log('WebSocket: task_updated received, refreshing tasks...');
-        // Add a small delay to ensure backend has processed the update
-        const timeout = setTimeout(() => {
-          fetchTasks();
-        }, 100);
-        timeoutRefs.push(timeout);
+        // For updates, we still need to fetch to get complete updated data including last_updated_by
+        console.log('Task updated via WebSocket - fetching latest data...');
+        fetchTasks();
       } else if (msg.type === 'task_deleted' && msg.task_id) {
-        // Task deletion is handled by the useTasks hook
-        console.log('Task deleted via WebSocket:', msg.task_id);
-        // Trigger a refresh to remove the deleted task
-        const timeout = setTimeout(() => {
-          fetchTasks();
-        }, 100);
-        timeoutRefs.push(timeout);
+        // Immediately remove from state for instant feedback  
+        console.log('Task deleted via WebSocket - removing from state immediately:', msg.task_id);
+        removeTaskOptimistically(msg.task_id);
       }
     });
 
-    return () => {
-      unsubscribe();
-      // Clean up all timeouts
-      timeoutRefs.forEach(timeout => clearTimeout(timeout));
-    };
-  }, [subscribe, fetchTasks]);
+    return unsubscribe;
+  }, [subscribe, fetchTasks, addTaskOptimistically, removeTaskOptimistically]);
 
   const handleOpenModal = () => {
     setShowModal(true);
@@ -126,7 +118,7 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
   return (
     <section className="w-full">
       {/* Only show Add Task button if user has permission to create tasks */}
-      {canCreate && (
+      {canCreateTask && (
         <div className="mb-6">
           <button
             className="py-2 px-6 bg-blue-600 text-white rounded hover:bg-blue-700 transition font-semibold flex items-center gap-2"
@@ -137,6 +129,7 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
         </div>
       )}
       <Modal open={showModal} onClose={() => setShowModal(false)}>
+        {console.log('Rendering Modal with showModal:', showModal)}
         <TaskForm
           onSubmit={async (taskData) => {
             if (editTaskId) {

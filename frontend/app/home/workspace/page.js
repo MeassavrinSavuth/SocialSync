@@ -1,6 +1,6 @@
 "use client";
 import React from 'react';
-import { useWorkspaceStateSimple as useWorkspaceState } from '../../hooks/workspace/useWorkspaceStateSimple';
+import { useWorkspaceState } from '../../hooks/workspace/useWorkspaceState';
 import { WebSocketProvider } from '../../contexts/WebSocketContext';
 import WorkspaceDashboard from '../../components/workspace/WorkspaceDashboard';
 import WorkspaceHeader from '../../components/workspace/WorkspaceHeader';
@@ -8,15 +8,7 @@ import WorkspaceContent from '../../components/workspace/WorkspaceContent';
 import MemberList from '../../components/workspace/MemberList';
 import ConfirmModal from '../../components/workspace/ConfirmModal';
 import InviteModal from '../../components/workspace/InviteModal';
-import ErrorBoundary from '../../components/ErrorBoundary';
-
-export default function WorkspacePage() {
-  return (
-    <ErrorBoundary>
-      <WorkspacePageContent />
-    </ErrorBoundary>
-  );
-}
+import WorkspaceErrorBoundary from '../../components/WorkspaceErrorBoundary';
 
 function WorkspacePageContent() {
   const {
@@ -81,6 +73,7 @@ function WorkspacePageContent() {
     fetchInvitations,
     fetchMembers,
     showKickModal,
+    kickMemberId,
     kickMemberName,
     confirmKickMember,
     cancelKickMember,
@@ -127,14 +120,6 @@ function WorkspacePageContent() {
   }
 
   // Show workspace view
-  if (!selectedWorkspace) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-500">Loading workspace...</div>
-      </div>
-    );
-  }
-
   return (
     <WebSocketProvider workspaceId={selectedWorkspace?.id}>
       <div className="min-h-screen bg-gray-50 p-4 md:p-6 lg:p-8">
@@ -202,5 +187,13 @@ function WorkspacePageContent() {
         />
       </div>
     </WebSocketProvider>
+  );
+}
+
+export default function WorkspacePage() {
+  return (
+    <WorkspaceErrorBoundary>
+      <WorkspacePageContent />
+    </WorkspaceErrorBoundary>
   );
 }

@@ -9,18 +9,6 @@ export function usePermissions(workspaceId) {
   const protectedFetch = useProtectedFetch();
   const { profileData: currentUser } = useUser();
 
-  useEffect(() => {
-    if (!workspaceId) {
-      setLoading(false);
-      return;
-    }
-
-    fetchPermissions();
-  }, [workspaceId, fetchPermissions]);
-
-  // Note: Real-time updates are now handled by the shared WebSocket context
-  // in the components that use this hook, rather than creating individual connections
-
   const fetchPermissions = useCallback(async () => {
     try {
       setLoading(true);
@@ -36,6 +24,15 @@ export function usePermissions(workspaceId) {
       setLoading(false);
     }
   }, [workspaceId, protectedFetch]);
+
+  useEffect(() => {
+    if (!workspaceId) {
+      setLoading(false);
+      return;
+    }
+
+    fetchPermissions();
+  }, [workspaceId, fetchPermissions]);
 
   const hasPermission = (permission) => {
     return permissions.includes(permission) || 
@@ -124,7 +121,7 @@ export function useRoleBasedUI(workspaceId) {
     loading,
     canEdit: hasPermission(PERMISSIONS.POST_UPDATE) || hasPermission(PERMISSIONS.DRAFT_UPDATE),
     canDelete: hasPermission(PERMISSIONS.POST_DELETE) || hasPermission(PERMISSIONS.DRAFT_DELETE),
-    canCreate: hasPermission(PERMISSIONS.POST_CREATE) || hasPermission(PERMISSIONS.DRAFT_CREATE),
+    canCreate: hasPermission(PERMISSIONS.POST_CREATE) || hasPermission(PERMISSIONS.DRAFT_CREATE) || hasPermission(PERMISSIONS.TASK_CREATE),
     // Only admins can publish/post from draft menu (editor cannot)
     canPublish: isAdmin,
     canManageMembers: hasPermission(PERMISSIONS.MEMBER_ROLE_CHANGE),
