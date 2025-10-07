@@ -93,13 +93,12 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], med
 
   // If permissions drop while the menu is open, auto-close it
   useEffect(() => {
-    if (menuOpen && !(canEdit || canDelete)) {
+    if (menuOpen && !(canUpdateTask || canDeleteTask)) {
       closeMenu();
     }
-  }, [menuOpen, canEdit, canDelete, closeMenu]);
+  }, [menuOpen, canUpdateTask, canDeleteTask, closeMenu]);
 
   // Close on role changes via WebSocket
-  const { subscribe } = useWebSocket();
   useEffect(() => {
     const unsubscribe = subscribe?.((msg) => {
       if (msg?.type === 'member_role_changed') closeMenu();
