@@ -154,39 +154,44 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], med
                 <p className="text-xs text-gray-500">{task.created_at ? new Date(task.created_at).toLocaleDateString() : 'Today'}</p>
               </div>
             </div>
-            {/* Three-dot menu - only show if user has edit or delete permissions */}
-            {(canEdit || canDelete) && (
-              <div className="relative">
-                <button
-                  className="p-1 rounded-full hover:bg-gray-100 transition-colors"
-                  onClick={() => setMenuOpen(!menuOpen)}
-                >
-                  <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
-                  </svg>
-                </button>
-                {menuOpen && (
-                  <div className="absolute right-0 top-8 w-32 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                    {canEdit && (
-                      <button
-                        className="block w-full text-left px-4 py-2 text-blue-700 hover:bg-blue-100 font-semibold"
-                        onClick={() => { setIsEditing(true); setMenuOpen(false); }}
-                      >
-                        Edit
-                      </button>
-                    )}
-                    {canDelete && (
-                      <button
-                        className="block w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 font-semibold"
-                        onClick={() => { setMenuOpen(false); handleDelete(); }}
-                      >
-                        Delete
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+            {/* Three-dot menu - always visible; actions disabled when not permitted */}
+            <div className="relative">
+              <button
+                className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+                onClick={() => setMenuOpen(!menuOpen)}
+                aria-label="More options"
+              >
+                <svg className="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
+                </svg>
+              </button>
+              {menuOpen && (
+                <div className="absolute right-0 top-8 w-36 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                  <button
+                    className={`block w-full text-left px-4 py-2 font-semibold ${canEdit ? 'text-blue-700 hover:bg-blue-100' : 'text-gray-400 cursor-not-allowed'}`}
+                    disabled={!canEdit}
+                    onClick={() => {
+                      if (!canEdit) return;
+                      setIsEditing(true);
+                      setMenuOpen(false);
+                    }}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className={`block w-full text-left px-4 py-2 font-semibold ${canDelete ? 'text-red-600 hover:bg-gray-100' : 'text-gray-400 cursor-not-allowed'}`}
+                    disabled={!canDelete}
+                    onClick={() => {
+                      if (!canDelete) return;
+                      setMenuOpen(false);
+                      handleDelete();
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Task Title */}

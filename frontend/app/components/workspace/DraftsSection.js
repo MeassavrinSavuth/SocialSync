@@ -664,14 +664,13 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
         </select>
       </div>
       <div className="mb-6">
-        {canEdit && (
-          <button
-            className="py-2 px-6 bg-blue-600 text-white rounded hover:bg-blue-700 transition font-semibold flex items-center gap-2"
-            onClick={handleOpenModal}
-          >
-            + Add Draft
-          </button>
-        )}
+        <button
+          className={`py-2 px-6 rounded transition font-semibold flex items-center gap-2 ${canEdit ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
+          onClick={() => { if (canEdit) handleOpenModal(); }}
+          disabled={!canEdit}
+        >
+          + Add Draft
+        </button>
       </div>
       <Modal open={showModal} onClose={handleCloseModal}>
         <div className="w-full max-w-5xl rounded-2xl bg-white ring-1 ring-black/5 shadow-xl max-h-[88vh] overflow-hidden">
