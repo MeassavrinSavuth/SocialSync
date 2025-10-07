@@ -636,6 +636,13 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [menuOpenDraftId]);
 
+  // If permissions drop to viewer while a draft menu is open, close it
+  useEffect(() => {
+    if (menuOpenDraftId !== null && !canEdit) {
+      setMenuOpenDraftId(null);
+    }
+  }, [menuOpenDraftId, canEdit]);
+
   // Filter drafts by selected member
   const filteredDrafts = filterMember === 'all'
     ? drafts
