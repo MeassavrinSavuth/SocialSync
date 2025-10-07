@@ -29,6 +29,11 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
   
   // Permission checks
   const { canCreate, canUpdateTask, canDeleteTask, loading: permissionsLoading, refetch: refetchPermissions } = useRoleBasedUI(workspaceId);
+  
+  // Debug logging for permissions
+  useEffect(() => {
+    console.log('TasksSection permissions:', { canCreate, canUpdateTask, canDeleteTask, permissionsLoading });
+  }, [canCreate, canUpdateTask, canDeleteTask, permissionsLoading]);
 
   // Use shared WebSocket connection for real-time updates
   const { subscribe } = useWebSocket();
@@ -96,7 +101,10 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
 
       // If any member role changes in this workspace, refresh permissions
       if (msg.type === 'member_role_changed') {
-        refetchPermissions(true); // Force refresh permissions
+        // Debounce permission refresh to prevent rapid successive calls
+        setTimeout(() => {
+          refetchPermissions(true); // Force refresh permissions
+        }, 50);
         return;
       }
     });

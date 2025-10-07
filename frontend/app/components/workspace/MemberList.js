@@ -26,19 +26,31 @@ export default function MemberList({
 
   // Subscribe to WebSocket messages for real-time member updates
   useEffect(() => {
+    let refreshTimeout = null;
+    
     const unsubscribe = subscribe((msg) => {
       console.log('MemberList received WebSocket message:', msg);
       
       if (msg.type === 'member_added' || msg.type === 'member_removed' || msg.type === 'member_role_changed') {
         console.log('Member change detected, refreshing members list...');
-        // Refresh the members list to get the latest data
-        if (onRefreshMembers) {
-          onRefreshMembers();
+        // Debounce the refresh to prevent multiple rapid calls
+        if (refreshTimeout) {
+          clearTimeout(refreshTimeout);
         }
+        refreshTimeout = setTimeout(() => {
+          if (onRefreshMembers) {
+            onRefreshMembers();
+          }
+        }, 100); // 100ms debounce
       }
     });
 
-    return unsubscribe;
+    return () => {
+      if (refreshTimeout) {
+        clearTimeout(refreshTimeout);
+      }
+      unsubscribe();
+    };
   }, [subscribe, onRefreshMembers]);
   if (!showMemberList) {
     return (

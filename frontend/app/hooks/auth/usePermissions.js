@@ -44,9 +44,11 @@ export function usePermissions(workspaceId) {
       const p = (async () => {
         try {
           const response = await protectedFetch(`/workspaces/${workspaceId}/permissions`);
+          console.log('Permission fetch response:', response);
           if (response && response.permissions && isMounted.current) {
             setPermissions(response.permissions);
             setError(null);
+            console.log('Permissions set:', response.permissions);
           }
         } finally {
           lastFetchAtByWorkspace.set(workspaceId, Date.now());
@@ -154,10 +156,10 @@ export function useHasPermission(workspaceId, permission) {
 
 // Helper hook for role-based UI rendering
 export function useRoleBasedUI(workspaceId) {
-  const { hasPermission, loading, PERMISSIONS, refetch: fetchPermissions } = usePermissions(workspaceId);
+  const { hasPermission, loading, PERMISSIONS, refetch: fetchPermissions, permissions } = usePermissions(workspaceId);
   const isAdmin = hasPermission(PERMISSIONS.WORKSPACE_DELETE);
   
-  return {
+  const result = {
     loading,
     canEdit: hasPermission(PERMISSIONS.POST_UPDATE) || hasPermission(PERMISSIONS.DRAFT_UPDATE),
     canDelete: hasPermission(PERMISSIONS.POST_DELETE) || hasPermission(PERMISSIONS.DRAFT_DELETE),
@@ -176,4 +178,9 @@ export function useRoleBasedUI(workspaceId) {
     isAdmin,
     refetch: fetchPermissions
   };
+  
+  // Debug logging
+  console.log('useRoleBasedUI result:', { workspaceId, permissions, result });
+  
+  return result;
 }
