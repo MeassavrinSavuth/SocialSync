@@ -977,7 +977,6 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
                   }}
                 workspaceId={workspaceId}
                 canEdit={canEdit}
-                canDelete={canDelete}
                 canPublish={canPublish}
                 showReactions={true}
                   showTitle={false}

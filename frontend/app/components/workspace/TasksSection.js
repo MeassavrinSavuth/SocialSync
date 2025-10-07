@@ -225,8 +225,6 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
               workspaceId={workspaceId}
               teamMembers={teamMembers}
               mediaFiles={mediaFiles}
-              canEdit={!!canUpdateTask}
-              canDelete={!!canDeleteTask}
             />
           );
         })}
