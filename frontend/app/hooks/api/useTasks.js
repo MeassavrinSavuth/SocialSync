@@ -146,6 +146,8 @@ export const useTasks = (workspaceId) => {
   }, []);
 
   const updateTaskOptimistically = useCallback((taskId, updatedTask) => {
+    // Guard against undefined payloads
+    if (!updatedTask || typeof updatedTask !== 'object') return;
     setTasks(prev => prev.map(task => 
       task.id === taskId ? { ...task, ...updatedTask } : task
     ));

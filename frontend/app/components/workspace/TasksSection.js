@@ -64,10 +64,16 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
           }
           return [msg.task, ...prev];
         });
-      } else if (msg.type === 'task_updated' && msg.task_id && msg.task) {
-        // Use optimistic update for better performance
-        console.log('Task updated via WebSocket - updating state immediately:', msg.task);
-        updateTaskOptimistically(msg.task_id, msg.task);
+      } else if (msg.type === 'task_updated' && msg.task_id) {
+        // Use optimistic update for better performance when payload present
+        if (msg.task) {
+          console.log('Task updated via WebSocket - updating state immediately:', msg.task);
+          updateTaskOptimistically(msg.task_id, msg.task);
+        } else {
+          // Fallback: ensure eventual consistency
+          console.log('Task updated WS without payload; refetching tasks');
+          fetchTasks();
+        }
       } else if (msg.type === 'task_deleted' && msg.task_id) {
         // Immediately remove from state for instant feedback  
         console.log('Task deleted via WebSocket - removing from state immediately:', msg.task_id);
