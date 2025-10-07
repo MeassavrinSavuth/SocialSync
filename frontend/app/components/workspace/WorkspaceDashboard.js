@@ -104,7 +104,9 @@ export default function WorkspaceDashboard({
             <button
               className="relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ring-offset-2 p-2 hover:bg-gray-100 rounded-lg transition-colors"
               onClick={() => {
-                console.log('Bell clicked!');
+                if (process.env.NODE_ENV !== 'production') {
+                  console.log('Bell clicked!');
+                }
                 setShowInvitesModal(true);
               }}
               aria-label="View Invitations"
@@ -273,7 +275,9 @@ export default function WorkspaceDashboard({
       <InviteModal
         open={showInvitesModal}
         onClose={() => {
-          console.log('InviteModal closed');
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('InviteModal closed');
+          }
           setShowInvitesModal(false);
         }}
         invitations={invitations}

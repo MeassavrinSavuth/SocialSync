@@ -39,7 +39,7 @@ export default function WorkspaceContent({
   };
 
   return (
-    <div>
+  <div className="w-full">
       <WorkspaceTabs activeTab={activeTab} onTabChange={onTabChange} />
       {renderContent()}
     </div>

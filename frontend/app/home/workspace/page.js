@@ -120,7 +120,9 @@ export default function WorkspacePage() {
   // Show workspace view
   return (
     <WebSocketProvider workspaceId={selectedWorkspace?.id}>
-      <div className="min-h-screen bg-gray-50 p-4 md:p-6 lg:p-8">
+      <div className="min-h-screen bg-gray-50">
+        {/* Centered content container to keep layout narrow like small screens */}
+        <div className="max-w-4xl mx-auto px-4 md:px-6 lg:px-8 py-4 md:py-6 lg:py-8">
         <WorkspaceHeader
           workspace={selectedWorkspace}
           currentUser={currentUser}
@@ -183,6 +185,7 @@ export default function WorkspacePage() {
           onDecline={declineInvitation}
           loading={invitationsLoading}
         />
+  </div>
       </div>
     </WebSocketProvider>
   );

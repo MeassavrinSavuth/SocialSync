@@ -17,7 +17,7 @@ export default function WorkspaceHeader({
 }) {
   return (
     <>
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 md:mb-8">
+  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 md:mb-8">
         <div className="flex items-center gap-3 md:gap-4">
           <button
             className="p-2 rounded-full bg-gray-200 hover:bg-gray-300 text-gray-700 min-h-[44px] min-w-[44px] flex items-center justify-center"

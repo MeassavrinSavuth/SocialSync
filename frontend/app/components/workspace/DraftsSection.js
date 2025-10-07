@@ -82,20 +82,30 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
   // Subscribe to WebSocket messages for real-time draft updates and permissions
   useEffect(() => {
     const unsubscribe = subscribe((msg) => {
-      console.log('DraftsSection received WebSocket message:', msg);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('DraftsSection received WebSocket message:', msg);
+      }
       
       // Handle draft-related events for instant UI updates
       if (msg.type === 'draft_created' && msg.draft) {
-        console.log('Draft created via WebSocket - adding to state immediately:', msg.draft);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('Draft created via WebSocket - adding to state immediately:', msg.draft);
+        }
         addDraftOptimistically(msg.draft);
       } else if (msg.type === 'draft_updated' && msg.draft_id && msg.draft) {
-        console.log('Draft updated via WebSocket - updating state immediately:', msg.draft);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('Draft updated via WebSocket - updating state immediately:', msg.draft);
+        }
         updateDraftOptimistically(msg.draft_id, msg.draft);
       } else if (msg.type === 'draft_deleted' && msg.draft_id) {
-        console.log('Draft deleted via WebSocket - removing from state immediately:', msg.draft_id);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('Draft deleted via WebSocket - removing from state immediately:', msg.draft_id);
+        }
         removeDraftOptimistically(msg.draft_id);
       } else if (msg.type === 'member_role_changed' && msg.user_id === currentUser?.id) {
-        console.log('User role changed, refreshing permissions...');
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('User role changed, refreshing permissions...');
+        }
         // Refresh permissions when current user's role changes
         refetchPermissions();
       }
@@ -226,7 +236,9 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
 
   const handlePostDraft = async (postData) => {
     try {
-      console.log('Posting draft with data:', postData);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('Posting draft with data:', postData);
+      }
       
       // Extract the draft and selected accounts
       const { platforms, accounts, draftId, youtubePrivacy } = postData;
@@ -239,18 +251,22 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
       
       // Get only the selected accounts (not all accounts)
       const selectedAccounts = Object.values(accounts).flat();
-      console.log('Accounts object received:', accounts);
-      console.log('Flattened selected accounts:', selectedAccounts);
-      console.log('Account IDs:', selectedAccounts.map(acc => acc.id));
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('Accounts object received:', accounts);
+        console.log('Flattened selected accounts:', selectedAccounts);
+        console.log('Account IDs:', selectedAccounts.map(acc => acc.id));
+      }
       
       // Check for duplicate account IDs
       const accountIds = selectedAccounts.map(acc => acc.id);
       const uniqueIds = [...new Set(accountIds)];
       if (accountIds.length !== uniqueIds.length) {
-        console.warn('DUPLICATE ACCOUNT IDS DETECTED!');
-        console.warn('All IDs:', accountIds);
-        console.warn('Unique IDs:', uniqueIds);
-        console.warn('Duplicates:', accountIds.filter((id, index) => accountIds.indexOf(id) !== index));
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('DUPLICATE ACCOUNT IDS DETECTED!');
+          console.warn('All IDs:', accountIds);
+          console.warn('Unique IDs:', uniqueIds);
+          console.warn('Duplicates:', accountIds.filter((id, index) => accountIds.indexOf(id) !== index));
+        }
       }
       
       // Remove duplicates to prevent double posting
@@ -259,9 +275,11 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
       );
       
       if (uniqueAccounts.length !== selectedAccounts.length) {
-        console.warn('REMOVED DUPLICATE ACCOUNTS!');
-        console.warn('Original count:', selectedAccounts.length);
-        console.warn('Unique count:', uniqueAccounts.length);
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('REMOVED DUPLICATE ACCOUNTS!');
+          console.warn('Original count:', selectedAccounts.length);
+          console.warn('Unique count:', uniqueAccounts.length);
+        }
       }
       
       // Use unique accounts for posting
@@ -293,21 +311,27 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
         accountsByPlatform[platform].push(account);
       });
       
-      console.log('Grouped accounts by platform:', accountsByPlatform);
-      console.log('Account details for debugging:');
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('Grouped accounts by platform:', accountsByPlatform);
+        console.log('Account details for debugging:');
+      }
       finalAccounts.forEach((account, index) => {
-        console.log(`Account ${index + 1}:`, {
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`Account ${index + 1}:`, {
           id: account.id,
           name: account.name,
           platform: account.platform,
           externalId: account.externalId,
           socialId: account.socialId
-        });
+          });
+        }
       });
       
       // Post to each platform (one API call per platform)
       const platformKeys = Object.keys(accountsByPlatform);
-      console.log(`Starting to post to ${platformKeys.length} platforms:`, platformKeys);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`Starting to post to ${platformKeys.length} platforms:`, platformKeys);
+      }
       
       // Update progress with correct total
       setPostingProgress(prev => ({
@@ -326,7 +350,9 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
           currentAccount: `${platformAccounts.length} ${platform} account(s)`
         }));
         
-        console.log(`[${i+1}/${platforms.length}] Posting to ${platformAccounts.length} ${platform} accounts:`, platformAccounts.map(acc => acc.name));
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`[${i+1}/${platforms.length}] Posting to ${platformAccounts.length} ${platform} accounts:`, platformAccounts.map(acc => acc.name));
+        }
         
         try {
           // Determine the API endpoint
@@ -392,8 +418,10 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
             };
           }
           
-          console.log(`Request body for ${platform} (${accountIds.length} accounts):`, requestBody);
-          console.log(`Making API call to ${apiEndpoint} with ${accountIds.length} account IDs:`, accountIds);
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(`Request body for ${platform} (${accountIds.length} accounts):`, requestBody);
+            console.log(`Making API call to ${apiEndpoint} with ${accountIds.length} account IDs:`, accountIds);
+          }
           
           // Make the API call for this platform
           const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}${apiEndpoint}`, {
@@ -411,7 +439,9 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
             
             // For Twitter, if we get a 400 error, let's try to handle it gracefully
             if (platform === 'twitter' && response.status === 400) {
-              console.log(`Twitter 400 error, treating as mock success for testing`);
+              if (process.env.NODE_ENV !== 'production') {
+                console.log(`Twitter 400 error, treating as mock success for testing`);
+              }
               platformAccounts.forEach(account => {
                 results.push({
                   account: account.name,
@@ -436,7 +466,9 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
           }
           
           const result = await response.json();
-          console.log(`Successfully posted to ${platform}:`, result);
+          if (process.env.NODE_ENV !== 'production') {
+            console.log(`Successfully posted to ${platform}:`, result);
+          }
           
           // Process results for each account in this platform
           if (result.results && Array.isArray(result.results)) {
@@ -535,10 +567,14 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
       
       // Delete the draft only if ALL posts were successful
       if (allPostsSuccessful) {
-        console.log('All posts successful, deleting draft:', draftId);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('All posts successful, deleting draft:', draftId);
+        }
         await deleteDraft(draftId);
       } else {
-        console.log(`Only ${successfulPosts}/${totalPosts} posts successful, keeping draft for retry`);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(`Only ${successfulPosts}/${totalPosts} posts successful, keeping draft for retry`);
+        }
       }
       
       // Auto-close after 3 seconds

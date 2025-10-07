@@ -20,10 +20,14 @@ const TaskCard = ({ task, onUpdate, onDelete, onUpdateOptimistic, workspaceId, t
   // Subscribe to WebSocket messages for real-time permission updates
   useEffect(() => {
     const unsubscribe = subscribe((msg) => {
-      console.log('TaskCard received WebSocket message:', msg);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('TaskCard received WebSocket message:', msg);
+      }
       
       if (msg.type === 'member_role_changed' && msg.user_id === currentUser?.id) {
-        console.log('User role changed, refreshing permissions...');
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('User role changed, refreshing permissions...');
+        }
         // Refresh permissions when current user's role changes
         refetchPermissions();
       }

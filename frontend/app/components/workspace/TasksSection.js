@@ -49,12 +49,16 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
   // Subscribe to WebSocket messages for real-time task updates
   useEffect(() => {
     const unsubscribe = subscribe((msg) => {
-      console.log('TasksSection received WebSocket message:', msg);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('TasksSection received WebSocket message:', msg);
+      }
       
       // Handle task-related events for instant UI updates
       if (msg.type === 'task_created' && msg.task) {
         // Replace temp optimistic task (if any) or prepend
-        console.log('Task created via WebSocket - merging into state immediately:', msg.task);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('Task created via WebSocket - merging into state immediately:', msg.task);
+        }
         setTasks(prev => {
           const tempIndex = prev.findIndex(t => t.__optimistic && t.__clientId && t.title === msg.task.title);
           if (tempIndex !== -1) {
@@ -67,32 +71,46 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
       } else if (msg.type === 'task_updated' && msg.task_id) {
         // Use optimistic update for better performance when payload present
         if (msg.task) {
-          console.log('Task updated via WebSocket - updating state immediately:', msg.task);
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('Task updated via WebSocket - updating state immediately:', msg.task);
+          }
           updateTaskOptimistically(msg.task_id, msg.task);
         } else {
           // Fallback: ensure eventual consistency
-          console.log('Task updated WS without payload; refetching tasks');
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('Task updated WS without payload; refetching tasks');
+          }
           fetchTasks();
         }
       } else if (msg.type === 'task_deleted' && msg.task_id) {
         // Immediately remove from state for instant feedback  
-        console.log('Task deleted via WebSocket - removing from state immediately:', msg.task_id);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('Task deleted via WebSocket - removing from state immediately:', msg.task_id);
+        }
         removeTaskOptimistically(msg.task_id);
       } else if (msg.type === 'member_role_changed' && msg.user_id === currentUser?.id) {
-        console.log('User role changed, refreshing permissions...');
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('User role changed, refreshing permissions...');
+        }
         // Refresh permissions when current user's role changes
         refetchPermissions();
       } else if (msg.type === 'reaction_added' && msg.reaction) {
         // Handle instant reaction updates
-        console.log('Reaction added via WebSocket - updating reactions immediately:', msg.reaction);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('Reaction added via WebSocket - updating reactions immediately:', msg.reaction);
+        }
         // This will be handled by individual TaskCard components that have reaction hooks
       } else if (msg.type === 'reaction_removed' && msg.reaction) {
         // Handle instant reaction removal
-        console.log('Reaction removed via WebSocket - updating reactions immediately:', msg.reaction);
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('Reaction removed via WebSocket - updating reactions immediately:', msg.reaction);
+        }
         // This will be handled by individual TaskCard components that have reaction hooks
       } else if (msg.type === 'comment_added' && msg.comment) {
         // Handle instant comment updates
-        console.log('Comment added via WebSocket - comment will be updated by CommentSection');
+        if (process.env.NODE_ENV !== 'production') {
+          console.log('Comment added via WebSocket - comment will be updated by CommentSection');
+        }
         // CommentSection handles this with its own WebSocket subscription
       }
     });
@@ -254,16 +272,9 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
           initialData={editingTask}
         />
       </Modal>
-      {/* Task List Grid - Mobile responsive and compact */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+  {/* Task List Grid - Keep single column to mimic small-screen behavior on wide screens */}
+  <div className="grid grid-cols-1 gap-4 md:gap-6">
         {filteredTasks.map((task) => {
-          console.log('TasksSection rendering task:', {
-            id: task.id,
-            title: task.title,
-            last_updated_by_name: task.last_updated_by_name,
-            creator_name: task.creator_name,
-            updated_at: task.updated_at
-          });
           return (
             <TaskCard
               key={task.id}

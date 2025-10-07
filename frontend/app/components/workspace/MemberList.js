@@ -27,7 +27,9 @@ export default function MemberList({
   // Subscribe to WebSocket messages for real-time member updates
   useEffect(() => {
     const unsubscribe = subscribe((msg) => {
-      console.log('MemberList received WebSocket message:', msg);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('MemberList received WebSocket message:', msg);
+      }
       
       if (msg.type === 'member_role_changed' && msg.user_id && msg.role) {
         // Optimistically reflect role change without refetch
