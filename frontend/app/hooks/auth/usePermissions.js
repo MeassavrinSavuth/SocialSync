@@ -171,6 +171,27 @@ export function useRoleBasedUI(workspaceId) {
   const { hasPermission, loading, PERMISSIONS, refetch: fetchPermissions, permissions } = usePermissions(workspaceId);
   const isAdmin = hasPermission(PERMISSIONS.WORKSPACE_DELETE);
   
+  // Safety check for undefined values
+  if (!hasPermission || !PERMISSIONS) {
+    return {
+      loading: true,
+      canEdit: false,
+      canDelete: false,
+      canCreate: false,
+      canPublish: false,
+      canManageMembers: false,
+      canInvite: false,
+      canManageMedia: false,
+      canViewAnalytics: false,
+      canCreateTask: false,
+      canUpdateTask: false,
+      canDeleteTask: false,
+      canCommentOnTask: false,
+      isAdmin: false,
+      refetch: () => {}
+    };
+  }
+  
   const result = {
     loading,
     canEdit: hasPermission(PERMISSIONS.POST_UPDATE) || hasPermission(PERMISSIONS.DRAFT_UPDATE),

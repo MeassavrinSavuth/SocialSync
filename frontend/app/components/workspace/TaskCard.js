@@ -16,10 +16,12 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], med
   const { canUpdateTask, canDeleteTask, loading: permissionsLoading, refetch: refetchPermissions } = useRoleBasedUI(workspaceId);
   
   // Use shared WebSocket connection for real-time permission updates
-  const { subscribe } = useWebSocket();
+  const { subscribe } = useWebSocket() || {};
 
   // Subscribe to WebSocket messages for real-time permission updates
   useEffect(() => {
+    if (!subscribe) return;
+    
     const unsubscribe = subscribe((msg) => {
       console.log('TaskCard received WebSocket message:', msg);
       
