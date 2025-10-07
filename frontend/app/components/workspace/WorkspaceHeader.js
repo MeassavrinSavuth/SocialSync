@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import Image from 'next/image';
 import { FaUserPlus, FaArrowLeft } from 'react-icons/fa';
 import InviteMemberModal from './InviteMemberModal';
 
@@ -27,11 +26,9 @@ export default function WorkspaceHeader({
           >
             <FaArrowLeft className="text-sm md:text-base" />
           </button>
-          <Image 
+          <img 
             src={workspace.avatar} 
             alt={workspace.name} 
-            width={56}
-            height={56}
             className="w-12 h-12 md:w-14 md:h-14 rounded-full border object-cover bg-gray-100" 
           />
           <div className="min-w-0 flex-1">

@@ -129,7 +129,6 @@ export default function TasksSection({ workspaceId, teamMembers, currentUser }) 
         </div>
       )}
       <Modal open={showModal} onClose={() => setShowModal(false)}>
-        {console.log('Rendering Modal with showModal:', showModal)}
         <TaskForm
           onSubmit={async (taskData) => {
             if (editTaskId) {

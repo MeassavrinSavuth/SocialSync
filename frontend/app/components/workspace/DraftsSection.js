@@ -61,6 +61,7 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
   const menuRef = useRef();
 
   // Use backend-powered drafts
+  // Use backend-powered drafts
   const { 
     drafts, 
     loading, 
@@ -75,18 +76,7 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
   } = useDraftPosts(workspaceId);
   const { canEdit, canPublish, refetch: refetchPermissions } = useRoleBasedUI(workspaceId); // includes draft:update via hook
   
-  // Debug logging
-  console.log('DraftsSection state:', {
-    workspaceId,
-    showModal,
-    canEdit,
-    canPublish,
-    draftsCount: drafts?.length || 0,
-    loading,
-    error
-  });
-  
-  // Use shared WebSocket connection for real-time updates
+  // Use shared WebSocket connection for real-time permission updates
   const { subscribe } = useWebSocket();
 
   // Subscribe to WebSocket messages for real-time draft updates and permissions
@@ -124,9 +114,7 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
 
   // Note: Don't early-return before hooks; render always and gate controls via permissions
 
-  const handleOpenModal = () => {
-    setShowModal(true);
-  };
+  const handleOpenModal = () => setShowModal(true);
   const handleCloseModal = () => {
     setShowModal(false);
     setSelectedPlatforms([]);
@@ -408,7 +396,7 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
           console.log(`Making API call to ${apiEndpoint} with ${accountIds.length} account IDs:`, accountIds);
           
           // Make the API call for this platform
-          const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'https://socialsync-j7ih.onrender.com'}${apiEndpoint}`, {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}${apiEndpoint}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

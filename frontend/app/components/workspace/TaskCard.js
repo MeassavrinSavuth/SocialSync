@@ -36,12 +36,7 @@ const TaskCard = ({ task, onUpdate, onDelete, workspaceId, teamMembers = [], med
     description: task.description || '',
     status: task.status,
     assigned_to: task.assigned_to || '',
-    due_date: task.due_date ? (() => {
-      const date = new Date(task.due_date);
-      return date.getFullYear() + '-' + 
-             String(date.getMonth() + 1).padStart(2, '0') + '-' + 
-             String(date.getDate()).padStart(2, '0');
-    })() : '',
+    due_date: task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : '',
   });
 
   const statusColors = {

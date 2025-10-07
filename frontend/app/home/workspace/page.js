@@ -8,9 +8,8 @@ import WorkspaceContent from '../../components/workspace/WorkspaceContent';
 import MemberList from '../../components/workspace/MemberList';
 import ConfirmModal from '../../components/workspace/ConfirmModal';
 import InviteModal from '../../components/workspace/InviteModal';
-import WorkspaceErrorBoundary from '../../components/WorkspaceErrorBoundary';
 
-function WorkspacePageContent() {
+export default function WorkspacePage() {
   const {
     // State
     workspaces,
@@ -73,7 +72,6 @@ function WorkspacePageContent() {
     fetchInvitations,
     fetchMembers,
     showKickModal,
-    kickMemberId,
     kickMemberName,
     confirmKickMember,
     cancelKickMember,
@@ -187,13 +185,5 @@ function WorkspacePageContent() {
         />
       </div>
     </WebSocketProvider>
-  );
-}
-
-export default function WorkspacePage() {
-  return (
-    <WorkspaceErrorBoundary>
-      <WorkspacePageContent />
-    </WorkspaceErrorBoundary>
   );
 }
