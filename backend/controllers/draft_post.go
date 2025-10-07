@@ -333,15 +333,26 @@ func PublishDraftPost(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	draftID := vars["draftId"]
 
-	// Check if user is admin/editor in the workspace
+	// Get workspace ID for permission check
 	var workspaceID string
 	err := lib.DB.QueryRow(`SELECT workspace_id FROM draft_posts WHERE id = $1`, draftID).Scan(&workspaceID)
 	if err != nil {
-		http.Error(w, "Draft not found", http.StatusNotFound)
+		if err == sql.ErrNoRows {
+			http.Error(w, "Draft not found", http.StatusNotFound)
+		} else {
+			http.Error(w, "Failed to find draft", http.StatusInternalServerError)
+		}
 		return
 	}
-	if !IsUserAdminOrEditor(userID, workspaceID) {
-		http.Error(w, "Not authorized to publish", http.StatusForbidden)
+
+	// Check if user has permission to publish posts
+	hasPermission, err := middleware.CheckUserPermission(userID, workspaceID, models.PermPostPublish)
+	if err != nil {
+		http.Error(w, "Failed to verify permissions", http.StatusInternalServerError)
+		return
+	}
+	if !hasPermission {
+		http.Error(w, "You don't have permission to publish posts", http.StatusForbidden)
 		return
 	}
 

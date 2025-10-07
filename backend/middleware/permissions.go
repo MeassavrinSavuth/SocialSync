@@ -340,6 +340,7 @@ func getAllPermissions() []string {
 		models.PermAnalyticsRead, models.PermAnalyticsExport, models.PermAnalyticsAdvanced,
 		models.PermSocialAccountConnect, models.PermSocialAccountDisconnect, models.PermSocialAccountRead, models.PermSocialAccountPost,
 		models.PermMediaUpload, models.PermMediaDelete, models.PermMediaRead,
+		models.PermTaskCreate, models.PermTaskRead, models.PermTaskUpdate, models.PermTaskDelete, models.PermTaskComment,
 	}
 }
 
@@ -353,11 +354,15 @@ func getLegacyRolePermissions(roleName string) []string {
 			models.PermDraftCreate, models.PermDraftRead, models.PermDraftUpdate, models.PermDraftDelete,
 			models.PermAnalyticsRead, models.PermSocialAccountRead, models.PermSocialAccountPost,
 			models.PermMediaUpload, models.PermMediaDelete, models.PermMediaRead,
+			// Task permissions for Editor (can create, read, update, but not delete)
+			models.PermTaskCreate, models.PermTaskRead, models.PermTaskUpdate, models.PermTaskComment,
 		},
 		"Viewer": {
 			models.PermWorkspaceRead, models.PermMemberRead,
 			models.PermPostRead, models.PermDraftRead,
 			models.PermAnalyticsRead, models.PermSocialAccountRead, models.PermMediaRead,
+			// Task read-only for Viewer
+			models.PermTaskRead,
 		},
 	}
 

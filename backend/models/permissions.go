@@ -89,6 +89,13 @@ const (
 	PermMediaUpload = "media:upload"
 	PermMediaDelete = "media:delete"
 	PermMediaRead   = "media:read"
+
+	// Task permissions
+	PermTaskCreate = "task:create"
+	PermTaskRead   = "task:read"
+	PermTaskUpdate = "task:update"
+	PermTaskDelete = "task:delete"
+	PermTaskComment = "task:comment"
 )
 
 // System role names
@@ -120,6 +127,8 @@ func GetDefaultRolePermissions() map[string][]string {
 			PermSocialAccountConnect, PermSocialAccountDisconnect, PermSocialAccountRead, PermSocialAccountPost,
 			// Full media control
 			PermMediaUpload, PermMediaDelete, PermMediaRead,
+			// Full task control
+			PermTaskCreate, PermTaskRead, PermTaskUpdate, PermTaskDelete, PermTaskComment,
 		},
 		RoleContentManager: {
 			// Limited workspace access
@@ -137,6 +146,8 @@ func GetDefaultRolePermissions() map[string][]string {
 			PermSocialAccountRead, PermSocialAccountPost,
 			// Media management
 			PermMediaUpload, PermMediaDelete, PermMediaRead,
+			// Task management (can create, read, update, but not delete)
+			PermTaskCreate, PermTaskRead, PermTaskUpdate, PermTaskComment,
 		},
 		RoleSocialManager: {
 			// Limited workspace access
