@@ -43,13 +43,25 @@ export function usePermissions(workspaceId) {
 
       const p = (async () => {
         try {
+          console.log('Fetching permissions for workspace:', workspaceId);
           const response = await protectedFetch(`/workspaces/${workspaceId}/permissions`);
           console.log('Permission fetch response:', response);
+          console.log('Response type:', typeof response);
+          console.log('Response permissions:', response?.permissions);
+          console.log('Response permissions type:', typeof response?.permissions);
+          console.log('Response permissions length:', response?.permissions?.length);
+          
           if (response && response.permissions && isMounted.current) {
             setPermissions(response.permissions);
             setError(null);
             console.log('Permissions set:', response.permissions);
+          } else {
+            console.log('No permissions found in response');
+            setPermissions([]);
           }
+        } catch (fetchError) {
+          console.error('Permission fetch error:', fetchError);
+          setError(fetchError.message);
         } finally {
           lastFetchAtByWorkspace.set(workspaceId, Date.now());
           inFlightByWorkspace.delete(workspaceId);
