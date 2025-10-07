@@ -50,6 +50,11 @@ export function usePermissions(workspaceId) {
           console.log('Response permissions:', response?.permissions);
           console.log('Response permissions type:', typeof response?.permissions);
           console.log('Response permissions length:', response?.permissions?.length);
+          console.log('Response keys:', response ? Object.keys(response) : 'response is null/undefined');
+          console.log('isMounted.current:', isMounted.current);
+          console.log('response check:', !!response);
+          console.log('permissions check:', !!response?.permissions);
+          console.log('isMounted check:', isMounted.current);
           
           if (response && response.permissions && isMounted.current) {
             setPermissions(response.permissions);
@@ -57,6 +62,7 @@ export function usePermissions(workspaceId) {
             console.log('Permissions set:', response.permissions);
           } else {
             console.log('No permissions found in response');
+            console.log('Condition failed - response:', !!response, 'permissions:', !!response?.permissions, 'isMounted:', isMounted.current);
             setPermissions([]);
           }
         } catch (fetchError) {
