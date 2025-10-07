@@ -72,7 +72,8 @@ export default function DraftsSection({ teamMembers, currentUser, workspaceId })
     const unsubscribe = subscribe((msg) => {
       if (!msg || !msg.type) return;
 
-      if (msg.type === 'member_role_changed' && msg.user_id === currentUser?.id) {
+      // Any member role change in this workspace may alter effective permissions
+      if (msg.type === 'member_role_changed') {
         refetchPermissions();
         return;
       }
