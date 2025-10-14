@@ -1,12 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
+import { useDraftComments } from '../../hooks/api/useDraftComments';
+import { useUser } from '../../hooks/auth/useUser';
 import { useWebSocket } from '../../contexts/WebSocketContext';
 import { FaThumbsUp, FaCommentAlt, FaShare, FaGlobeAmericas, FaEllipsisH } from 'react-icons/fa';
 
 export default function MiniTwitterPreview({ task, onReact, showReactions = true, showTitle = false, fullWidth = false, onEdit, onPost, onDelete, fitMode = 'auto', workspaceId, canEdit = true, canPublish = true }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef();
-  const [showComments, setShowComments] = useState(false);
+  const { comments, addComment, deleteComment } = useDraftComments(workspaceId, task.id);
   const [newComment, setNewComment] = useState("");
+  const { profileData: currentUser } = useUser();
+  const [showComments, setShowComments] = useState(false);
   const [likeCount, setLikeCount] = useState(task?.reactions?.thumbsUp || 0);
   const [liked, setLiked] = useState(false);
   const [lastUpdatedByName, setLastUpdatedByName] = useState(task?.last_updated_by_name || null);
@@ -51,7 +55,8 @@ export default function MiniTwitterPreview({ task, onReact, showReactions = true
   const handleAddComment = async (e) => {
     e.preventDefault();
     if (!newComment.trim()) return;
-    setNewComment("");
+    const success = await addComment(newComment.trim());
+    if (success) setNewComment("");
   };
 
   const handleLike = async () => {
@@ -175,8 +180,35 @@ export default function MiniTwitterPreview({ task, onReact, showReactions = true
       {/* Comments Section (toggle) */}
       {showComments && (
         <div className="px-4 pt-2 pb-4">
+          {/* Simple, consistent comment UI */}
           <div className="space-y-2 mb-2">
-            <div className="text-xs text-gray-400">No comments yet.</div>
+            {comments.length === 0 && <div className="text-xs text-gray-400">No comments yet.</div>}
+            {comments.map((c) => (
+              <div key={c.id} className="bg-gray-50 rounded-lg p-3">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <div className="text-sm text-gray-900 mb-1">{c.content}</div>
+                    <div className="flex items-center space-x-2 text-xs text-gray-500">
+                      <span>By: {c.user_name || c.author?.name || 'User'}</span>
+                      <span>•</span>
+                      <span>{new Date(c.created_at || Date.now()).toLocaleString()}</span>
+                    </div>
+                  </div>
+                  {c.user_id === currentUser?.id && (
+                    <button
+                      type="button"
+                      onClick={() => deleteComment(c.id)}
+                      className="p-1 text-gray-400 hover:text-red-500 focus:outline-none"
+                      title="Delete comment"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
           <form onSubmit={handleAddComment} className="space-y-2">
             <textarea

@@ -1,12 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
+import { useDraftComments } from '../../hooks/api/useDraftComments';
+import { useUser } from '../../hooks/auth/useUser';
 import { useWebSocket } from '../../contexts/WebSocketContext';
 import { FaThumbsUp, FaCommentAlt, FaShare, FaEllipsisH } from 'react-icons/fa';
 
 const REACTION_EMOJIS = ['👍', '❤️', '😂', '🎉', '👎'];
 
 export default function MiniMastodonPreview({ task, onReact, showReactions = true, showTitle = false, fullWidth = false, onEdit, onPost, onDelete, fitMode = 'auto', workspaceId, canEdit = true, canPublish = true }) {
-  const [comments, setComments] = useState(task.comments || []);
+  const { comments, addComment, deleteComment } = useDraftComments(workspaceId, task.id);
   const [newComment, setNewComment] = useState("");
+  const { profileData: currentUser } = useUser();
   const [showComments, setShowComments] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef();
@@ -52,19 +55,11 @@ export default function MiniMastodonPreview({ task, onReact, showReactions = tru
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [menuOpen]);
 
-  const handleAddComment = (e) => {
+  const handleAddComment = async (e) => {
     e.preventDefault();
     if (!newComment.trim()) return;
-    setComments((prev) => [
-      ...prev,
-      {
-        author: task.author,
-        content: newComment,
-        timestamp: new Date().toLocaleString(),
-        reactions: {},
-      },
-    ]);
-    setNewComment("");
+    const success = await addComment(newComment.trim());
+    if (success) setNewComment("");
   };
 
   const handleLike = async () => {
@@ -188,17 +183,29 @@ export default function MiniMastodonPreview({ task, onReact, showReactions = tru
           {/* Simple, consistent comment UI */}
           <div className="space-y-2 mb-2">
             {comments.length === 0 && <div className="text-xs text-gray-400">No comments yet.</div>}
-            {comments.map((c, i) => (
-              <div key={i} className="bg-gray-50 rounded-lg p-3">
+            {comments.map((c) => (
+              <div key={c.id} className="bg-gray-50 rounded-lg p-3">
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="text-sm text-gray-900 mb-1">{c.content}</div>
                     <div className="flex items-center space-x-2 text-xs text-gray-500">
-                      <span>By: {c.author?.name || 'User'}</span>
+                      <span>By: {c.user_name || c.author?.name || 'User'}</span>
                       <span>•</span>
-                      <span>{c.timestamp}</span>
+                      <span>{new Date(c.created_at || Date.now()).toLocaleString()}</span>
                     </div>
                   </div>
+                  {c.user_id === currentUser?.id && (
+                    <button
+                      type="button"
+                      onClick={() => deleteComment(c.id)}
+                      className="p-1 text-gray-400 hover:text-red-500 focus:outline-none"
+                      title="Delete comment"
+                    >
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
