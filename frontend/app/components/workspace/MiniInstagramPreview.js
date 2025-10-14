@@ -52,12 +52,6 @@ export default function MiniInstagramPreview({ task, onReact, showReactions = tr
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [menuOpen]);
 
-  const handleAddComment = async (e) => {
-    e.preventDefault();
-    if (!newComment.trim()) return;
-    setNewComment("");
-  };
-
   const handleLike = async () => {
     try {
       const res = await fetch(`${(process.env.NEXT_PUBLIC_API_BASE_URL || 'https://socialsync-j7ih.onrender.com')}/api/workspaces/${workspaceId}/drafts/${task.id}/reactions`, {
