@@ -498,7 +498,9 @@ func GetTwitterPostsHandler(db *sql.DB) http.HandlerFunc {
 			tweets, err := fetchTwitterPosts(accessToken)
 			if err != nil {
 				fmt.Printf("DEBUG: Twitter posts - API error for account %s: %v\n", id, err)
-				hasError = true
+				// Instead of failing completely, return empty posts for this account
+				// This allows other accounts to still work
+				fmt.Printf("DEBUG: Twitter posts - skipping account %s due to API error\n", id)
 				continue
 			}
 
@@ -530,9 +532,18 @@ func GetTwitterPostsHandler(db *sql.DB) http.HandlerFunc {
 		fmt.Printf("DEBUG: Twitter posts - returning %d total posts\n", len(allPosts))
 
 		w.Header().Set("Content-Type", "application/json")
+		
+		// If we have errors but no posts, return a helpful message
 		if hasError && len(allPosts) == 0 {
-			w.WriteHeader(http.StatusPartialContent)
+			w.WriteHeader(http.StatusOK) // Return 200 with error message instead of 500
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"data": []map[string]interface{}{},
+				"error": "Unable to fetch tweets from Twitter API. This may be due to authentication issues or API access restrictions.",
+				"message": "Please check your Twitter account connection and try again.",
+			})
+			return
 		}
+		
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"data": allPosts,
 		})
@@ -542,7 +553,7 @@ func GetTwitterPostsHandler(db *sql.DB) http.HandlerFunc {
 // fetchTwitterPosts fetches tweets from Twitter API v2 using OAuth 2.0
 func fetchTwitterPosts(accessToken string) ([]map[string]interface{}, error) {
 	fmt.Printf("DEBUG: Twitter posts - fetching real tweets from Twitter API v2\n")
-	
+
 	// Get user ID first
 	userID, err := getTwitterUserID(accessToken)
 	if err != nil {
@@ -552,7 +563,7 @@ func fetchTwitterPosts(accessToken string) ([]map[string]interface{}, error) {
 
 	// Fetch user's tweets using OAuth 2.0 Bearer token
 	url := fmt.Sprintf("https://api.twitter.com/2/users/%s/tweets?max_results=20&tweet.fields=created_at,public_metrics,attachments&expansions=attachments.media_keys&media.fields=url,type,preview_image_url", userID)
-	
+
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %v", err)
@@ -574,6 +585,18 @@ func fetchTwitterPosts(accessToken string) ([]map[string]interface{}, error) {
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		fmt.Printf("DEBUG: Twitter API error response: %s\n", string(body))
+		
+		// Handle specific Twitter API errors
+		if resp.StatusCode == 401 {
+			return nil, fmt.Errorf("Twitter API authentication failed - token may be invalid or expired")
+		} else if resp.StatusCode == 403 {
+			return nil, fmt.Errorf("Twitter API access forbidden - insufficient permissions or rate limited")
+		} else if resp.StatusCode == 429 {
+			return nil, fmt.Errorf("Twitter API rate limited - too many requests")
+		} else if resp.StatusCode == 400 {
+			return nil, fmt.Errorf("Twitter API bad request - invalid parameters")
+		}
+		
 		return nil, fmt.Errorf("Twitter API error %d: %s", resp.StatusCode, string(body))
 	}
 
@@ -603,7 +626,7 @@ func fetchTwitterPosts(accessToken string) ([]map[string]interface{}, error) {
 // getTwitterUserID gets the user ID from Twitter API using OAuth 2.0
 func getTwitterUserID(accessToken string) (string, error) {
 	url := "https://api.twitter.com/2/users/me?user.fields=id,name,username,profile_image_url"
-	
+
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %v", err)
@@ -622,6 +645,17 @@ func getTwitterUserID(accessToken string) (string, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
+		fmt.Printf("DEBUG: Twitter user ID API error %d: %s\n", resp.StatusCode, string(body))
+		
+		// Handle specific Twitter API errors
+		if resp.StatusCode == 401 {
+			return "", fmt.Errorf("Twitter API authentication failed - token may be invalid or expired")
+		} else if resp.StatusCode == 403 {
+			return "", fmt.Errorf("Twitter API access forbidden - insufficient permissions")
+		} else if resp.StatusCode == 429 {
+			return "", fmt.Errorf("Twitter API rate limited - too many requests")
+		}
+		
 		return "", fmt.Errorf("Twitter API error %d: %s", resp.StatusCode, string(body))
 	}
 
