@@ -544,7 +544,7 @@ func fetchTwitterPosts(accessToken, accessTokenSecret string) ([]map[string]inte
 	// For now, return mock data since Twitter API v2 requires OAuth 1.0a implementation
 	// which is complex and requires additional libraries
 	fmt.Printf("DEBUG: Twitter posts - using mock data for now (OAuth 1.0a not implemented)\n")
-	
+
 	// Return mock tweets for testing
 	mockTweets := []map[string]interface{}{
 		{
@@ -568,7 +568,7 @@ func fetchTwitterPosts(accessToken, accessTokenSecret string) ([]map[string]inte
 			},
 		},
 	}
-	
+
 	return mockTweets, nil
 }
 
