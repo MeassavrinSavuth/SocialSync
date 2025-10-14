@@ -5,7 +5,6 @@ import { useAnalytics } from '../../hooks/api/useAnalytics';
 import MetricCard from './MetricCard';
 import EngagementChart from './EngagementChart';
 import PlatformComparison from './PlatformComparison';
-import TopPostsTable from './TopPostsTable';
 import DateRangePicker from './DateRangePicker';
 import AccountSelector from './AccountSelector';
 
@@ -74,7 +73,6 @@ export default function AnalyticsOverview() {
   console.log('Analytics data received:', analytics);
   console.log('Platform stats:', analytics.platform_stats);
   console.log('Engagement trend:', analytics.engagement_trend);
-  console.log('Top posts:', analytics.top_posts);
   console.log('Selected accounts:', selectedAccounts);
   console.log('Total posts from analytics:', analytics.total_posts);
   console.log('Total engagement from analytics:', analytics.total_engagement);
@@ -149,11 +147,6 @@ export default function AnalyticsOverview() {
         <PlatformComparison data={analytics.platform_stats} />
       </div>
 
-      {/* Top Posts */}
-      <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Top Performing Posts</h2>
-        <TopPostsTable posts={analytics.top_posts} />
-      </div>
     </div>
   );
 }
