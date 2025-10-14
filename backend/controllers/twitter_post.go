@@ -54,46 +54,38 @@ func PostToTwitterHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// Get Twitter accounts - try with access_token_secret first, fallback without it
-		rows, err := db.Query(`SELECT id::text, access_token, COALESCE(access_token_secret, '') as access_token_secret FROM social_accounts WHERE user_id=$1 AND (platform='twitter' OR provider='twitter') AND id = ANY($2::uuid[])`, userID, pq.Array(req.AccountIds))
-		if err != nil {
-			// Fallback query without access_token_secret
-			rows, err = db.Query(`SELECT id::text, access_token FROM social_accounts WHERE user_id=$1 AND (platform='twitter' OR provider='twitter') AND id = ANY($2::uuid[])`, userID, pq.Array(req.AccountIds))
-			if err != nil {
-				// If no Twitter accounts found, return mock success for testing
-				fmt.Printf("DEBUG: No Twitter accounts found, returning mock success\n")
-				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(map[string]interface{}{
-					"results": []TwitterPostResult{
-						{
-							AccountID: req.AccountIds[0],
-							OK:        true,
-							TweetID:   "mock_tweet_id_" + req.AccountIds[0],
-						},
-					},
-				})
-				return
-			}
-		}
-		defer rows.Close()
+	// Get Twitter accounts - simplified query without access_token_secret
+	rows, err := db.Query(`SELECT id::text, access_token FROM social_accounts WHERE user_id=$1 AND (platform='twitter' OR provider='twitter') AND id = ANY($2::uuid[])`, userID, pq.Array(req.AccountIds))
+	if err != nil {
+		// If no Twitter accounts found, return mock success for testing
+		fmt.Printf("DEBUG: No Twitter accounts found, returning mock success\n")
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"results": []TwitterPostResult{
+				{
+					AccountID: req.AccountIds[0],
+					OK:        true,
+					TweetID:   "mock_tweet_id_" + req.AccountIds[0],
+				},
+			},
+		})
+		return
+	}
+	defer rows.Close()
 
-		var results []TwitterPostResult
-		for rows.Next() {
-			var id, accessToken, accessTokenSecret string
-			if err := rows.Scan(&id, &accessToken, &accessTokenSecret); err != nil {
-				// Try scanning without accessTokenSecret
-				if err := rows.Scan(&id, &accessToken); err != nil {
-					results = append(results, TwitterPostResult{
-						AccountID: id,
-						OK:        false,
-						Error:     "Failed to get account details: " + err.Error(),
-					})
-					continue
-				}
-				accessTokenSecret = "" // Default empty secret
-			}
-
-			// Post to Twitter
+	var results []TwitterPostResult
+	for rows.Next() {
+		var id, accessToken string
+		accessTokenSecret := "" // Twitter OAuth 1.0a secret not stored in DB
+		
+		if err := rows.Scan(&id, &accessToken); err != nil {
+			results = append(results, TwitterPostResult{
+				AccountID: id,
+				OK:        false,
+				Error:     "Failed to get account details: " + err.Error(),
+			})
+			continue
+		}			// Post to Twitter
 			fmt.Printf("DEBUG: Posting to Twitter for account: %s\n", id)
 			fmt.Printf("DEBUG: Tweet text: %s\n", req.Text)
 
@@ -468,33 +460,33 @@ func GetTwitterPostsHandler(db *sql.DB) http.HandlerFunc {
 		}
 		accountIDs = validAccountIDs
 
-		// Get Twitter accounts
-		query := `SELECT id::text, access_token, COALESCE(access_token_secret, '') as access_token_secret, 
-			COALESCE(display_name, profile_name) as display_name, COALESCE(avatar, profile_picture_url) as avatar,
-			COALESCE(username, profile_name) as username
-			FROM social_accounts 
-			WHERE user_id=$1 AND (platform='twitter' OR provider='twitter') AND id = ANY($2::uuid[])`
+	// Get Twitter accounts
+	query := `SELECT id::text, access_token, 
+		COALESCE(display_name, profile_name) as display_name, COALESCE(avatar, profile_picture_url) as avatar,
+		COALESCE(username, profile_name) as username
+		FROM social_accounts 
+		WHERE user_id=$1 AND (platform='twitter' OR provider='twitter') AND id = ANY($2::uuid[])`
 
-		rows, err := db.Query(query, userID, pq.Array(accountIDs))
-		if err != nil {
-			fmt.Printf("DEBUG: Twitter posts - database query error: %v\n", err)
-			http.Error(w, "Failed to get Twitter accounts", http.StatusInternalServerError)
-			return
+	rows, err := db.Query(query, userID, pq.Array(accountIDs))
+	if err != nil {
+		fmt.Printf("DEBUG: Twitter posts - database query error: %v\n", err)
+		http.Error(w, "Failed to get Twitter accounts", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var allPosts []map[string]interface{}
+	var hasError bool
+
+	for rows.Next() {
+		var id, accessToken, displayName, avatar, username string
+		if err := rows.Scan(&id, &accessToken, &displayName, &avatar, &username); err != nil {
+			fmt.Printf("DEBUG: Twitter posts - scan error: %v\n", err)
+			hasError = true
+			continue
 		}
-		defer rows.Close()
 
-		var allPosts []map[string]interface{}
-		var hasError bool
-
-		for rows.Next() {
-			var id, accessToken, accessTokenSecret, displayName, avatar, username string
-			if err := rows.Scan(&id, &accessToken, &accessTokenSecret, &displayName, &avatar, &username); err != nil {
-				fmt.Printf("DEBUG: Twitter posts - scan error: %v\n", err)
-				hasError = true
-				continue
-			}
-
-			fmt.Printf("DEBUG: Twitter posts - processing account: %s (%s)\n", id, displayName)
+		fmt.Printf("DEBUG: Twitter posts - processing account: %s (%s)\n", id, displayName)
 
 			// Check if we have valid Twitter API credentials
 			if accessToken == "" || len(accessToken) < 10 {
