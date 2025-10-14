@@ -148,8 +148,10 @@ export default function TwitterPosts({ posts, loading, error, searchQuery, setSe
                       alt={tweetAccountName}
                       className="w-full h-full object-cover"
                       onError={(e) => {
+                        console.log('Twitter profile picture failed to load:', tweetAccountAvatar);
                         e.target.src = '/default-avatar.png';
                       }}
+                      crossOrigin="anonymous"
                     />
                   ) : (
                     <div className="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-bold">

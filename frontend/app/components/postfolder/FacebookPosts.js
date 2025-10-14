@@ -190,6 +190,11 @@ export default function FacebookPosts({ posts, pageInfo, loading, error, searchQ
                       src={postPageAvatar}
                       alt={postPageName}
                       className="w-10 h-10 rounded-full border-2 border-gray-100"
+                      onError={(e) => {
+                        console.log('Facebook profile picture failed to load:', postPageAvatar);
+                        e.target.src = '/default-avatar.png';
+                      }}
+                      crossOrigin="anonymous"
                     />
                     <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center">
                       <FaFacebook className="text-white text-xs" />
@@ -258,9 +263,11 @@ export default function FacebookPosts({ posts, pageInfo, loading, error, searchQ
                     className="w-full h-full object-cover"
                     onLoad={() => detectImageAspect(post.id, image)}
                     onError={(e) => {
+                      console.log('Facebook image failed to load:', image);
                       e.target.style.display = 'none';
                       e.target.nextSibling.style.display = 'flex';
                     }}
+                    crossOrigin="anonymous"
                   />
                   <div className="absolute inset-0 bg-gray-100 flex items-center justify-center text-gray-500 hidden">
                     <span>📷 Image</span>
