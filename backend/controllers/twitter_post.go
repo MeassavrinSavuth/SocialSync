@@ -8,6 +8,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -410,17 +411,233 @@ func uploadMediaToTwitter(accessToken, accessTokenSecret, mediaUrl string) (stri
 
 func GetTwitterPostsHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		_, err := middleware.GetUserIDFromContext(r)
+		fmt.Printf("DEBUG: Twitter posts handler called - URL: %s, Method: %s\n", r.URL.String(), r.Method)
+
+		userID, err := middleware.GetUserIDFromContext(r)
 		if err != nil {
+			fmt.Printf("DEBUG: Twitter posts - user not authenticated: %v\n", err)
 			http.Error(w, "user not authenticated", http.StatusUnauthorized)
 			return
 		}
+		fmt.Printf("DEBUG: Twitter posts - user ID: %s\n", userID)
 
-		// Mock implementation - return empty posts for now
-		// TODO: Implement real Twitter posts fetching
+		// Get account IDs from query parameters
+		accountIDs := r.URL.Query()["accountId"]
+		fmt.Printf("DEBUG: Twitter posts - account IDs: %v\n", accountIDs)
+		if len(accountIDs) == 0 {
+			fmt.Printf("DEBUG: Twitter posts - no accountId parameter provided\n")
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"error":   "accountId parameter is required",
+				"message": "Please select an account to fetch posts from",
+			})
+			return
+		}
+
+		// Validate that accountIDs are not empty strings
+		validAccountIDs := []string{}
+		for _, id := range accountIDs {
+			if id != "" {
+				validAccountIDs = append(validAccountIDs, id)
+			}
+		}
+		if len(validAccountIDs) == 0 {
+			fmt.Printf("DEBUG: Twitter posts - no valid accountId provided\n")
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"error":   "valid accountId parameter is required",
+				"message": "Please select a valid account to fetch posts from",
+			})
+			return
+		}
+		accountIDs = validAccountIDs
+
+		// Get Twitter accounts
+		query := `SELECT id::text, access_token, COALESCE(access_token_secret, '') as access_token_secret, 
+			COALESCE(display_name, profile_name) as display_name, COALESCE(avatar, profile_picture_url) as avatar,
+			COALESCE(username, profile_name) as username
+			FROM social_accounts 
+			WHERE user_id=$1 AND (platform='twitter' OR provider='twitter') AND id = ANY($2::uuid[])`
+		
+		rows, err := db.Query(query, userID, pq.Array(accountIDs))
+		if err != nil {
+			fmt.Printf("DEBUG: Twitter posts - database query error: %v\n", err)
+			http.Error(w, "Failed to get Twitter accounts", http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+
+		var allPosts []map[string]interface{}
+		var hasError bool
+
+		for rows.Next() {
+			var id, accessToken, accessTokenSecret, displayName, avatar, username string
+			if err := rows.Scan(&id, &accessToken, &accessTokenSecret, &displayName, &avatar, &username); err != nil {
+				fmt.Printf("DEBUG: Twitter posts - scan error: %v\n", err)
+				hasError = true
+				continue
+			}
+
+			fmt.Printf("DEBUG: Twitter posts - processing account: %s (%s)\n", id, displayName)
+
+			// Check if we have valid Twitter API credentials
+			if accessToken == "" || len(accessToken) < 10 {
+				fmt.Printf("DEBUG: No valid Twitter API credentials for account %s\n", id)
+				continue
+			}
+
+			// Check if access token looks like a real Twitter API token
+			if len(accessToken) < 50 || !containsValidTwitterTokenFormat(accessToken) {
+				fmt.Printf("DEBUG: Twitter API token format invalid for account %s\n", id)
+				continue
+			}
+
+			// Fetch tweets from Twitter API v2
+			tweets, err := fetchTwitterPosts(accessToken, accessTokenSecret)
+			if err != nil {
+				fmt.Printf("DEBUG: Twitter posts - API error for account %s: %v\n", id, err)
+				hasError = true
+				continue
+			}
+
+			// Add account metadata to each tweet
+			for _, tweet := range tweets {
+				tweet["_accountId"] = id
+				tweet["_accountName"] = displayName
+				tweet["_accountAvatar"] = avatar
+				tweet["_accountUsername"] = username
+				allPosts = append(allPosts, tweet)
+			}
+
+			fmt.Printf("DEBUG: Twitter posts - fetched %d tweets for account %s\n", len(tweets), id)
+		}
+
+		if err := rows.Err(); err != nil {
+			fmt.Printf("DEBUG: Twitter posts - rows error: %v\n", err)
+			http.Error(w, "Database error", http.StatusInternalServerError)
+			return
+		}
+
+		// Sort posts by creation date (newest first)
+		sort.Slice(allPosts, func(i, j int) bool {
+			timeA := getTwitterPostTime(allPosts[i])
+			timeB := getTwitterPostTime(allPosts[j])
+			return timeB.Before(timeA)
+		})
+
+		fmt.Printf("DEBUG: Twitter posts - returning %d total posts\n", len(allPosts))
+
 		w.Header().Set("Content-Type", "application/json")
+		if hasError && len(allPosts) == 0 {
+			w.WriteHeader(http.StatusPartialContent)
+		}
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"posts": []interface{}{},
+			"data": allPosts,
 		})
 	}
+}
+
+// fetchTwitterPosts fetches tweets from Twitter API v2
+func fetchTwitterPosts(accessToken, accessTokenSecret string) ([]map[string]interface{}, error) {
+	// Get user ID first
+	userID, err := getTwitterUserID(accessToken, accessTokenSecret)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user ID: %v", err)
+	}
+
+	// Fetch user's tweets
+	url := fmt.Sprintf("https://api.twitter.com/2/users/%s/tweets?max_results=20&tweet.fields=created_at,public_metrics,attachments&expansions=attachments.media_keys&media.fields=url,type", userID)
+	
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %v", err)
+	}
+
+	// Add OAuth 1.0a authentication
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", accessToken))
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("Twitter API error %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %v", err)
+	}
+
+	// Extract tweets from response
+	tweets, ok := result["data"].([]interface{})
+	if !ok {
+		return []map[string]interface{}{}, nil
+	}
+
+	var tweetList []map[string]interface{}
+	for _, tweet := range tweets {
+		if tweetMap, ok := tweet.(map[string]interface{}); ok {
+			tweetList = append(tweetList, tweetMap)
+		}
+	}
+
+	return tweetList, nil
+}
+
+// getTwitterUserID gets the user ID from Twitter API
+func getTwitterUserID(accessToken, accessTokenSecret string) (string, error) {
+	url := "https://api.twitter.com/2/users/me"
+	
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %v", err)
+	}
+
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", accessToken))
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to make request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("Twitter API error %d: %s", resp.StatusCode, string(body))
+	}
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("failed to decode response: %v", err)
+	}
+
+	data, ok := result["data"].(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("invalid response format")
+	}
+
+	userID, ok := data["id"].(string)
+	if !ok {
+		return "", fmt.Errorf("user ID not found in response")
+	}
+
+	return userID, nil
+}
+
+// getTwitterPostTime extracts the creation time from a Twitter post
+func getTwitterPostTime(post map[string]interface{}) time.Time {
+	if createdAt, ok := post["created_at"].(string); ok {
+		if t, err := time.Parse(time.RFC3339, createdAt); err == nil {
+			return t
+		}
+	}
+	return time.Now()
 }
