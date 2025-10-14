@@ -460,7 +460,7 @@ func GetTwitterPostsHandler(db *sql.DB) http.HandlerFunc {
 			COALESCE(username, profile_name) as username
 			FROM social_accounts 
 			WHERE user_id=$1 AND (platform='twitter' OR provider='twitter') AND id = ANY($2::uuid[])`
-		
+
 		rows, err := db.Query(query, userID, pq.Array(accountIDs))
 		if err != nil {
 			fmt.Printf("DEBUG: Twitter posts - database query error: %v\n", err)
@@ -549,7 +549,7 @@ func fetchTwitterPosts(accessToken, accessTokenSecret string) ([]map[string]inte
 
 	// Fetch user's tweets
 	url := fmt.Sprintf("https://api.twitter.com/2/users/%s/tweets?max_results=20&tweet.fields=created_at,public_metrics,attachments&expansions=attachments.media_keys&media.fields=url,type", userID)
-	
+
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %v", err)
@@ -594,7 +594,7 @@ func fetchTwitterPosts(accessToken, accessTokenSecret string) ([]map[string]inte
 // getTwitterUserID gets the user ID from Twitter API
 func getTwitterUserID(accessToken, accessTokenSecret string) (string, error) {
 	url := "https://api.twitter.com/2/users/me"
-	
+
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %v", err)
