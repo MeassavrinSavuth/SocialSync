@@ -418,8 +418,8 @@ func GetTwitterPostsHandler(db *sql.DB) http.HandlerFunc {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
 				json.NewEncoder(w).Encode(map[string]interface{}{
-					"data": []map[string]interface{}{},
-					"error": "An unexpected error occurred while fetching Twitter posts.",
+					"data":    []map[string]interface{}{},
+					"error":   "An unexpected error occurred while fetching Twitter posts.",
 					"message": "Please try again later.",
 				})
 			}
@@ -512,22 +512,11 @@ func GetTwitterPostsHandler(db *sql.DB) http.HandlerFunc {
 			tweets, err := fetchTwitterPosts(accessToken)
 			if err != nil {
 				fmt.Printf("DEBUG: Twitter posts - API error for account %s: %v\n", id, err)
-				// Instead of failing completely, return some basic data for this account
-				// This allows the user to see that the account exists but API is not working
-				fmt.Printf("DEBUG: Twitter posts - using fallback data for account %s due to API error\n", id)
-				
-				// Create a fallback tweet to show the account exists
-				fallbackTweet := map[string]interface{}{
-					"id":         "fallback_" + id,
-					"text":       fmt.Sprintf("Unable to fetch tweets from @%s. Twitter API may be experiencing issues.", username),
-					"created_at": time.Now().Format(time.RFC3339),
-					"public_metrics": map[string]interface{}{
-						"like_count":    0,
-						"retweet_count": 0,
-						"reply_count":   0,
-					},
-				}
-				tweets = []map[string]interface{}{fallbackTweet}
+				// Skip this account and continue with others
+				// This ensures we only show real data or proper error messages
+				fmt.Printf("DEBUG: Twitter posts - skipping account %s due to API error\n", id)
+				hasError = true
+				continue
 			}
 
 			// Add account metadata to each tweet
@@ -570,7 +559,7 @@ func GetTwitterPostsHandler(db *sql.DB) http.HandlerFunc {
 			})
 			return
 		}
-		
+
 		// If no posts were found at all, return empty array
 		if len(allPosts) == 0 {
 			fmt.Printf("DEBUG: Twitter posts - no posts found for any account\n")
@@ -589,16 +578,21 @@ func GetTwitterPostsHandler(db *sql.DB) http.HandlerFunc {
 // fetchTwitterPosts fetches tweets from Twitter API v2 using OAuth 2.0
 func fetchTwitterPosts(accessToken string) ([]map[string]interface{}, error) {
 	fmt.Printf("DEBUG: Twitter posts - fetching real tweets from Twitter API v2\n")
+	fmt.Printf("DEBUG: Twitter posts - access token length: %d\n", len(accessToken))
 
 	// Get user ID first
 	userID, err := getTwitterUserID(accessToken)
 	if err != nil {
+		fmt.Printf("DEBUG: Twitter posts - failed to get user ID: %v\n", err)
 		return nil, fmt.Errorf("failed to get user ID: %v", err)
 	}
 	fmt.Printf("DEBUG: Twitter posts - user ID: %s\n", userID)
 
-	// Fetch user's tweets using OAuth 2.0 Bearer token
+	// Try different Twitter API endpoints to fetch tweets
+	// First try the user's own tweets endpoint
 	url := fmt.Sprintf("https://api.twitter.com/2/users/%s/tweets?max_results=20&tweet.fields=created_at,public_metrics,attachments&expansions=attachments.media_keys&media.fields=url,type,preview_image_url", userID)
+	
+	fmt.Printf("DEBUG: Twitter posts - API URL: %s\n", url)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -608,10 +602,14 @@ func fetchTwitterPosts(accessToken string) ([]map[string]interface{}, error) {
 	// Add OAuth 2.0 Bearer token authentication
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", accessToken))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "SocialSync/1.0")
+
+	fmt.Printf("DEBUG: Twitter posts - making request to Twitter API\n")
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
+		fmt.Printf("DEBUG: Twitter posts - request failed: %v\n", err)
 		return nil, fmt.Errorf("failed to make request: %v", err)
 	}
 	defer resp.Body.Close()
@@ -638,13 +636,16 @@ func fetchTwitterPosts(accessToken string) ([]map[string]interface{}, error) {
 
 	var result map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		fmt.Printf("DEBUG: Twitter posts - failed to decode response: %v\n", err)
 		return nil, fmt.Errorf("failed to decode response: %v", err)
 	}
+
+	fmt.Printf("DEBUG: Twitter posts - API response: %+v\n", result)
 
 	// Extract tweets from response
 	tweets, ok := result["data"].([]interface{})
 	if !ok {
-		fmt.Printf("DEBUG: No tweets found in response\n")
+		fmt.Printf("DEBUG: No tweets found in response, result structure: %+v\n", result)
 		return []map[string]interface{}{}, nil
 	}
 
@@ -655,14 +656,17 @@ func fetchTwitterPosts(accessToken string) ([]map[string]interface{}, error) {
 		}
 	}
 
-	fmt.Printf("DEBUG: Successfully fetched %d tweets from Twitter API\n", len(tweetList))
+	fmt.Printf("DEBUG: Successfully fetched %d real tweets from Twitter API\n", len(tweetList))
 	return tweetList, nil
 }
 
 // getTwitterUserID gets the user ID from Twitter API using OAuth 2.0
 func getTwitterUserID(accessToken string) (string, error) {
 	url := "https://api.twitter.com/2/users/me?user.fields=id,name,username,profile_image_url"
-
+	
+	fmt.Printf("DEBUG: Twitter user ID - API URL: %s\n", url)
+	fmt.Printf("DEBUG: Twitter user ID - access token length: %d\n", len(accessToken))
+	
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %v", err)
@@ -671,18 +675,24 @@ func getTwitterUserID(accessToken string) (string, error) {
 	// Add OAuth 2.0 Bearer token authentication
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", accessToken))
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "SocialSync/1.0")
+
+	fmt.Printf("DEBUG: Twitter user ID - making request to Twitter API\n")
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
+		fmt.Printf("DEBUG: Twitter user ID - request failed: %v\n", err)
 		return "", fmt.Errorf("failed to make request: %v", err)
 	}
 	defer resp.Body.Close()
 
+	fmt.Printf("DEBUG: Twitter user ID - API response status: %d\n", resp.StatusCode)
+
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		fmt.Printf("DEBUG: Twitter user ID API error %d: %s\n", resp.StatusCode, string(body))
-
+		
 		// Handle specific Twitter API errors
 		if resp.StatusCode == 401 {
 			return "", fmt.Errorf("Twitter API authentication failed - token may be invalid or expired")
@@ -691,25 +701,31 @@ func getTwitterUserID(accessToken string) (string, error) {
 		} else if resp.StatusCode == 429 {
 			return "", fmt.Errorf("Twitter API rate limited - too many requests")
 		}
-
+		
 		return "", fmt.Errorf("Twitter API error %d: %s", resp.StatusCode, string(body))
 	}
 
 	var result map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		fmt.Printf("DEBUG: Twitter user ID - failed to decode response: %v\n", err)
 		return "", fmt.Errorf("failed to decode response: %v", err)
 	}
 
+	fmt.Printf("DEBUG: Twitter user ID - API response: %+v\n", result)
+
 	data, ok := result["data"].(map[string]interface{})
 	if !ok {
+		fmt.Printf("DEBUG: Twitter user ID - invalid response format: %+v\n", result)
 		return "", fmt.Errorf("invalid response format")
 	}
 
 	userID, ok := data["id"].(string)
 	if !ok {
+		fmt.Printf("DEBUG: Twitter user ID - user ID not found in response: %+v\n", data)
 		return "", fmt.Errorf("user ID not found in response")
 	}
 
+	fmt.Printf("DEBUG: Twitter user ID - successfully got user ID: %s\n", userID)
 	return userID, nil
 }
 
