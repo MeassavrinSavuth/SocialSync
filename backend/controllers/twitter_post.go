@@ -540,25 +540,14 @@ func GetTwitterPostsHandler(db *sql.DB) http.HandlerFunc {
 
 		w.Header().Set("Content-Type", "application/json")
 
-		// If we have errors but no posts, return a specific message about rate limiting
+		// If we have errors but no posts, return a helpful message
 		if hasError && len(allPosts) == 0 {
 			fmt.Printf("DEBUG: Twitter posts - returning error response due to API failures\n")
 			w.WriteHeader(http.StatusOK) // Return 200 with error message instead of 500
 			json.NewEncoder(w).Encode(map[string]interface{}{
 				"data":    []map[string]interface{}{},
-				"error":   "Twitter API Rate Limit Reached",
-				"message": "Twitter's free API has strict rate limits (50 requests per 24 hours). Please wait a few hours and try again, or consider upgrading to Twitter API Pro for higher limits.",
-				"code":    "TWITTER_RATE_LIMIT",
-			})
-			return
-		}
-		
-		// If we have some posts but also had errors (e.g., rate limit on some accounts)
-		if hasError && len(allPosts) > 0 {
-			fmt.Printf("DEBUG: Twitter posts - returning partial results with warning\n")
-			json.NewEncoder(w).Encode(map[string]interface{}{
-				"data":    allPosts,
-				"warning": "Some accounts hit Twitter's rate limit. Showing available tweets only.",
+				"error":   "Unable to fetch tweets from Twitter API. This may be due to authentication issues or API access restrictions.",
+				"message": "Please check your Twitter account connection and try again.",
 			})
 			return
 		}

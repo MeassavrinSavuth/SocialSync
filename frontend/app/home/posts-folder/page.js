@@ -321,110 +321,56 @@ export default function PostsFolderPage() {
       let hasError = false;
       let successfulAccounts = 0;
 
-      // Fetch posts from each selected account
-      for (const account of validAccounts) {
-        try {
-          const apiUrl = `/${platform}/posts?accountId=${account.id}`;
-          console.log(`Fetching posts for account ${account.id} from ${apiUrl}`);
-          let payload;
-          try {
-            payload = await protectedFetch(apiUrl);
-          } catch (fetchError) {
-            console.error(`Error fetching posts for account ${account.id}:`, fetchError);
-            
-            // Handle specific error cases
-            if (fetchError.message && fetchError.message.includes('401')) {
-              console.log(`Account ${account.id} has expired token, skipping`);
-              hasError = true;
-              continue;
-            } else if (fetchError.message && fetchError.message.includes('400')) {
-              console.log(`Account ${account.id} has connection issue, skipping`);
-              hasError = true;
-              continue;
-            } else if (fetchError.message && fetchError.message.includes('500')) {
-              console.log(`Account ${account.id} failed with server error:`, fetchError.message);
-              hasError = true;
-              continue;
-            } else {
-              console.log(`Account ${account.id} failed with error:`, fetchError.message);
-              hasError = true;
-              continue;
+      // OPTIMIZATION: Send all account IDs in one request instead of looping
+      // Backend supports: ?accountId=id1&accountId=id2
+      // This reduces API calls by 50%+ (one backend request instead of N)
+      const accountIdParams = validAccounts.map(acc => `accountId=${acc.id}`).join('&');
+      const apiUrl = `/${platform}/posts?${accountIdParams}`;
+      console.log(`Fetching posts for ${validAccounts.length} accounts in ONE request: ${apiUrl}`);
+      
+      try {
+        const payload = await protectedFetch(apiUrl);
+        
+        if (payload && !payload.needsReconnect) {
+          // Backend already returns posts with _accountId, _accountName, etc.
+          // Extract posts based on platform-specific structure
+          let postsData = [];
+          if (platform === 'facebook') {
+            postsData = payload.data || [];
+            if (payload.pageInfo) {
+              allPageInfo.push(payload.pageInfo);
             }
+          } else if (platform === 'twitter') {
+            postsData = payload.data || payload || [];
+          } else if (platform === 'telegram') {
+            postsData = payload.data || payload || [];
+          } else if (platform === 'youtube') {
+            postsData = payload.items || [];
+          } else if (platform === 'mastodon') {
+            postsData = payload.posts || payload.data || payload || [];
+          } else if (platform === 'instagram') {
+            postsData = payload.data || [];
           }
           
-          if (payload && !payload.needsReconnect) {
-            // Add account info to each post for identification
-            console.log('Account data for', account.id, ':', {
-              displayName: account.displayName,
-              profileName: account.profileName,
-              externalId: account.externalId,
-              provider: account.provider,
-              platform: account.platform,
-              avatar: account.avatar,
-              fullAccount: account
-            });
-            
-            // Handle different API response structures for each platform
-            let postsData = [];
-            if (platform === 'facebook') {
-              postsData = payload.data || [];
-            } else if (platform === 'twitter') {
-              postsData = payload.data || payload || [];
-            } else if (platform === 'telegram') {
-              postsData = payload.data || payload || [];
-            } else if (platform === 'youtube') {
-              postsData = payload.items || [];
-            } else if (platform === 'mastodon') {
-              postsData = payload.posts || payload.data || payload || [];
-            } else if (platform === 'instagram') {
-              postsData = payload.data || [];
-            }
-            
-            const postsWithAccount = (Array.isArray(postsData) ? postsData : []).map(post => ({
-              ...post,
-              _accountId: account.id,
-              _accountName: account.displayName || account.profileName || account.externalId,
-              _accountAvatar: account.avatar,
-              _accountUsername: account.username || account.profileName
-            }));
-            
-            console.log(`Posts for account ${account.id} (${account.displayName || account.profileName || account.externalId}):`, postsWithAccount.length, 'posts');
-            if (postsWithAccount.length > 0) {
-              console.log('First post account metadata:', {
-                _accountId: postsWithAccount[0]._accountId,
-                _accountName: postsWithAccount[0]._accountName,
-                _accountAvatar: postsWithAccount[0]._accountAvatar
-              });
-            }
-            
-            allPosts.push(...postsWithAccount);
-            successfulAccounts++;
-            
-            // Handle page info for Facebook
-            if (platform === 'facebook' && payload.pageInfo) {
-              allPageInfo.push({
-                ...payload.pageInfo,
-                _accountId: account.id,
-                _accountName: account.displayName || account.profileName || account.externalId
-              });
-            }
-          } else if (payload && payload.needsReconnect) {
-            console.warn(`Account ${account.id} needs reconnection`);
-            hasError = true;
-          }
-        } catch (err) {
-          console.error(`Error fetching posts for account ${account.id}:`, err);
+          allPosts.push(...(Array.isArray(postsData) ? postsData : []));
+          successfulAccounts = validAccounts.length;
+          console.log(`Successfully fetched ${allPosts.length} posts from ${successfulAccounts} accounts`);
+        } else if (payload && payload.needsReconnect) {
+          console.warn(`Some accounts need reconnection`);
           hasError = true;
-          
-          // If this is a 500 error, try fallback to single account method
-          if (err.message && err.message.includes('500')) {
-            console.log('500 error detected, falling back to single account method');
-            try {
-              await fetchPlatformPosts(platform, account);
-              return;
-            } catch (fallbackErr) {
-              console.error('Fallback also failed:', fallbackErr);
-            }
+        }
+      } catch (err) {
+        console.error(`Error fetching posts:`, err);
+        hasError = true;
+        
+        // Fallback: try original method without accountId
+        if (err.message && err.message.includes('500')) {
+          console.log('500 error detected, falling back to original method');
+          try {
+            await fetchPlatformPosts(platform, null);
+            return;
+          } catch (fallbackErr) {
+            console.error('Fallback also failed:', fallbackErr);
           }
         }
       }
