@@ -409,14 +409,14 @@ export default function DashboardPage() {
           />
         </div>
 
-        {/* Draft Card - Full Width */}
+        {/* Workspace Card - Full Width */}
         <div className="w-full">
           <ActionCard
-            title="Draft Your Idea"
-            description="Capture creative ideas and draft your next post strategy."
-            buttonText="Draft Now"
+            title="Workspace"
+            description="Collaborate with your team, manage projects, and organize your content workflow."
+            buttonText="Open Workspace"
             color="from-indigo-400 to-indigo-700"
-            onClick={() => router.push('/home/posts-folder')}
+            onClick={() => router.push('/home/workspace')}
           />
         </div>
       </div>
