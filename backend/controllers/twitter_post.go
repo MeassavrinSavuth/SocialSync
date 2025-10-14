@@ -463,7 +463,7 @@ func GetTwitterPostsHandler(db *sql.DB) http.HandlerFunc {
 	// Get Twitter accounts
 	query := `SELECT id::text, access_token, 
 		COALESCE(display_name, profile_name) as display_name, COALESCE(avatar, profile_picture_url) as avatar,
-		COALESCE(username, profile_name) as username
+		profile_name
 		FROM social_accounts 
 		WHERE user_id=$1 AND (platform='twitter' OR provider='twitter') AND id = ANY($2::uuid[])`
 
