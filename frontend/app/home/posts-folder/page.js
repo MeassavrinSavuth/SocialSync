@@ -196,21 +196,12 @@ export default function PostsFolderPage() {
         // Check if the response contains an error message
         if (payload.error) {
           console.log('Twitter API error:', payload.error, payload.message);
-          
-          // Check if it's a rate limit error (don't ask for reconnection)
-          const isRateLimit = payload.code === 'TWITTER_RATE_LIMIT' || 
-                              payload.error?.includes('rate limit') || 
-                              payload.error?.includes('Rate Limit');
-          
           setConnectionStatus((prev) => ({
             ...prev,
             [platform]: {
-              isConnected: !isRateLimit, // Still connected if just rate limited
-              error: { 
-                message: payload.message || payload.error,
-                isRateLimit: isRateLimit 
-              },
-              needsReconnect: !isRateLimit, // Only reconnect if not rate limit
+              isConnected: false,
+              error: { message: payload.message || payload.error },
+              needsReconnect: true,
             },
           }));
           setTwitterPosts([]);
