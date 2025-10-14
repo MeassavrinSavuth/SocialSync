@@ -411,6 +411,20 @@ func uploadMediaToTwitter(accessToken, accessTokenSecret, mediaUrl string) (stri
 
 func GetTwitterPostsHandler(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Add panic recovery to prevent 500 errors
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Printf("DEBUG: Twitter posts - panic recovered: %v\n", r)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"data": []map[string]interface{}{},
+					"error": "An unexpected error occurred while fetching Twitter posts.",
+					"message": "Please try again later.",
+				})
+			}
+		}()
+
 		fmt.Printf("DEBUG: Twitter posts handler called - URL: %s, Method: %s\n", r.URL.String(), r.Method)
 
 		userID, err := middleware.GetUserIDFromContext(r)
@@ -498,10 +512,22 @@ func GetTwitterPostsHandler(db *sql.DB) http.HandlerFunc {
 			tweets, err := fetchTwitterPosts(accessToken)
 			if err != nil {
 				fmt.Printf("DEBUG: Twitter posts - API error for account %s: %v\n", id, err)
-				// Instead of failing completely, return empty posts for this account
-				// This allows other accounts to still work
-				fmt.Printf("DEBUG: Twitter posts - skipping account %s due to API error\n", id)
-				continue
+				// Instead of failing completely, return some basic data for this account
+				// This allows the user to see that the account exists but API is not working
+				fmt.Printf("DEBUG: Twitter posts - using fallback data for account %s due to API error\n", id)
+				
+				// Create a fallback tweet to show the account exists
+				fallbackTweet := map[string]interface{}{
+					"id":         "fallback_" + id,
+					"text":       fmt.Sprintf("Unable to fetch tweets from @%s. Twitter API may be experiencing issues.", username),
+					"created_at": time.Now().Format(time.RFC3339),
+					"public_metrics": map[string]interface{}{
+						"like_count":    0,
+						"retweet_count": 0,
+						"reply_count":   0,
+					},
+				}
+				tweets = []map[string]interface{}{fallbackTweet}
 			}
 
 			// Add account metadata to each tweet
@@ -535,11 +561,21 @@ func GetTwitterPostsHandler(db *sql.DB) http.HandlerFunc {
 
 		// If we have errors but no posts, return a helpful message
 		if hasError && len(allPosts) == 0 {
+			fmt.Printf("DEBUG: Twitter posts - returning error response due to API failures\n")
 			w.WriteHeader(http.StatusOK) // Return 200 with error message instead of 500
 			json.NewEncoder(w).Encode(map[string]interface{}{
 				"data":    []map[string]interface{}{},
 				"error":   "Unable to fetch tweets from Twitter API. This may be due to authentication issues or API access restrictions.",
 				"message": "Please check your Twitter account connection and try again.",
+			})
+			return
+		}
+		
+		// If no posts were found at all, return empty array
+		if len(allPosts) == 0 {
+			fmt.Printf("DEBUG: Twitter posts - no posts found for any account\n")
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"data": []map[string]interface{}{},
 			})
 			return
 		}
