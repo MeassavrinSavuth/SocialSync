@@ -193,6 +193,21 @@ export default function PostsFolderPage() {
         setFacebookPosts(postsWithAccount);
         setFacebookPageInfo(payload.pageInfo || null);
       } else if (platform === 'twitter') {
+        // Check if the response contains an error message
+        if (payload.error) {
+          console.log('Twitter API error:', payload.error, payload.message);
+          setConnectionStatus((prev) => ({
+            ...prev,
+            [platform]: {
+              isConnected: false,
+              error: { message: payload.message || payload.error },
+              needsReconnect: true,
+            },
+          }));
+          setTwitterPosts([]);
+          return;
+        }
+        
         // Add account metadata for single account case
         // Twitter API returns data in different structures, handle both cases
         console.log('Twitter payload structure:', typeof payload, Array.isArray(payload), payload);
