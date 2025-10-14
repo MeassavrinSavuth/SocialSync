@@ -1,11 +1,10 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { FaFacebook, FaInstagram, FaYoutube, FaTwitter, FaTelegram } from 'react-icons/fa';
+import { FaFacebook, FaInstagram, FaYoutube, FaTwitter } from 'react-icons/fa';
 import { SiMastodon } from 'react-icons/si';
 import { useProtectedFetch } from '../../hooks/auth/useProtectedFetch';
 import MastodonPosts from '../../components/postfolder/MastodonPosts';
 import TwitterPosts from '../../components/postfolder/TwitterPosts';
-import TelegramPosts from '../../components/postfolder/TelegramPosts';
 import YouTubePosts from '../../components/postfolder/YouTubePosts';
 import FacebookPosts from '../../components/postfolder/FacebookPosts';
 import InstagramPosts from '../../components/postfolder/InstagramPosts';
@@ -29,8 +28,6 @@ export default function PostsFolderPage() {
   const [selectedAccounts, setSelectedAccounts] = useState([]); // Multi-account selection
   const [mastodonPosts, setMastodonPosts] = useState([]);
   const [twitterPosts, setTwitterPosts] = useState([]);
-  const [telegramPosts, setTelegramPosts] = useState([]);
-  const [telegramChannelInfo, setTelegramChannelInfo] = useState(null);
   const [youtubePosts, setYouTubePosts] = useState([]);
   const [facebookPosts, setFacebookPosts] = useState([]);
   const [facebookPageInfo, setFacebookPageInfo] = useState(null);
@@ -208,20 +205,6 @@ export default function PostsFolderPage() {
           _accountAvatar: account?.avatar
         }));
         setTwitterPosts(postsWithAccount);
-      } else if (platform === 'telegram') {
-        // Add account metadata for single account case
-        console.log('Telegram payload structure:', typeof payload, Array.isArray(payload), payload);
-        const telegramData = payload.data || payload || [];
-        console.log('Telegram data after extraction:', typeof telegramData, Array.isArray(telegramData), telegramData);
-        const postsWithAccount = (Array.isArray(telegramData) ? telegramData : []).map(post => ({
-          ...post,
-          _accountId: account?.id,
-          _accountName: account?.displayName || account?.profileName || account?.externalId || 'Telegram Channel',
-          _accountAvatar: account?.avatar,
-          _accountUsername: account?.username || account?.profileName
-        }));
-        setTelegramPosts(postsWithAccount);
-        setTelegramChannelInfo(payload.channelInfo || null);
       } else if (platform === 'youtube') {
         // Add account metadata for single account case
         const postsArray = Array.isArray(payload) ? payload : (payload?.items || []);
@@ -378,7 +361,7 @@ export default function PostsFolderPage() {
               _accountId: account.id,
               _accountName: account.displayName || account.profileName || account.externalId,
               _accountAvatar: account.avatar,
-              _accountUsername: account.username || account.profileName // For Telegram
+              _accountUsername: account.username || account.profileName
             }));
             
             console.log(`Posts for account ${account.id} (${account.displayName || account.profileName || account.externalId}):`, postsWithAccount.length, 'posts');
@@ -482,8 +465,6 @@ export default function PostsFolderPage() {
           timestamp = post.created_at;
         } else if (platform === 'twitter') {
           timestamp = post.created_at;
-        } else if (platform === 'telegram') {
-          timestamp = post.date;
         } else {
           timestamp = post.created_at || post.created_time || post.timestamp || post.publishedAt;
         }
@@ -497,8 +478,6 @@ export default function PostsFolderPage() {
         setFacebookPageInfo(allPageInfo);
       } else if (platform === 'twitter') {
         setTwitterPosts(allPosts);
-      } else if (platform === 'telegram') {
-        setTelegramPosts(allPosts);
       } else if (platform === 'youtube') {
         setYouTubePosts(allPosts);
       } else if (platform === 'mastodon') {
@@ -538,8 +517,6 @@ export default function PostsFolderPage() {
       // Clear all posts when platform changes
       setMastodonPosts([]);
       setTwitterPosts([]);
-      setTelegramPosts([]);
-      setTelegramChannelInfo(null);
       setYouTubePosts([]);
       setFacebookPosts([]);
       setFacebookPageInfo(null);
@@ -583,10 +560,6 @@ export default function PostsFolderPage() {
   const filteredTwitterPosts = (twitterPosts || []).filter(
     (tweet) =>
       tweet.text && tweet.text.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  const filteredTelegramPosts = (telegramPosts || []).filter(
-    (post) =>
-      (post.text || post.message) && (post.text || post.message).toLowerCase().includes(searchQuery.toLowerCase())
   );
   const filteredYouTubePosts = (youtubePosts || []).filter((video) => {
     const snippet = video.snippet || {};
@@ -659,18 +632,6 @@ export default function PostsFolderPage() {
             selectedAccounts={selectedAccounts}
           />
         );
-      case 'telegram':
-        return (
-          <TelegramPosts
-            posts={filteredTelegramPosts}
-            channelInfo={telegramChannelInfo}
-            loading={loading}
-            error={error}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            selectedAccounts={selectedAccounts}
-          />
-        );
       case 'youtube':
         return (
           <YouTubePosts
@@ -721,8 +682,6 @@ export default function PostsFolderPage() {
         return FaTwitter;
       case 'mastodon':
         return SiMastodon;
-      case 'telegram':
-        return FaTelegram;
       default:
         return null;
     }
@@ -740,8 +699,6 @@ export default function PostsFolderPage() {
         return 'Twitter (X)';
       case 'mastodon':
         return 'Mastodon';
-      case 'telegram':
-        return 'Telegram';
       default:
         return platform;
     }
@@ -788,12 +745,6 @@ export default function PostsFolderPage() {
             label="Twitter"
             color="text-sky-500"
             onClick={() => handlePlatformClick('twitter')}
-          />
-          <AppIconCard
-            icon={<FaTelegram />}
-            label="Telegram"
-            color="text-blue-500"
-            onClick={() => handlePlatformClick('telegram')}
           />
         </div>
       </div>
