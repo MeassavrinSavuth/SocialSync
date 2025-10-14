@@ -591,7 +591,7 @@ func fetchTwitterPosts(accessToken string) ([]map[string]interface{}, error) {
 	// Try different Twitter API endpoints to fetch tweets
 	// First try the user's own tweets endpoint
 	url := fmt.Sprintf("https://api.twitter.com/2/users/%s/tweets?max_results=20&tweet.fields=created_at,public_metrics,attachments&expansions=attachments.media_keys&media.fields=url,type,preview_image_url", userID)
-	
+
 	fmt.Printf("DEBUG: Twitter posts - API URL: %s\n", url)
 
 	req, err := http.NewRequest("GET", url, nil)
@@ -663,10 +663,10 @@ func fetchTwitterPosts(accessToken string) ([]map[string]interface{}, error) {
 // getTwitterUserID gets the user ID from Twitter API using OAuth 2.0
 func getTwitterUserID(accessToken string) (string, error) {
 	url := "https://api.twitter.com/2/users/me?user.fields=id,name,username,profile_image_url"
-	
+
 	fmt.Printf("DEBUG: Twitter user ID - API URL: %s\n", url)
 	fmt.Printf("DEBUG: Twitter user ID - access token length: %d\n", len(accessToken))
-	
+
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %v", err)
@@ -692,7 +692,7 @@ func getTwitterUserID(accessToken string) (string, error) {
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		fmt.Printf("DEBUG: Twitter user ID API error %d: %s\n", resp.StatusCode, string(body))
-		
+
 		// Handle specific Twitter API errors
 		if resp.StatusCode == 401 {
 			return "", fmt.Errorf("Twitter API authentication failed - token may be invalid or expired")
@@ -701,7 +701,7 @@ func getTwitterUserID(accessToken string) (string, error) {
 		} else if resp.StatusCode == 429 {
 			return "", fmt.Errorf("Twitter API rate limited - too many requests")
 		}
-		
+
 		return "", fmt.Errorf("Twitter API error %d: %s", resp.StatusCode, string(body))
 	}
 
