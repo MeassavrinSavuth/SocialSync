@@ -55,6 +55,36 @@ export default function ConnectionStatus({
     );
   }
 
+  // Check if it's a rate limit error
+  if (error?.isRateLimit) {
+    return (
+      <div className="bg-orange-50 border border-orange-200 rounded-2xl p-6 mb-6">
+        <div className="flex items-start">
+          <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mr-4 flex-shrink-0">
+            <FaExclamationTriangle className="text-orange-500 text-xl" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-orange-800 font-semibold text-lg mb-2">
+              Rate Limit Reached
+            </h3>
+            <p className="text-orange-700 mb-4">
+              {error.message || `${platformName} API rate limit has been reached.`}
+            </p>
+            <div className="bg-orange-100 rounded-lg p-4">
+              <p className="text-orange-800 font-medium text-sm mb-2">What you can do:</p>
+              <ul className="text-orange-700 text-sm space-y-1">
+                <li>• Wait 15-30 minutes before trying again</li>
+                <li>• Twitter's free API allows 50 requests per 24 hours</li>
+                <li>• Consider upgrading to Twitter API Pro for higher limits</li>
+                <li>• Your account is still connected - just temporarily rate limited</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (error?.needsReconnect) {
     return (
       <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-6 mb-6">
