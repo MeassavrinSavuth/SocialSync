@@ -46,6 +46,20 @@ export default function ScheduledPostsPage() {
   const protectedFetch = useProtectedFetch();
   const { getAccountName, getAccountInfo } = useSocialAccounts();
 
+  // Click outside handler for mini calendar
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showMiniCalendar && !event.target.closest('.mini-calendar-container')) {
+        setShowMiniCalendar(false);
+      }
+    };
+
+    if (showMiniCalendar) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showMiniCalendar]);
+
   useEffect(() => {
     fetchScheduledPosts();
   }, []);
@@ -460,19 +474,23 @@ export default function ScheduledPostsPage() {
               </div>
 
               {/* Mini Calendar Dropdown */}
-              <div className="relative">
+              <div className="relative mini-calendar-container">
                 <button
                   onClick={() => setShowMiniCalendar(!showMiniCalendar)}
-                  className="px-2 py-1 sm:px-4 sm:py-2 border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-transparent flex items-center space-x-2"
+                  className={`px-2 py-1 sm:px-4 sm:py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent flex items-center space-x-2 transition-all duration-200 ${
+                    showMiniCalendar 
+                      ? 'border-blue-300 bg-blue-50 text-blue-700' 
+                      : 'border-gray-300 hover:bg-gray-50 text-gray-700'
+                  }`}
                 >
                   <span>📅</span>
                   <span className="hidden sm:inline">Select Week</span>
-                  <span className="ml-1">▼</span>
+                  <span className={`ml-1 transition-transform duration-200 ${showMiniCalendar ? 'rotate-180' : ''}`}>▼</span>
                 </button>
                 
                 {showMiniCalendar && (
-                  <div className="fixed left-1/2 top-1/4 z-50 -translate-x-1/2 w-[90vw] sm:top-full sm:left-auto sm:translate-x-0 sm:relative sm:w-auto" style={{ maxWidth: '720px' }}>
-                    <div className="bg-white border border-gray-300 rounded-lg shadow-xl w-full overflow-hidden">
+                  <div className="absolute top-full left-0 mt-2 z-50 w-[90vw] sm:w-auto" style={{ maxWidth: '720px' }}>
+                    <div className="bg-white border border-gray-200 rounded-xl shadow-2xl w-full overflow-hidden ring-1 ring-black/5">
                       <div className="flex">
                         {/* Calendar Grid */}
                         <div className="flex-1 p-4">
