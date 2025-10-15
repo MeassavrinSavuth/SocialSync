@@ -489,8 +489,13 @@ export default function ScheduledPostsPage() {
                 </button>
                 
                 {showMiniCalendar && (
-                  <div className="absolute top-full right-0 mt-2 z-50 w-[95vw] sm:w-auto" style={{ maxWidth: '600px' }}>
-                    <div className="bg-white border border-gray-200 rounded-xl shadow-2xl w-full overflow-hidden ring-1 ring-black/5">
+                  <>
+                    {/* Mobile backdrop */}
+                    <div className="fixed inset-0 z-40 sm:hidden" onClick={() => setShowMiniCalendar(false)}></div>
+                    
+                    {/* Date picker dropdown */}
+                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 z-50 w-[90vw] max-w-[600px] sm:w-auto sm:left-0 sm:transform-none" style={{ maxHeight: '80vh', overflowY: 'auto' }}>
+                      <div className="bg-white border border-gray-200 rounded-xl shadow-2xl w-full overflow-hidden ring-1 ring-black/5">
                       <div className="flex flex-col sm:flex-row">
                         {/* Calendar Grid */}
                         <div className="flex-1 p-3 sm:p-4">
@@ -581,6 +586,7 @@ export default function ScheduledPostsPage() {
                       </div>
                     </div>
                   </div>
+                  </>
                 )}
               </div>
               
