@@ -489,13 +489,13 @@ export default function ScheduledPostsPage() {
                 </button>
                 
                 {showMiniCalendar && (
-                  <div className="absolute top-full left-0 mt-2 z-50 w-[95vw] sm:w-auto" style={{ maxWidth: '900px' }}>
+                  <div className="absolute top-full right-0 mt-2 z-50 w-[95vw] sm:w-auto" style={{ maxWidth: '600px' }}>
                     <div className="bg-white border border-gray-200 rounded-xl shadow-2xl w-full overflow-hidden ring-1 ring-black/5">
                       <div className="flex">
                         {/* Calendar Grid */}
-                        <div className="flex-1 p-6">
+                        <div className="flex-1 p-4">
                           {/* Month/Year Header */}
-                          <div className="flex items-center justify-between mb-6">
+                          <div className="flex items-center justify-between mb-4">
                             <button
                               onClick={() => {
                                 const newMonth = new Date(miniCalendarMonth);
@@ -522,7 +522,7 @@ export default function ScheduledPostsPage() {
                           </div>
 
                           {/* Days of week */}
-                          <div className="grid grid-cols-7 gap-2 mb-3">
+                          <div className="grid grid-cols-7 gap-2 mb-2">
                             {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
                               <div key={`day-${index}`} className="h-10 flex items-center justify-center text-sm font-medium text-gray-500">{day}</div>
                             ))}
@@ -548,7 +548,7 @@ export default function ScheduledPostsPage() {
                                   }`}
                                 >
                                   {date.getDate()}
-                                  {postsCount > 0 && <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>}
+                                  {postsCount > 0 && <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full z-10"></div>}
                                 </button>
                               );
                             })}
@@ -556,10 +556,10 @@ export default function ScheduledPostsPage() {
                         </div>
 
                         {/* Month/Year Selector */}
-                        <div className="w-40 p-6 bg-gray-50 border-l border-gray-200">
+                        <div className="w-32 p-4 bg-gray-50 border-l border-gray-200">
                           {/* Year */}
-                          <div className="mb-6">
-                            <div className="flex items-center justify-between mb-3">
+                          <div className="mb-4">
+                            <div className="flex items-center justify-between mb-2">
                               <button onClick={() => setMiniCalendarYear(miniCalendarYear - 1)} className="p-2 hover:bg-gray-200 rounded-lg text-sm transition-all duration-200">↑</button>
                               <span className="font-bold text-lg text-gray-900">{miniCalendarYear}</span>
                               <button onClick={() => setMiniCalendarYear(miniCalendarYear + 1)} className="p-2 hover:bg-gray-200 rounded-lg text-sm transition-all duration-200">↓</button>
@@ -576,7 +576,7 @@ export default function ScheduledPostsPage() {
                           </div>
 
                           {/* Today button */}
-                          <button onClick={() => { const today = new Date(); setCurrentWeek(today); setMiniCalendarMonth(today); setMiniCalendarYear(today.getFullYear()); setShowMiniCalendar(false); }} className="w-full mt-6 px-4 py-3 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-md">Today</button>
+                          <button onClick={() => { const today = new Date(); setCurrentWeek(today); setMiniCalendarMonth(today); setMiniCalendarYear(today.getFullYear()); setShowMiniCalendar(false); }} className="w-full mt-4 px-3 py-2 text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-md">Today</button>
                         </div>
                       </div>
                     </div>
