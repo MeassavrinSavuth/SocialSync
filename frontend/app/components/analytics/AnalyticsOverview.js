@@ -5,33 +5,18 @@ import { useAnalytics } from '../../hooks/api/useAnalytics';
 import MetricCard from './MetricCard';
 import EngagementChart from './EngagementChart';
 import PlatformComparison from './PlatformComparison';
-import DateRangePicker from './DateRangePicker';
 import AccountSelector from './AccountSelector';
 
 export default function AnalyticsOverview() {
   const { analytics, loading, error, fetchAnalytics } = useAnalytics();
-  const [dateRange, setDateRange] = useState({
-    startDate: '',
-    endDate: ''
-  });
   const [selectedAccounts, setSelectedAccounts] = useState([]); // Selected account IDs
 
-  const handleDateRangeChange = (startDate, endDate) => {
-    setDateRange({ startDate, endDate });
-    fetchAnalytics({
-      startDate,
-      endDate,
-      accountIds: selectedAccounts
-    });
-  };
 
   const handleAccountChange = (accountIds) => {
     console.log('Account selection changed:', accountIds);
     console.log('Current analytics before change:', analytics);
     setSelectedAccounts(accountIds);
     fetchAnalytics({
-      startDate: dateRange.startDate,
-      endDate: dateRange.endDate,
       accountIds
     });
   };
@@ -96,13 +81,6 @@ export default function AnalyticsOverview() {
           )}
         </div>
         
-        <div className="flex flex-col sm:flex-row gap-4">
-          <DateRangePicker
-            onDateRangeChange={handleDateRangeChange}
-            startDate={dateRange.startDate}
-            endDate={dateRange.endDate}
-          />
-        </div>
       </div>
 
       {/* Account Selector */}
