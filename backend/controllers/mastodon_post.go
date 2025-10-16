@@ -56,25 +56,18 @@ func PostToMastodonHandler(db *sql.DB) http.HandlerFunc {
 			// Fallback query without instance_url
 			rows, err = db.Query(`SELECT id::text, access_token FROM social_accounts WHERE user_id=$1 AND (platform='mastodon' OR provider='mastodon') AND id = ANY($2::uuid[])`, userID, pq.Array(req.AccountIds))
 			if err != nil {
-				// If no Mastodon accounts found, return mock success for testing
-				fmt.Printf("DEBUG: No Mastodon accounts found, returning mock success\n")
-				w.Header().Set("Content-Type", "application/json")
-				json.NewEncoder(w).Encode(map[string]interface{}{
-					"results": []MastodonPostResult{
-						{
-							AccountID: req.AccountIds[0],
-							OK:        true,
-							PostID:    "mock_mastodon_post_" + req.AccountIds[0],
-						},
-					},
-				})
+				// If no Mastodon accounts found, return friendly error message
+				fmt.Printf("DEBUG: No Mastodon accounts found\n")
+				http.Error(w, "Mastodon account not connected", http.StatusBadRequest)
 				return
 			}
 		}
 		defer rows.Close()
 
-		var results []MastodonPostResult
-		for rows.Next() {
+	var results []MastodonPostResult
+	hasRows := false
+	for rows.Next() {
+		hasRows = true
 			var id, accessToken, instanceURL string
 			if err := rows.Scan(&id, &accessToken, &instanceURL); err != nil {
 				// Try scanning without instanceURL
@@ -170,6 +163,12 @@ func PostToMastodonHandler(db *sql.DB) http.HandlerFunc {
 				OK:        true,
 				PostID:    postID,
 			})
+		}
+
+		// Check if no accounts were found
+		if !hasRows {
+			http.Error(w, "Mastodon account not connected", http.StatusBadRequest)
+			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")

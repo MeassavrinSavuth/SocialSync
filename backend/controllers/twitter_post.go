@@ -56,46 +56,39 @@ func PostToTwitterHandler(db *sql.DB) http.HandlerFunc {
 
 	// Get Twitter accounts - simplified query without access_token_secret
 	rows, err := db.Query(`SELECT id::text, access_token FROM social_accounts WHERE user_id=$1 AND (platform='twitter' OR provider='twitter') AND id = ANY($2::uuid[])`, userID, pq.Array(req.AccountIds))
-	if err != nil {
-		// If no Twitter accounts found, return mock success for testing
-		fmt.Printf("DEBUG: No Twitter accounts found, returning mock success\n")
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"results": []TwitterPostResult{
-				{
-					AccountID: req.AccountIds[0],
-					OK:        true,
-					TweetID:   "mock_tweet_id_" + req.AccountIds[0],
-				},
-			},
-		})
-		return
-	}
-	defer rows.Close()
+		if err != nil {
+		// If no Twitter accounts found, return friendly error message
+		fmt.Printf("DEBUG: No Twitter accounts found\n")
+		http.Error(w, "Twitter account not connected", http.StatusBadRequest)
+				return
+		}
+		defer rows.Close()
 
 	var results []TwitterPostResult
+	hasRows := false
 	for rows.Next() {
+		hasRows = true
 		var id, accessToken string
 		accessTokenSecret := "" // Twitter OAuth 1.0a secret not stored in DB
 		
-		if err := rows.Scan(&id, &accessToken); err != nil {
-			results = append(results, TwitterPostResult{
-				AccountID: id,
-				OK:        false,
-				Error:     "Failed to get account details: " + err.Error(),
-			})
-			continue
+				if err := rows.Scan(&id, &accessToken); err != nil {
+					results = append(results, TwitterPostResult{
+						AccountID: id,
+						OK:        false,
+						Error:     "Failed to get account details: " + err.Error(),
+					})
+					continue
 		}			// Post to Twitter
 			fmt.Printf("DEBUG: Posting to Twitter for account: %s\n", id)
 			fmt.Printf("DEBUG: Tweet text: %s\n", req.Text)
 
 			// Check if we have valid Twitter API credentials
 			if accessToken == "" || len(accessToken) < 10 {
-				fmt.Printf("DEBUG: No valid Twitter API credentials for account %s, returning mock success\n", id)
+				fmt.Printf("DEBUG: No valid Twitter API credentials for account %s\n", id)
 				results = append(results, TwitterPostResult{
 					AccountID: id,
-					OK:        true,
-					TweetID:   "mock_tweet_id_" + id,
+					OK:        false,
+					Error:     "Twitter account not properly connected",
 				})
 				continue
 			}
@@ -103,11 +96,11 @@ func PostToTwitterHandler(db *sql.DB) http.HandlerFunc {
 			// Check if access token looks like a real Twitter API token
 			// Real Twitter API tokens are much longer and have specific format
 			if len(accessToken) < 50 || !containsValidTwitterTokenFormat(accessToken) {
-				fmt.Printf("DEBUG: Twitter API token format invalid for account %s, returning mock success\n", id)
+				fmt.Printf("DEBUG: Twitter API token format invalid for account %s\n", id)
 				results = append(results, TwitterPostResult{
 					AccountID: id,
-					OK:        true,
-					TweetID:   "mock_tweet_id_" + id,
+					OK:        false,
+					Error:     "Twitter account not properly connected",
 				})
 				continue
 			}
@@ -259,6 +252,12 @@ func PostToTwitterHandler(db *sql.DB) http.HandlerFunc {
 				OK:        true,
 				TweetID:   tweetID,
 			})
+		}
+
+		// Check if no accounts were found
+		if !hasRows {
+			http.Error(w, "Twitter account not connected", http.StatusBadRequest)
+			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
