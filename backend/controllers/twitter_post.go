@@ -56,16 +56,16 @@ func PostToTwitterHandler(db *sql.DB) http.HandlerFunc {
 
 		// Get Twitter accounts - simplified query without access_token_secret
 		rows, err := db.Query(`SELECT id::text, access_token FROM social_accounts WHERE user_id=$1 AND (platform='twitter' OR provider='twitter') AND id = ANY($2::uuid[])`, userID, pq.Array(req.AccountIds))
-	if err != nil {
-		// If no Twitter accounts found, return friendly error message
-		fmt.Printf("DEBUG: No Twitter accounts found\n")
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"error": "Twitter account not connected",
-		})
-		return
-	}
+		if err != nil {
+			// If no Twitter accounts found, return friendly error message
+			fmt.Printf("DEBUG: No Twitter accounts found\n")
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"error": "Twitter account not connected",
+			})
+			return
+		}
 		defer rows.Close()
 
 		var results []TwitterPostResult
