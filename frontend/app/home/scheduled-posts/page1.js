@@ -494,24 +494,24 @@ export default function ScheduledPostsPage() {
                     <div className="fixed inset-0 z-40 sm:hidden" onClick={() => setShowMiniCalendar(false)}></div>
                     
                     {/* Date picker dropdown */}
-                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 z-50 w-[90vw] max-w-[600px] sm:w-auto sm:left-0 sm:transform-none" style={{ maxHeight: '80vh', overflowY: 'auto' }}>
+                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-3 z-50 w-[95vw] max-w-[800px] sm:w-auto sm:left-0 sm:transform-none" style={{ maxHeight: '85vh', overflowY: 'auto' }}>
                       <div className="bg-white border border-gray-200 rounded-xl shadow-2xl w-full overflow-hidden ring-1 ring-black/5">
                       <div className="flex flex-col sm:flex-row">
                         {/* Calendar Grid */}
-                        <div className="flex-1 p-3 sm:p-4">
+                        <div className="flex-1 p-4 sm:p-6">
                           {/* Month/Year Header */}
-                          <div className="flex items-center justify-between mb-3 sm:mb-4">
+                          <div className="flex items-center justify-between mb-4 sm:mb-6">
                             <button
                               onClick={() => {
                                 const newMonth = new Date(miniCalendarMonth);
                                 newMonth.setMonth(newMonth.getMonth() - 1);
                                 setMiniCalendarMonth(newMonth);
                               }}
-                              className="p-2 sm:p-3 hover:bg-gray-100 rounded-lg transition-all duration-200 text-base sm:text-lg font-medium"
+                              className="p-3 sm:p-4 hover:bg-gray-100 rounded-lg transition-all duration-200 text-lg sm:text-xl font-medium"
                             >
                               ←
                             </button>
-                            <h3 className="font-bold text-lg sm:text-xl text-gray-900">
+                            <h3 className="font-bold text-xl sm:text-2xl text-gray-900">
                               {miniCalendarMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
                             </h3>
                             <button
@@ -520,21 +520,21 @@ export default function ScheduledPostsPage() {
                                 newMonth.setMonth(newMonth.getMonth() + 1);
                                 setMiniCalendarMonth(newMonth);
                               }}
-                              className="p-2 sm:p-3 hover:bg-gray-100 rounded-lg transition-all duration-200 text-base sm:text-lg font-medium"
+                              className="p-3 sm:p-4 hover:bg-gray-100 rounded-lg transition-all duration-200 text-lg sm:text-xl font-medium"
                             >
                               →
                             </button>
                           </div>
 
                           {/* Days of week */}
-                          <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2">
+                          <div className="grid grid-cols-7 gap-2 sm:gap-3 mb-3">
                             {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
-                              <div key={`day-${index}`} className="h-8 sm:h-10 flex items-center justify-center text-xs sm:text-sm font-medium text-gray-500">{day}</div>
+                              <div key={`day-${index}`} className="h-10 sm:h-12 flex items-center justify-center text-sm sm:text-base font-medium text-gray-500">{day}</div>
                             ))}
                           </div>
 
                           {/* Calendar days */}
-                          <div className="grid grid-cols-7 gap-1 sm:gap-2">
+                          <div className="grid grid-cols-7 gap-2 sm:gap-3">
                             {getMiniCalendarDays().map((date, index) => {
                               const isCurrentMonth = date.getMonth() === miniCalendarMonth.getMonth();
                               const isToday = formatDate(date) === formatDate(new Date());
@@ -548,7 +548,7 @@ export default function ScheduledPostsPage() {
                                     setCurrentWeek(getWeekStart(date));
                                     setShowMiniCalendar(false);
                                   }}
-                                  className={`h-10 w-10 sm:h-12 sm:w-12 flex items-center justify-center text-xs sm:text-sm font-medium rounded-lg relative transition-all duration-200 ${
+                                  className={`h-12 w-12 sm:h-14 sm:w-14 flex items-center justify-center text-sm sm:text-base font-medium rounded-lg relative transition-all duration-200 ${
                                     isSelectedWeek ? 'bg-blue-600 text-white shadow-md' : isToday ? 'bg-blue-100 text-blue-600 font-semibold hover:bg-blue-200' : isCurrentMonth ? 'text-gray-900 hover:bg-gray-100' : 'text-gray-400 hover:bg-gray-50'
                                   }`}
                                 >
@@ -561,27 +561,27 @@ export default function ScheduledPostsPage() {
                         </div>
 
                         {/* Month/Year Selector */}
-                        <div className="w-full sm:w-32 p-3 sm:p-4 bg-gray-50 border-t sm:border-t-0 sm:border-l border-gray-200">
+                        <div className="w-full sm:w-40 p-4 sm:p-6 bg-gray-50 border-t sm:border-t-0 sm:border-l border-gray-200">
                           {/* Year */}
-                          <div className="mb-3 sm:mb-4">
-                            <div className="flex items-center justify-between mb-2">
-                              <button onClick={() => setMiniCalendarYear(miniCalendarYear - 1)} className="p-1.5 sm:p-2 hover:bg-gray-200 rounded-lg text-sm transition-all duration-200">↑</button>
-                              <span className="font-bold text-base sm:text-lg text-gray-900">{miniCalendarYear}</span>
-                              <button onClick={() => setMiniCalendarYear(miniCalendarYear + 1)} className="p-1.5 sm:p-2 hover:bg-gray-200 rounded-lg text-sm transition-all duration-200">↓</button>
+                          <div className="mb-4 sm:mb-6">
+                            <div className="flex items-center justify-between mb-3">
+                              <button onClick={() => setMiniCalendarYear(miniCalendarYear - 1)} className="p-2 sm:p-3 hover:bg-gray-200 rounded-lg text-base sm:text-lg transition-all duration-200">↑</button>
+                              <span className="font-bold text-lg sm:text-xl text-gray-900">{miniCalendarYear}</span>
+                              <button onClick={() => setMiniCalendarYear(miniCalendarYear + 1)} className="p-2 sm:p-3 hover:bg-gray-200 rounded-lg text-base sm:text-lg transition-all duration-200">↓</button>
                             </div>
                           </div>
 
                           {/* Months */}
-                          <div className="grid grid-cols-3 sm:grid-cols-2 gap-1.5 sm:gap-2">
+                          <div className="grid grid-cols-3 sm:grid-cols-2 gap-2 sm:gap-3">
                             {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((month, index) => (
-                              <button key={month} onClick={() => { const newMonth = new Date(miniCalendarYear, index); setMiniCalendarMonth(newMonth); }} className={`p-2 sm:p-3 text-xs sm:text-sm font-medium rounded-lg hover:bg-gray-200 transition-all duration-200 ${index === miniCalendarMonth.getMonth() ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700'}`}>
+                              <button key={month} onClick={() => { const newMonth = new Date(miniCalendarYear, index); setMiniCalendarMonth(newMonth); }} className={`p-3 sm:p-4 text-sm sm:text-base font-medium rounded-lg hover:bg-gray-200 transition-all duration-200 ${index === miniCalendarMonth.getMonth() ? 'bg-blue-600 text-white shadow-md' : 'text-gray-700'}`}>
                                 {month}
                               </button>
                             ))}
                           </div>
 
                           {/* Today button */}
-                          <button onClick={() => { const today = new Date(); setCurrentWeek(today); setMiniCalendarMonth(today); setMiniCalendarYear(today.getFullYear()); setShowMiniCalendar(false); }} className="w-full mt-3 sm:mt-4 px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-md">Today</button>
+                          <button onClick={() => { const today = new Date(); setCurrentWeek(today); setMiniCalendarMonth(today); setMiniCalendarYear(today.getFullYear()); setShowMiniCalendar(false); }} className="w-full mt-4 sm:mt-6 px-4 sm:px-5 py-3 text-sm sm:text-base font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-md">Today</button>
                         </div>
                       </div>
                     </div>
