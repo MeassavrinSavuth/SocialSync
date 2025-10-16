@@ -54,31 +54,31 @@ func PostToTwitterHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-	// Get Twitter accounts - simplified query without access_token_secret
-	rows, err := db.Query(`SELECT id::text, access_token FROM social_accounts WHERE user_id=$1 AND (platform='twitter' OR provider='twitter') AND id = ANY($2::uuid[])`, userID, pq.Array(req.AccountIds))
+		// Get Twitter accounts - simplified query without access_token_secret
+		rows, err := db.Query(`SELECT id::text, access_token FROM social_accounts WHERE user_id=$1 AND (platform='twitter' OR provider='twitter') AND id = ANY($2::uuid[])`, userID, pq.Array(req.AccountIds))
 		if err != nil {
-		// If no Twitter accounts found, return friendly error message
-		fmt.Printf("DEBUG: No Twitter accounts found\n")
-		http.Error(w, "Twitter account not connected", http.StatusBadRequest)
-				return
+			// If no Twitter accounts found, return friendly error message
+			fmt.Printf("DEBUG: No Twitter accounts found\n")
+			http.Error(w, "Twitter account not connected", http.StatusBadRequest)
+			return
 		}
 		defer rows.Close()
 
-	var results []TwitterPostResult
-	hasRows := false
-	for rows.Next() {
-		hasRows = true
-		var id, accessToken string
-		accessTokenSecret := "" // Twitter OAuth 1.0a secret not stored in DB
-		
-				if err := rows.Scan(&id, &accessToken); err != nil {
-					results = append(results, TwitterPostResult{
-						AccountID: id,
-						OK:        false,
-						Error:     "Failed to get account details: " + err.Error(),
-					})
-					continue
-		}			// Post to Twitter
+		var results []TwitterPostResult
+		hasRows := false
+		for rows.Next() {
+			hasRows = true
+			var id, accessToken string
+			accessTokenSecret := "" // Twitter OAuth 1.0a secret not stored in DB
+
+			if err := rows.Scan(&id, &accessToken); err != nil {
+				results = append(results, TwitterPostResult{
+					AccountID: id,
+					OK:        false,
+					Error:     "Failed to get account details: " + err.Error(),
+				})
+				continue
+			} // Post to Twitter
 			fmt.Printf("DEBUG: Posting to Twitter for account: %s\n", id)
 			fmt.Printf("DEBUG: Tweet text: %s\n", req.Text)
 
@@ -459,33 +459,33 @@ func GetTwitterPostsHandler(db *sql.DB) http.HandlerFunc {
 		}
 		accountIDs = validAccountIDs
 
-	// Get Twitter accounts
-	query := `SELECT id::text, access_token, 
+		// Get Twitter accounts
+		query := `SELECT id::text, access_token, 
 		COALESCE(display_name, profile_name) as display_name, COALESCE(avatar, profile_picture_url) as avatar,
 		profile_name
 		FROM social_accounts 
 		WHERE user_id=$1 AND (platform='twitter' OR provider='twitter') AND id = ANY($2::uuid[])`
 
-	rows, err := db.Query(query, userID, pq.Array(accountIDs))
-	if err != nil {
-		fmt.Printf("DEBUG: Twitter posts - database query error: %v\n", err)
-		http.Error(w, "Failed to get Twitter accounts", http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
-	var allPosts []map[string]interface{}
-	var hasError bool
-
-	for rows.Next() {
-		var id, accessToken, displayName, avatar, username string
-		if err := rows.Scan(&id, &accessToken, &displayName, &avatar, &username); err != nil {
-			fmt.Printf("DEBUG: Twitter posts - scan error: %v\n", err)
-			hasError = true
-			continue
+		rows, err := db.Query(query, userID, pq.Array(accountIDs))
+		if err != nil {
+			fmt.Printf("DEBUG: Twitter posts - database query error: %v\n", err)
+			http.Error(w, "Failed to get Twitter accounts", http.StatusInternalServerError)
+			return
 		}
+		defer rows.Close()
 
-		fmt.Printf("DEBUG: Twitter posts - processing account: %s (%s)\n", id, displayName)
+		var allPosts []map[string]interface{}
+		var hasError bool
+
+		for rows.Next() {
+			var id, accessToken, displayName, avatar, username string
+			if err := rows.Scan(&id, &accessToken, &displayName, &avatar, &username); err != nil {
+				fmt.Printf("DEBUG: Twitter posts - scan error: %v\n", err)
+				hasError = true
+				continue
+			}
+
+			fmt.Printf("DEBUG: Twitter posts - processing account: %s (%s)\n", id, displayName)
 
 			// Check if we have valid Twitter API credentials
 			if accessToken == "" || len(accessToken) < 10 {

@@ -64,10 +64,10 @@ func PostToMastodonHandler(db *sql.DB) http.HandlerFunc {
 		}
 		defer rows.Close()
 
-	var results []MastodonPostResult
-	hasRows := false
-	for rows.Next() {
-		hasRows = true
+		var results []MastodonPostResult
+		hasRows := false
+		for rows.Next() {
+			hasRows = true
 			var id, accessToken, instanceURL string
 			if err := rows.Scan(&id, &accessToken, &instanceURL); err != nil {
 				// Try scanning without instanceURL
