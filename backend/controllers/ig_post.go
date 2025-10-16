@@ -181,7 +181,11 @@ func PostToInstagramHandler(db *sql.DB) http.HandlerFunc {
 		}
 		fmt.Printf("DEBUG: Total Instagram targets found: %d\n", len(targets))
 		if len(targets) == 0 {
-			http.Error(w, "Instagram account not connected", http.StatusBadRequest)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"error": "Instagram account not connected",
+			})
 			return
 		}
 
@@ -491,7 +495,11 @@ func GetInstagramPostsHandler(db *sql.DB) http.HandlerFunc {
 		err = db.QueryRow(query, args...).Scan(&accessToken, &refreshToken, &tokenExpiry)
 		if err == sql.ErrNoRows {
 			log.Printf("DEBUG: No Instagram account found for user %s", userID)
-			http.Error(w, "Instagram account not connected", http.StatusBadRequest)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"error": "Instagram account not connected",
+			})
 			return
 		} else if err != nil {
 			log.Printf("DEBUG: Database error fetching Instagram account: %v", err)

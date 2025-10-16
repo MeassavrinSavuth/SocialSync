@@ -255,7 +255,11 @@ func PostToYouTubeHandler(db *sql.DB) http.HandlerFunc {
 			var id, at, rt string
 			qErr := db.QueryRow(`SELECT id::text, access_token, refresh_token FROM social_accounts WHERE user_id=$1 AND (platform='youtube' OR provider='youtube') ORDER BY is_default DESC, connected_at DESC LIMIT 1`, userID).Scan(&id, &at, &rt)
 			if qErr == sql.ErrNoRows {
-				http.Error(w, "YouTube account not connected", http.StatusBadRequest)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"error": "YouTube account not connected",
+				})
 				return
 			} else if qErr != nil {
 				http.Error(w, "failed to get YouTube account", http.StatusInternalServerError)
@@ -599,7 +603,11 @@ func GetYouTubePostsHandler(db *sql.DB) http.HandlerFunc {
 
 		err = db.QueryRow(query, args...).Scan(&accessToken, &refreshToken, &channelID)
 		if err == sql.ErrNoRows {
-			http.Error(w, "YouTube account not connected", http.StatusBadRequest)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"error": "YouTube account not connected",
+			})
 			return
 		} else if err != nil {
 			http.Error(w, "failed to get YouTube account", http.StatusInternalServerError)
@@ -820,7 +828,11 @@ func GetYouTubeAnalyticsHandler(db *sql.DB) http.HandlerFunc {
 			WHERE user_id = $1 AND platform = 'youtube'
 		`, userID).Scan(&accessToken, &tokenExpiry)
 		if err != nil {
-			http.Error(w, "YouTube account not connected", http.StatusBadRequest)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"error": "YouTube account not connected",
+			})
 			return
 		}
 		if tokenExpiry != nil && time.Now().After(*tokenExpiry) {

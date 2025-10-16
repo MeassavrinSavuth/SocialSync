@@ -80,7 +80,11 @@ func PostToFacebookHandler(db *sql.DB) http.HandlerFunc {
 		}
 		fmt.Printf("DEBUG: Total targets found: %d\n", len(targets))
 		if len(targets) == 0 {
-			http.Error(w, "Facebook Page not connected", http.StatusBadRequest)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"error": "Facebook Page not connected",
+			})
 			return
 		}
 

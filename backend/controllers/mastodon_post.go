@@ -58,7 +58,11 @@ func PostToMastodonHandler(db *sql.DB) http.HandlerFunc {
 			if err != nil {
 				// If no Mastodon accounts found, return friendly error message
 				fmt.Printf("DEBUG: No Mastodon accounts found\n")
-				http.Error(w, "Mastodon account not connected", http.StatusBadRequest)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"error": "Mastodon account not connected",
+				})
 				return
 			}
 		}
@@ -167,7 +171,11 @@ func PostToMastodonHandler(db *sql.DB) http.HandlerFunc {
 
 		// Check if no accounts were found
 		if !hasRows {
-			http.Error(w, "Mastodon account not connected", http.StatusBadRequest)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			json.NewEncoder(w).Encode(map[string]interface{}{
+				"error": "Mastodon account not connected",
+			})
 			return
 		}
 

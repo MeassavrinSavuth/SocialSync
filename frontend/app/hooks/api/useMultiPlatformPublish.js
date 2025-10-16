@@ -148,34 +148,21 @@ export function useMultiPlatformPublish({ message, mediaFiles, youtubeConfig }) 
         const responseData = await res.json().catch(() => ({}));
 
         if (!res.ok) {
-          // Handle Twitter and Mastodon 400 errors gracefully
-          if ((platform === 'twitter' || platform === 'mastodon') && res.status === 400) {
-            console.log(`${platform} 400 error, treating as mock success for testing`);
-            const mockId = platform === 'twitter' ? `mock_tweet_${Date.now()}` : `mock_mastodon_post_${Date.now()}`;
-            results.push({ 
-              platform, 
-              success: true, 
-              data: { 
-                [platform === 'twitter' ? 'tweet_id' : 'post_id']: mockId 
-              } 
-            });
-          } else {
-            // Handle structured error responses (especially for YouTube auth errors)
-            const errorInfo = {
-              platform,
-              success: false,
-              error: responseData?.error || res.statusText || 'Unknown error',
-            };
+          // Handle all error responses consistently
+          const errorInfo = {
+            platform,
+            success: false,
+            error: responseData?.error || res.statusText || 'Unknown error',
+          };
 
-            // Check if this is a structured error response with type and action
-            if (responseData?.type && responseData?.action) {
-              errorInfo.errorType = responseData.type;
-              errorInfo.errorAction = responseData.action;
-              errorInfo.userFriendlyMessage = responseData.userMessage || responseData.error;
-            }
-
-            results.push(errorInfo);
+          // Check if this is a structured error response with type and action
+          if (responseData?.type && responseData?.action) {
+            errorInfo.errorType = responseData.type;
+            errorInfo.errorAction = responseData.action;
+            errorInfo.userFriendlyMessage = responseData.userMessage || responseData.error;
           }
+
+          results.push(errorInfo);
         } else {
           // Handle platforms that return results arrays (Facebook, Instagram, Mastodon, Twitter, YouTube)
           if ((platform === 'facebook' || platform === 'instagram' || platform === 'mastodon' || platform === 'twitter' || platform === 'youtube') && responseData.results) {

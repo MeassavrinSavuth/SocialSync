@@ -221,7 +221,11 @@ func PostToTelegramHandler(db *sql.DB) http.HandlerFunc {
 			var chat, tok string
 			qErr := db.QueryRow(`SELECT id, social_id, access_token FROM social_accounts WHERE user_id=$1 AND platform='telegram' ORDER BY is_default DESC, connected_at DESC LIMIT 1`, userID).Scan(&id, &chat, &tok)
 			if qErr == sql.ErrNoRows {
-				http.Error(w, "No Telegram account connected", http.StatusBadRequest)
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"error": "Telegram account not connected",
+				})
 				return
 			} else if qErr != nil {
 				http.Error(w, "Failed to get Telegram connection", http.StatusInternalServerError)
