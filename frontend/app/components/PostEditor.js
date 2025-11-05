@@ -415,7 +415,6 @@ export default function PostEditor({
           return acc;
         }, {});
         if (!cancelled) {
-          console.log('DEBUG: Available accounts loaded:', grouped);
           setAvailableAccounts(grouped);
         }
       } catch (e) {
@@ -495,12 +494,10 @@ export default function PostEditor({
                 {(availableAccounts.facebook || []).map((acc) => {
                   const selectedIds = accountsByProvider?.facebook?.ids || [];
                   const selected = selectedIds.includes(acc.id);
-                  console.log('DEBUG: Rendering Facebook account:', { acc, selectedIds, selected, accountsByProvider });
                   const toggle = () => {
                     const next = selected
                       ? selectedIds.filter((x) => x !== acc.id)
                       : [...selectedIds, acc.id];
-                    console.log('DEBUG: Facebook account selection changed:', { selected, accId: acc.id, next });
                     setProviderAccounts('facebook', next);
                   };
                   return (
@@ -541,12 +538,10 @@ export default function PostEditor({
                 {(availableAccounts.instagram || []).map((acc) => {
                   const selectedIds = accountsByProvider?.instagram?.ids || [];
                   const selected = selectedIds.includes(acc.id);
-                  console.log('DEBUG: Rendering Instagram account:', { acc, selectedIds, selected, accountsByProvider });
                   const toggle = () => {
                     const next = selected
                       ? selectedIds.filter((x) => x !== acc.id)
                       : [...selectedIds, acc.id];
-                    console.log('DEBUG: Instagram account selection changed:', { selected, accId: acc.id, next });
                     setProviderAccounts('instagram', next);
                   };
                   return (

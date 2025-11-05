@@ -25,7 +25,6 @@ export function useMultiPlatformPublish({ message, mediaFiles, youtubeConfig }) 
               accountIds: accountsByProvider?.facebook?.ids || [],
               all: !!accountsByProvider?.facebook?.all,
             };
-            console.log('DEBUG: Facebook payload:', facebookPayload);
             res = await fetch(`${API_BASE_URL}/api/facebook/post`, {
               method: 'POST',
               headers: {
@@ -44,7 +43,6 @@ export function useMultiPlatformPublish({ message, mediaFiles, youtubeConfig }) 
               accountIds: accountsByProvider?.instagram?.ids || [],
               all: !!accountsByProvider?.instagram?.all,
             };
-            console.log('DEBUG: Instagram payload:', instagramPayload);
             res = await fetch(`${API_BASE_URL}/api/instagram/post`, {
               method: 'POST',
               headers: {
@@ -62,7 +60,6 @@ export function useMultiPlatformPublish({ message, mediaFiles, youtubeConfig }) 
               mediaUrls: mediaFiles,
               accountIds: accountsByProvider?.twitter?.ids || [],
             };
-            console.log('DEBUG: Twitter payload:', twitterPayload);
             res = await fetch(`${API_BASE_URL}/api/twitter/post`, {
               method: 'POST',
               headers: {
@@ -111,7 +108,6 @@ export function useMultiPlatformPublish({ message, mediaFiles, youtubeConfig }) 
               mediaUrls: mediaFiles,
               accountIds: accountsByProvider?.mastodon?.ids || [],
             };
-            console.log('DEBUG: Mastodon payload:', mastodonPayload);
             res = await fetch(`${API_BASE_URL}/api/mastodon/post`, {
               method: 'POST',
               headers: {
